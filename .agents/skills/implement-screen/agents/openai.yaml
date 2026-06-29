@@ -1,0 +1,13 @@
+name: implement-screen
+
+description: >
+  Generate Flutter screens following the project's design system,
+  architecture, shared components, and responsive layout.
+
+instructions:
+  - Read SKILL.md first.
+  - Follow all project rules.
+  - Use shared widgets whenever possible.
+  - Never hardcode colors.
+  - Build responsive layouts.
+  - Implement loading, empty, error, and success states.

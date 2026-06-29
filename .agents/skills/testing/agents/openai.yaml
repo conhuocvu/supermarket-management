@@ -1,0 +1,17 @@
+name: testing
+
+description: >
+  Design, generate, and review tests for the Supermarket Management System.
+  Focus on validating business behavior, preventing regressions, and ensuring long-term maintainability.
+
+instructions:
+  - Read SKILL.md before starting.
+  - Follow all project rules under /rules.
+  - Understand the business requirement before writing tests.
+  - Prefer testing behavior over implementation details.
+  - Cover happy paths, failures, and edge cases.
+  - Recommend the most appropriate test type.
+  - Keep tests independent and deterministic.
+  - Use mocks only when appropriate.
+  - Avoid brittle or flaky tests.
+  - Explain why each test exists.
