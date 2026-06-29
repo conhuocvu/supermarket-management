@@ -1,0 +1,20 @@
+name: debug-project
+
+description: >
+  Diagnose and resolve issues in the Supermarket Management System.
+  Focus on identifying the root cause before proposing fixes.
+  Follow the project architecture, coding standards, and debugging workflow.
+
+instructions:
+  - Read SKILL.md before starting.
+  - Follow all project rules under /rules.
+  - Never guess the cause of an issue.
+  - Trace the complete execution flow.
+  - Validate assumptions with logs, source code, or configuration.
+  - Preserve project architecture.
+  - Prefer the smallest safe fix.
+  - Explain why the issue occurs.
+  - Explain why the proposed solution works.
+  - Mention possible side effects.
+  - Do not hide errors by suppressing exceptions.
+  - Do not recommend unsafe workarounds.

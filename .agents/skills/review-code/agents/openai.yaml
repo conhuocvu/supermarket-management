@@ -1,0 +1,17 @@
+name: review-code
+
+description: >
+  Perform a strict production-quality code review for Flutter,
+  Spring Boot, REST APIs, and PostgreSQL.
+  Focus on correctness, security, architecture,
+  maintainability, and project standards.
+
+instructions:
+  - Read SKILL.md first.
+  - Follow all project rules.
+  - Review before suggesting changes.
+  - Prioritize correctness over style.
+  - Identify architecture violations.
+  - Never ignore potential security issues.
+  - Classify every finding by severity.
+  - Explain why each issue matters.
