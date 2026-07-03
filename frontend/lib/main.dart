@@ -1,9 +1,54 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:frontend/core/theme/app_theme.dart';
+import 'package:frontend/screens/dashboard_screen.dart';
+import 'package:frontend/screens/profile_screen.dart';
+import 'package:frontend/screens/manage_role_screen.dart';
+import 'package:frontend/screens/schedule_shift_screen.dart';
 import 'package:http/http.dart' as http;
 
+final GoRouter _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const DashboardScreen(),
+    ),
+    GoRoute(
+      path: '/profile/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return ProfileScreen(employeeId: id);
+      },
+    ),
+    GoRoute(
+      path: '/role/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return ManageRoleScreen(employeeId: id);
+      },
+    ),
+    GoRoute(
+      path: '/schedule/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return ScheduleShiftScreen(employeeId: id);
+      },
+    ),
+    GoRoute(
+      path: '/cors-test',
+      builder: (context, state) => const CorsTestHomePage(),
+    ),
+  ],
+);
+
 void main() {
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -11,18 +56,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Supermarket Management System',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
-      home: const CorsTestHomePage(),
+      theme: AppTheme.lightTheme,
+      routerConfig: _router,
     );
   }
 }
 
+//CorsTestHomePage
 class CorsTestHomePage extends StatefulWidget {
   const CorsTestHomePage({super.key});
 
@@ -36,8 +79,10 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
   bool _isLoading = false;
   bool _isSuccess = false;
 
-  static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL',
-      defaultValue: 'http://localhost:8080/api');
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8080/api',
+  );
 
   Future<void> _testBackendConnection() async {
     setState(() {
@@ -102,8 +147,8 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
               Text(
                 'Supermarket System - CORS Connection Test',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
@@ -119,7 +164,9 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                   backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 14),
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                 ),
                 icon: _isLoading
                     ? const SizedBox(
@@ -144,7 +191,9 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                 decoration: BoxDecoration(
                   color: _status.contains('Chưa')
                       ? Colors.grey.shade100
-                      : (_isSuccess ? Colors.green.shade50 : Colors.red.shade50),
+                      : (_isSuccess
+                            ? Colors.green.shade50
+                            : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _status.contains('Chưa')
@@ -163,8 +212,8 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                         color: _status.contains('Chưa')
                             ? Colors.black87
                             : (_isSuccess
-                                ? Colors.green.shade800
-                                : Colors.red.shade800),
+                                  ? Colors.green.shade800
+                                  : Colors.red.shade800),
                       ),
                     ),
                     if (_responseDetails.isNotEmpty) ...[
