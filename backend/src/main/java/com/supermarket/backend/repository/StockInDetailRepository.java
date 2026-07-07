@@ -1,0 +1,15 @@
+package com.supermarket.backend.repository;
+
+import com.supermarket.backend.entity.StockInDetail;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import java.time.LocalDate;
+
+@Repository
+public interface StockInDetailRepository extends JpaRepository<StockInDetail, Integer> {
+
+    @Query("SELECT COUNT(s) FROM StockInDetail s WHERE s.remainingQuantity > 0 AND s.expiryDate >= :now AND s.expiryDate <= :threshold")
+    long countNearExpiry(@Param("now") LocalDate now, @Param("threshold") LocalDate threshold);
+}

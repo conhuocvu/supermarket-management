@@ -1,30 +1,69 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:frontend/main.dart';
+import 'package:frontend/models/dashboard_data.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('DashboardData Serialization Tests', () {
+    test('should correctly parse DashboardData from valid JSON', () {
+      final json = {
+        'totalProducts': 1240,
+        'lowStockCount': 12,
+        'nearExpiryCount': 8,
+        'pendingRequestsCount': 5,
+        'capacityUsed': 85.0,
+        'updatedAt': '2026-07-07T22:30:00Z',
+        'recentActivities': [
+          {
+            'action': 'Stock-in',
+            'item': 'Milk',
+            'quantity': '50 Cartons',
+            'time': '2026-07-07T10:45:00Z'
+          },
+          {
+            'action': 'Stock-out',
+            'item': 'Bread',
+            'quantity': '10 Loaves',
+            'time': '2026-07-07T09:30:00Z'
+          }
+        ]
+      };
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      final data = DashboardData.fromJson(json);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      expect(data.totalProducts, equals(1240));
+      expect(data.lowStockCount, equals(12));
+      expect(data.nearExpiryCount, equals(8));
+      expect(data.pendingRequestsCount, equals(5));
+      expect(data.capacityUsed, equals(85.0));
+      expect(data.recentActivities.length, equals(2));
+      
+      expect(data.recentActivities[0].action, equals('Stock-in'));
+      expect(data.recentActivities[0].item, equals('Milk'));
+      expect(data.recentActivities[0].quantity, equals('50 Cartons'));
+      
+      expect(data.recentActivities[1].action, equals('Stock-out'));
+      expect(data.recentActivities[1].item, equals('Bread'));
+      expect(data.recentActivities[1].quantity, equals('10 Loaves'));
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('should fallback to default values when JSON contains null fields', () {
+      final json = {
+        'totalProducts': null,
+        'lowStockCount': null,
+        'nearExpiryCount': null,
+        'pendingRequestsCount': null,
+        'capacityUsed': null,
+        'updatedAt': null,
+        'recentActivities': null
+      };
+
+      final data = DashboardData.fromJson(json);
+
+      expect(data.totalProducts, equals(0));
+      expect(data.lowStockCount, equals(0));
+      expect(data.nearExpiryCount, equals(0));
+      expect(data.pendingRequestsCount, equals(0));
+      expect(data.capacityUsed, equals(0.0));
+      expect(data.recentActivities, isEmpty);
+    });
   });
 }
