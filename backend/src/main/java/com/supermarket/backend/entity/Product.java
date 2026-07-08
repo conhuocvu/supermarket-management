@@ -44,4 +44,19 @@ public class Product {
 
     @Column(name = "image_url")
     private String imageUrl;
+
+    @Column(name = "expiry_warning_days")
+    private Integer expiryWarningDays;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_number", insertable = false, updatable = false)
+    private Category category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inventory_unit_number", insertable = false, updatable = false)
+    private Unit unit;
+
+    @OneToOne(mappedBy = "product", fetch = FetchType.LAZY)
+    private Inventory inventory;
 }
+

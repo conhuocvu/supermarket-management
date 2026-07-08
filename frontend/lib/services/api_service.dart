@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/dashboard_data.dart';
+import '../models/category_item.dart';
+import '../models/inventory_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -30,17 +33,209 @@ class ApiService {
         throw Exception('Không thể tải dữ liệu bảng điều khiển: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
-      String message = 'Lỗi kết nối máy chủ.';
-      if (e.type == DioExceptionType.connectionTimeout || 
-          e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.connectionError) {
-        message = 'Kết nối mạng quá hạn hoặc không thể kết nối. Vui lòng kiểm tra lại.';
-      } else if (e.response != null && e.response?.data is Map) {
-        message = e.response?.data['message'] ?? 'Lỗi từ phía máy chủ.';
-      }
-      throw Exception(message);
+      throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Đã xảy ra lỗi không mong muốn: $e');
     }
   }
+
+  Future<Map<String, dynamic>> fetchInventoryProducts({
+    String? keyword,
+    int? categoryNumber,
+    int page = 0,
+    int size = 10,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {
+        'page': page,
+        'size': size,
+      };
+      if (keyword != null && keyword.isNotEmpty) {
+        queryParams['keyword'] = keyword;
+      }
+      if (categoryNumber != null) {
+        queryParams['categoryNumber'] = categoryNumber;
+      }
+
+      final response = await _dio.get('/inventory/products/search', queryParameters: queryParams);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'];
+          final itemsList = (data['items'] as List? ?? [])
+              .map((item) => InventoryProduct.fromJson(item))
+              .toList();
+          return {
+            'items': itemsList,
+            'page': data['page'] ?? 0,
+            'size': data['size'] ?? 10,
+            'totalItems': data['totalItems'] ?? 0,
+            'totalPages': data['totalPages'] ?? 0,
+          };
+        } else {
+          throw Exception(body['message'] ?? 'Không thể tải danh sách sản phẩm.');
+        }
+      } else {
+        throw Exception('Không thể tải danh sách sản phẩm: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<List<CategoryItem>> fetchCategories() async {
+    try {
+      final response = await _dio.get('/inventory/categories');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => CategoryItem.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Không thể tải danh mục.');
+        }
+      } else {
+        throw Exception('Không thể tải danh mục: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<void> updateProductStatus(int productNumber, String status) async {
+    try {
+      final response = await _dio.patch(
+        '/inventory/products/$productNumber/status',
+        queryParameters: {'status': status},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Không thể cập nhật trạng thái.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<void> createPurchaseRequest(List<int> productNumbers) async {
+    try {
+      final response = await _dio.post(
+        '/inventory/purchase-requests',
+        data: {'productNumbers': productNumbers},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Không thể tạo yêu cầu mua hàng.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUnits() async {
+    try {
+      final response = await _dio.get('/inventory/units');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => Map<String, dynamic>.from(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Không thể tải danh sách đơn vị tính.');
+        }
+      } else {
+        throw Exception('Không thể tải danh sách đơn vị tính: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<String> uploadProductImage(XFile imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.name,
+        ),
+      });
+
+      final response = await _dio.post('/inventory/products/upload', data: formData);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return body['data']['url'] as String;
+        } else {
+          throw Exception(body['message'] ?? 'Không thể tải ảnh lên.');
+        }
+      } else {
+        throw Exception('Không thể tải ảnh lên: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<void> createProduct(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/inventory/products', data: data);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Không thể thêm sản phẩm.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<void> updateProduct(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('/inventory/products/$id', data: data);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Không thể cập nhật sản phẩm.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<void> deleteProduct(int productNumber) async {
+    try {
+      final response = await _dio.delete('/inventory/products/$productNumber');
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Không thể xóa sản phẩm.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  String _handleDioError(DioException e) {
+    String message = 'Lỗi kết nối máy chủ.';
+    if (e.type == DioExceptionType.connectionTimeout || 
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError) {
+      message = 'Kết nối mạng quá hạn hoặc không thể kết nối. Vui lòng kiểm tra lại.';
+    } else if (e.response != null && e.response?.data is Map) {
+      message = e.response?.data['message'] ?? 'Lỗi từ phía máy chủ.';
+    }
+    return message;
+  }
 }
+

@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../providers/shell_layout_provider.dart';
 
-class AppScaffold extends StatelessWidget {
-  final String title;
+class AppScaffold extends ConsumerWidget {
   final Widget body;
+  final String? title;
   final List<Widget>? actions;
 
   const AppScaffold({
     super.key,
-    required this.title,
     required this.body,
+    this.title,
     this.actions,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
+    final shellState = ref.watch(shellLayoutProvider);
+    final displayTitle = title ?? shellState.title;
+    final displayActions = actions ?? shellState.actions;
+
     final List<Map<String, dynamic>> menuItems = [
-      {'title': 'Dashboard', 'icon': Icons.dashboard_outlined, 'active': true},
-      {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'active': false},
+      {'title': 'Dashboard', 'icon': Icons.dashboard_outlined, 'active': displayTitle == 'Inventory Dashboard'},
+      {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'active': displayTitle == 'Product Management'},
       {'title': 'Categories', 'icon': Icons.category_outlined, 'active': false},
       {'title': 'Transactions', 'icon': Icons.swap_horiz_outlined, 'active': false},
       {'title': 'Low Stock', 'icon': Icons.priority_high_outlined, 'active': false},
@@ -70,7 +77,11 @@ class AppScaffold extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: InkWell(
                       onTap: () {
-                        // Router navigation will be wired here in future steps
+                        if (item['title'] == 'Dashboard') {
+                          context.go('/');
+                        } else if (item['title'] == 'Products') {
+                          context.go('/products');
+                        }
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -173,18 +184,18 @@ class AppScaffold extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          title,
+                          displayTitle,
                           style: theme.textTheme.headlineLarge?.copyWith(
                             fontSize: 28,
                             color: theme.colorScheme.onSurface,
                           ),
                         ),
-                        Row(children: actions ?? []),
+                        Row(children: displayActions),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: Container(
+                    child: Material(
                       color: const Color(0xFFF8F9FF),
                       child: body,
                     ),
@@ -198,17 +209,17 @@ class AppScaffold extends StatelessWidget {
     } else {
       return Scaffold(
         appBar: AppBar(
-          title: Text(title, style: theme.textTheme.titleLarge),
+          title: Text(displayTitle, style: theme.textTheme.titleLarge),
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
-          actions: actions,
+          actions: displayActions,
           iconTheme: IconThemeData(color: theme.colorScheme.primary),
         ),
         drawer: Drawer(
           child: buildSidebarContent(),
         ),
-        body: Container(
+        body: Material(
           color: const Color(0xFFF8F9FF),
           child: body,
         ),

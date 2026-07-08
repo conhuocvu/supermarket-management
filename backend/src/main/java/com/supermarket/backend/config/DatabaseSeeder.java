@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 
-@Component
+// @Component // Disabled to prevent automatic seeding of old 5 demo products
 @RequiredArgsConstructor
 @Slf4j
 public class DatabaseSeeder implements CommandLineRunner {

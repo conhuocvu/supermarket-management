@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/dashboard_provider.dart';
-import '../widgets/app_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 import '../widgets/statistic_card.dart';
 import 'package:intl/intl.dart';
 
@@ -37,16 +37,20 @@ class InventoryDashboardScreen extends ConsumerWidget {
       }
     }
 
-    return AppScaffold(
-      title: 'Inventory Dashboard',
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          tooltip: 'Refresh',
-          onPressed: handleRefresh,
-        ),
-      ],
-      body: dashboardState.when(
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(shellLayoutProvider.notifier).update(
+        title: 'Inventory Dashboard',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: handleRefresh,
+          ),
+        ],
+      );
+    });
+
+    return dashboardState.when(
         loading: () => const Center(
           child: Padding(
             padding: EdgeInsets.all(32.0),
@@ -304,8 +308,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
             },
           );
         },
-      ),
-    );
+      );
   }
 
   // Activity list builder

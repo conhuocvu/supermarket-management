@@ -4,7 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'core/theme/app_theme.dart';
+import 'models/inventory_product.dart';
+import 'screens/add_edit_product_screen.dart';
 import 'screens/inventory_dashboard_screen.dart';
+import 'screens/inventory_product_list_screen.dart';
+import 'widgets/app_scaffold.dart';
 
 void main() {
   runApp(
@@ -17,9 +21,43 @@ void main() {
 final GoRouter _router = GoRouter(
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const InventoryDashboardScreen(),
+    ShellRoute(
+      builder: (context, state, child) {
+        return AppScaffold(body: child);
+      },
+      routes: [
+        GoRoute(
+          path: '/',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: InventoryDashboardScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/products',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: InventoryProductListScreen(),
+          ),
+          routes: [
+            GoRoute(
+              path: 'add',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: AddEditProductScreen(),
+              ),
+            ),
+            GoRoute(
+              path: 'edit/:id',
+              pageBuilder: (context, state) {
+                final idStr = state.pathParameters['id'] ?? '';
+                final id = int.tryParse(idStr) ?? 0;
+                final product = state.extra as InventoryProduct?;
+                return NoTransitionPage(
+                  child: AddEditProductScreen(productId: id, product: product),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
     ),
     GoRoute(
       path: '/test-cors',
@@ -27,6 +65,8 @@ final GoRouter _router = GoRouter(
     ),
   ],
 );
+
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
