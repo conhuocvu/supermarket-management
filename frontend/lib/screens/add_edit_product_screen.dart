@@ -101,7 +101,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Tải ảnh thất bại: $e'.replaceAll('Exception: ', '');
+        _errorMessage = 'Image upload failed: $e'.replaceAll('Exception: ', '');
       });
     } finally {
       setState(() {
@@ -113,11 +113,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategoryNumber == null) {
-      setState(() => _errorMessage = 'Vui lòng chọn danh mục.');
+      setState(() => _errorMessage = 'Please select a category.');
       return;
     }
     if (_selectedUnitNumber == null) {
-      setState(() => _errorMessage = 'Vui lòng chọn đơn vị tính.');
+      setState(() => _errorMessage = 'Please select a unit.');
       return;
     }
 
@@ -159,8 +159,8 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
           SnackBar(
             content: Text(
               isEditMode
-                  ? 'Cập nhật sản phẩm thành công!'
-                  : 'Thêm sản phẩm thành công!',
+                  ? 'Product updated successfully!'
+                  : 'Product created successfully!',
             ),
             backgroundColor: Colors.green,
           ),
@@ -169,7 +169,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Lưu thất bại: $e'.replaceAll('Exception: ', '');
+        _errorMessage = 'Save failed: $e'.replaceAll('Exception: ', '');
       });
     } finally {
       setState(() {
@@ -408,7 +408,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Tải ảnh lên',
+                      'Upload Image',
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -445,7 +445,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                         Icon(Icons.edit, size: 16, color: Colors.white),
                         SizedBox(width: 6),
                         Text(
-                          'Thay đổi',
+                          'Change',
                           style: TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ],
@@ -469,11 +469,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Product Name
-        _buildLabel('Tên sản phẩm *', theme),
+        _buildLabel('Product Name *', theme),
         TextFormField(
           controller: _nameController,
-          decoration: inputDecorationTheme.copyWith(hintText: 'Nhập tên sản phẩm'),
-          validator: (val) => val == null || val.trim().isEmpty ? 'Tên sản phẩm là bắt buộc' : null,
+          decoration: inputDecorationTheme.copyWith(hintText: 'Enter product name'),
+          validator: (val) => val == null || val.trim().isEmpty ? 'Product name is required' : null,
         ),
         const SizedBox(height: 20),
 
@@ -485,11 +485,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Mã vạch (Barcode) *', theme),
+                  _buildLabel('Barcode *', theme),
                   TextFormField(
                     controller: _barcodeController,
-                    decoration: inputDecorationTheme.copyWith(hintText: 'Nhập mã vạch sản phẩm'),
-                    validator: (val) => val == null || val.trim().isEmpty ? 'Mã vạch là bắt buộc' : null,
+                    decoration: inputDecorationTheme.copyWith(hintText: 'Enter product barcode'),
+                    validator: (val) => val == null || val.trim().isEmpty ? 'Barcode is required' : null,
                   ),
                 ],
               ),
@@ -499,7 +499,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Trạng thái *', theme),
+                  _buildLabel('Status *', theme),
                   DropdownButtonFormField<String>(
                     value: _status,
                     decoration: inputDecorationTheme,
@@ -529,13 +529,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Danh mục *', theme),
+                  _buildLabel('Category *', theme),
                   categoriesState.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => const Text('Lỗi tải danh mục'),
+                    error: (err, stack) => const Text('Error loading categories'),
                     data: (categories) => DropdownButtonFormField<int?>(
                       value: _selectedCategoryNumber,
-                      decoration: inputDecorationTheme.copyWith(hintText: 'Chọn danh mục'),
+                      decoration: inputDecorationTheme.copyWith(hintText: 'Select category'),
                       items: categories.map((c) {
                         return DropdownMenuItem<int?>(
                           value: c.categoryNumber,
@@ -554,13 +554,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Đơn vị tính *', theme),
+                  _buildLabel('Unit *', theme),
                   unitsState.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => const Text('Lỗi tải đơn vị tính'),
+                    error: (err, stack) => const Text('Error loading units'),
                     data: (units) => DropdownButtonFormField<int?>(
                       value: _selectedUnitNumber,
-                      decoration: inputDecorationTheme.copyWith(hintText: 'Chọn đơn vị'),
+                      decoration: inputDecorationTheme.copyWith(hintText: 'Select unit'),
                       items: units.map((u) {
                         return DropdownMenuItem<int?>(
                           value: u['unitNumber'] as int?,
@@ -585,18 +585,18 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Giá bán (VND) *', theme),
+                  _buildLabel('Selling Price (VND) *', theme),
                   TextFormField(
                     controller: _priceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
                     ],
-                    decoration: inputDecorationTheme.copyWith(hintText: 'Ví dụ: 15000'),
+                    decoration: inputDecorationTheme.copyWith(hintText: 'e.g. 15000'),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Giá bán là bắt buộc';
+                      if (val == null || val.trim().isEmpty) return 'Price is required';
                       final numVal = double.tryParse(val);
-                      if (numVal == null || numVal <= 0) return 'Giá bán phải lớn hơn 0';
+                      if (numVal == null || numVal <= 0) return 'Price must be greater than 0';
                       return null;
                     },
                   ),
@@ -608,18 +608,18 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Báo động tồn kho *', theme),
+                  _buildLabel('Reorder Level *', theme),
                   TextFormField(
                     controller: _reorderController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
                     ],
-                    decoration: inputDecorationTheme.copyWith(hintText: 'Ví dụ: 10'),
+                    decoration: inputDecorationTheme.copyWith(hintText: 'e.g. 10'),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Mức báo tồn kho bắt buộc';
+                      if (val == null || val.trim().isEmpty) return 'Reorder level is required';
                       final numVal = double.tryParse(val);
-                      if (numVal == null || numVal < 0) return 'Giá trị không được nhỏ hơn 0';
+                      if (numVal == null || numVal < 0) return 'Value cannot be negative';
                       return null;
                     },
                   ),
@@ -638,16 +638,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Số ngày báo hết hạn *', theme),
+                  _buildLabel('Expiry Warning Days *', theme),
                   TextFormField(
                     controller: _expiryController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: inputDecorationTheme.copyWith(hintText: 'Ví dụ: 30'),
+                    decoration: inputDecorationTheme.copyWith(hintText: 'e.g. 30'),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Bắt buộc nhập số ngày';
+                      if (val == null || val.trim().isEmpty) return 'Number of days is required';
                       final numVal = int.tryParse(val);
-                      if (numVal == null || numVal < 0) return 'Giá trị không hợp lệ';
+                      if (numVal == null || numVal < 0) return 'Invalid value';
                       return null;
                     },
                   ),
@@ -660,7 +660,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildLabel(
-                    isEditMode ? 'Số lượng tồn kho (Xem chi tiết)' : 'Tồn kho ban đầu *',
+                    isEditMode ? 'Current Stock (Read-only)' : 'Initial Stock *',
                     theme,
                   ),
                   TextFormField(
@@ -675,9 +675,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                     decoration: inputDecorationTheme,
                     validator: (val) {
                       if (!isEditMode) {
-                        if (val == null || val.trim().isEmpty) return 'Bắt buộc nhập tồn kho';
+                        if (val == null || val.trim().isEmpty) return 'Initial stock is required';
                         final numVal = double.tryParse(val);
-                        if (numVal == null || numVal < 0) return 'Giá trị không được nhỏ hơn 0';
+                        if (numVal == null || numVal < 0) return 'Value cannot be negative';
                       }
                       return null;
                     },
@@ -690,11 +690,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
         const SizedBox(height: 20),
 
         // Description
-        _buildLabel('Mô tả sản phẩm', theme),
+        _buildLabel('Product Description', theme),
         TextFormField(
           controller: _descriptionController,
           maxLines: 3,
-          decoration: inputDecorationTheme.copyWith(hintText: 'Nhập mô tả về sản phẩm...'),
+          decoration: inputDecorationTheme.copyWith(hintText: 'Enter product description...'),
         ),
       ],
     );

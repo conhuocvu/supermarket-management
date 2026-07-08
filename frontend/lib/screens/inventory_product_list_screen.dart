@@ -182,7 +182,7 @@ class _InventoryProductListScreenState
               ),
             ),
           ),
-          error: (err, stack) => const Text('Lỗi tải danh mục'),
+          error: (err, stack) => const Text('Error loading categories'),
           data: (categories) => SizedBox(
             height: 48,
             child: DropdownButtonFormField<int?>(
@@ -750,7 +750,8 @@ class _InventoryProductListScreenState
   void _showStatusToggleConfirmation(BuildContext context, InventoryProduct product) {
     final theme = Theme.of(context);
     final isActivating = product.status != 'ACTIVE';
-    final actionText = isActivating ? 'kích hoạt' : 'hủy kích hoạt';
+    final actionText = isActivating ? 'activate' : 'deactivate';
+    final actionTitle = isActivating ? 'Activate' : 'Deactivate';
 
     showDialog(
       context: context,
@@ -763,14 +764,14 @@ class _InventoryProductListScreenState
                 color: isActivating ? Colors.green : theme.colorScheme.error,
               ),
               const SizedBox(width: 12),
-              Text('Xác nhận $actionText'),
+              Text('Confirm $actionTitle'),
             ],
           ),
-          content: Text('Bạn có chắc chắn muốn $actionText sản phẩm "${product.productName}" không?'),
+          content: Text('Are you sure you want to $actionText product "${product.productName}"?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Hủy'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -786,7 +787,7 @@ class _InventoryProductListScreenState
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Cập nhật trạng thái thành công.'),
+                        content: Text('Status updated successfully.'),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -795,14 +796,14 @@ class _InventoryProductListScreenState
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Cập nhật trạng thái thất bại: $e'),
+                        content: Text('Failed to update status: $e'),
                         backgroundColor: theme.colorScheme.error,
                       ),
                     );
                   }
                 }
               },
-              child: Text(isActivating ? 'Kích hoạt' : 'Hủy kích hoạt'),
+              child: Text(actionTitle),
             ),
           ],
         );
