@@ -13,6 +13,7 @@ class InventoryProductsState {
   final int? selectedCategoryNumber;
   final Set<int> selectedProductNumbers;
   final bool isSubmittingAction;
+  final String warningFilter;
 
   InventoryProductsState({
     required this.products,
@@ -23,6 +24,7 @@ class InventoryProductsState {
     this.selectedCategoryNumber,
     required this.selectedProductNumbers,
     required this.isSubmittingAction,
+    this.warningFilter = 'NONE',
   });
 
   InventoryProductsState copyWith({
@@ -34,6 +36,7 @@ class InventoryProductsState {
     int? selectedCategoryNumber,
     Set<int>? selectedProductNumbers,
     bool? isSubmittingAction,
+    String? warningFilter,
     bool clearCategory = false,
   }) {
     return InventoryProductsState(
@@ -45,6 +48,7 @@ class InventoryProductsState {
       selectedCategoryNumber: clearCategory ? null : (selectedCategoryNumber ?? this.selectedCategoryNumber),
       selectedProductNumbers: selectedProductNumbers ?? this.selectedProductNumbers,
       isSubmittingAction: isSubmittingAction ?? this.isSubmittingAction,
+      warningFilter: warningFilter ?? this.warningFilter,
     );
   }
 }
@@ -61,6 +65,7 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
           searchKeyword: '',
           selectedProductNumbers: {},
           isSubmittingAction: false,
+          warningFilter: 'NONE',
         )) {
     loadProducts();
   }
@@ -68,17 +73,27 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
   Future<void> loadProducts() async {
     state = state.copyWith(products: const AsyncValue.loading());
     try {
-      final data = await _apiService.fetchInventoryProducts(
-        keyword: state.searchKeyword,
-        categoryNumber: state.selectedCategoryNumber,
-        page: state.currentPage,
-      );
-      state = state.copyWith(
-        products: AsyncValue.data(data['items'] as List<InventoryProduct>),
-        currentPage: data['page'] as int,
-        totalPages: data['totalPages'] as int,
-        totalItems: data['totalItems'] as int,
-      );
+      if (state.warningFilter != 'NONE') {
+        final list = await _apiService.fetchWarningProducts(state.warningFilter);
+        state = state.copyWith(
+          products: AsyncValue.data(list),
+          currentPage: 0,
+          totalPages: 1,
+          totalItems: list.length,
+        );
+      } else {
+        final data = await _apiService.fetchInventoryProducts(
+          keyword: state.searchKeyword,
+          categoryNumber: state.selectedCategoryNumber,
+          page: state.currentPage,
+        );
+        state = state.copyWith(
+          products: AsyncValue.data(data['items'] as List<InventoryProduct>),
+          currentPage: data['page'] as int,
+          totalPages: data['totalPages'] as int,
+          totalItems: data['totalItems'] as int,
+        );
+      }
     } catch (e, stack) {
       state = state.copyWith(products: AsyncValue.error(e, stack));
     }
@@ -98,6 +113,13 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
       } else {
         state = state.copyWith(selectedCategoryNumber: categoryNumber, currentPage: 0);
       }
+      loadProducts();
+    }
+  }
+
+  void setWarningFilter(String warningFilter) {
+    if (state.warningFilter != warningFilter) {
+      state = state.copyWith(warningFilter: warningFilter, currentPage: 0);
       loadProducts();
     }
   }

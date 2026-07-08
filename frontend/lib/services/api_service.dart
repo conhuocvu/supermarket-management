@@ -217,23 +217,46 @@ class ApiService {
     try {
       final response = await _dio.delete('/inventory/products/$productNumber');
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Không thể xóa sản phẩm.');
+        throw Exception(response.data['message'] ?? 'Failed to delete product.');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<InventoryProduct>> fetchWarningProducts(String warningType) async {
+    try {
+      final response = await _dio.get(
+        '/inventory/products/warnings',
+        queryParameters: {'warningType': warningType},
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final itemsList = body['data']['items'] as List<dynamic>;
+          return itemsList
+              .map((item) => InventoryProduct.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+      throw Exception('Failed to load warning products.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
   String _handleDioError(DioException e) {
-    String message = 'Lỗi kết nối máy chủ.';
+    String message = 'Server connection error.';
     if (e.type == DioExceptionType.connectionTimeout || 
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.connectionError) {
-      message = 'Kết nối mạng quá hạn hoặc không thể kết nối. Vui lòng kiểm tra lại.';
+      message = 'Connection timeout or server unreachable. Please try again.';
     } else if (e.response != null && e.response?.data is Map) {
-      message = e.response?.data['message'] ?? 'Lỗi từ phía máy chủ.';
+      message = e.response?.data['message'] ?? 'Server error.';
     }
     return message;
   }

@@ -250,5 +250,22 @@ public class InventoryProductController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @GetMapping("/products/warnings")
+    public ResponseEntity<Map<String, Object>> getProductsByWarning(
+            @RequestParam("warningType") String warningType) {
+        
+        List<InventoryProductDTO> products = inventoryProductService.getProductsByWarning(warningType);
+        
+        Map<String, Object> data = new HashMap<>();
+        data.put("items", products);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Warning products loaded successfully.");
+        response.put("data", data);
+
+        return ResponseEntity.ok(response);
+    }
 }
 

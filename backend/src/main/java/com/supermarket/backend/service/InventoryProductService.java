@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +30,7 @@ public class InventoryProductService {
     private final PurchaseRequestDetailRepository purchaseRequestDetailRepository;
     private final UnitRepository unitRepository;
     private final InventoryRepository inventoryRepository;
+    private final StockInDetailRepository stockInDetailRepository;
 
     @Transactional(readOnly = true)
     public Page<InventoryProductDTO> getProducts(String keyword, Integer categoryNumber, Pageable pageable) {
@@ -246,6 +249,81 @@ public class InventoryProductService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm có mã: " + productNumber));
         product.setStatus("DELETED");
         productRepository.save(product);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InventoryProductDTO> getProductsByWarning(String warningType) {
+        List<Product> products = productRepository.findAll();
+        List<InventoryProductDTO> result = new ArrayList<>();
+        LocalDate now = LocalDate.now();
+
+        for (Product p : products) {
+            if ("DELETED".equals(p.getStatus())) {
+                continue;
+            }
+
+            Inventory inv = p.getInventory();
+            BigDecimal stock = BigDecimal.ZERO;
+            if (inv != null && inv.getAvailableQuantity() != null) {
+                stock = inv.getAvailableQuantity();
+            }
+
+            List<StockInDetail> details = stockInDetailRepository.findLatestStockInDetails(p.getProductNumber());
+            LocalDate expiryDate = null;
+            if (!details.isEmpty()) {
+                expiryDate = details.get(0).getExpiryDate();
+            }
+
+            boolean isLowStock = false;
+            if (p.getReorderLevel() != null && stock.compareTo(p.getReorderLevel()) <= 0) {
+                isLowStock = true;
+            }
+
+            boolean isNearExpiry = false;
+            boolean isExpired = false;
+            if (expiryDate != null) {
+                if (expiryDate.isBefore(now)) {
+                    isExpired = true;
+                } else {
+                    int warningDays = p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30;
+                    if (!expiryDate.isAfter(now.plusDays(warningDays))) {
+                        isNearExpiry = true;
+                    }
+                }
+            }
+
+            boolean match = false;
+            if ("ALL".equalsIgnoreCase(warningType)) {
+                match = isLowStock || isNearExpiry || isExpired;
+            } else if ("LOW_STOCK".equalsIgnoreCase(warningType)) {
+                match = isLowStock;
+            } else if ("NEAR_EXPIRY".equalsIgnoreCase(warningType)) {
+                match = isNearExpiry;
+            } else if ("EXPIRED".equalsIgnoreCase(warningType)) {
+                match = isExpired;
+            }
+
+            if (match) {
+                String catName = p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized";
+                String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+
+                result.add(InventoryProductDTO.builder()
+                        .productNumber(p.getProductNumber())
+                        .productName(p.getProductName())
+                        .barcode(p.getBarcode())
+                        .categoryName(catName)
+                        .unitName(unitName)
+                        .stock(stock)
+                        .sellingPrice(p.getSellingPrice())
+                        .reorderLevel(p.getReorderLevel())
+                        .status(p.getStatus())
+                        .description(p.getDescription())
+                        .imageUrl(p.getImageUrl())
+                        .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
+                        .build());
+            }
+        }
+        return result;
     }
 }
 

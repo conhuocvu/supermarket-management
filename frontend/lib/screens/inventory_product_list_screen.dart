@@ -84,28 +84,38 @@ class _InventoryProductListScreenState
                     ),
                     data: (items) {
                       if (items.isEmpty) {
+                        final isWarningFilterActive = state.warningFilter != 'NONE';
                         return EmptyView(
-                          icon: Icons.search_off,
-                          title: 'No products found',
-                          description:
-                              'No products match your search or filter criteria. Try clearing filters.',
-                          actionLabel: 'Reset Filters',
+                          icon: isWarningFilterActive ? Icons.warning_amber_rounded : Icons.search_off,
+                          title: isWarningFilterActive ? 'No warning products found' : 'No products found',
+                          description: isWarningFilterActive
+                              ? 'No products require attention under the selected warning filter.'
+                              : 'No products match your search or filter criteria. Try clearing filters.',
+                          actionLabel: isWarningFilterActive ? 'Clear Warning Filter' : 'Reset Filters',
                           onActionPressed: () {
-                            _searchController.clear();
-                            ref
-                                .read(inventoryProductsProvider.notifier)
-                                .setSearchKeyword('');
-                            ref
-                                .read(inventoryProductsProvider.notifier)
-                                .setCategoryNumber(null);
+                            if (isWarningFilterActive) {
+                              ref
+                                  .read(inventoryProductsProvider.notifier)
+                                  .setWarningFilter('NONE');
+                            } else {
+                              _searchController.clear();
+                              ref
+                                  .read(inventoryProductsProvider.notifier)
+                                  .setSearchKeyword('');
+                              ref
+                                  .read(inventoryProductsProvider.notifier)
+                                  .setCategoryNumber(null);
+                            }
                           },
                         );
                       }
                       return Column(
                         children: [
                           Expanded(child: _buildTable(context, items, state)),
-                          const Divider(height: 1),
-                          _buildPagination(context, state),
+                          if (state.warningFilter == 'NONE') ...[
+                            const Divider(height: 1),
+                            _buildPagination(context, state),
+                          ],
                         ],
                       );
                     },
@@ -232,6 +242,54 @@ class _InventoryProductListScreenState
           ),
         );
 
+        Widget warningDropdown = SizedBox(
+          height: 48,
+          child: DropdownButtonFormField<String>(
+            value: state.warningFilter,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(
+                  color: theme.colorScheme.outlineVariant,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 0,
+              ),
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: 'NONE',
+                child: Text('No Warning Filter'),
+              ),
+              DropdownMenuItem(
+                value: 'ALL',
+                child: Text('All Warnings'),
+              ),
+              DropdownMenuItem(
+                value: 'LOW_STOCK',
+                child: Text('Low Stock'),
+              ),
+              DropdownMenuItem(
+                value: 'NEAR_EXPIRY',
+                child: Text('Near Expiry'),
+              ),
+              DropdownMenuItem(
+                value: 'EXPIRED',
+                child: Text('Expired'),
+              ),
+            ],
+            onChanged: (val) {
+              if (val != null) {
+                ref
+                    .read(inventoryProductsProvider.notifier)
+                    .setWarningFilter(val);
+              }
+            },
+          ),
+        );
+
         final List<Widget> actionButtons = [
           IconButton.filled(
             onPressed: () => context.go('/products/add'),
@@ -259,6 +317,11 @@ class _InventoryProductListScreenState
                 child: categoryDropdown,
               ),
               const SizedBox(width: 16),
+              Expanded(
+                flex: 1,
+                child: warningDropdown,
+              ),
+              const SizedBox(width: 16),
               ...actionButtons,
             ],
           );
@@ -268,9 +331,11 @@ class _InventoryProductListScreenState
             children: [
               searchField,
               const SizedBox(height: 16),
+              categoryDropdown,
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: categoryDropdown),
+                  Expanded(child: warningDropdown),
                   const SizedBox(width: 16),
                   ...actionButtons,
                 ],
