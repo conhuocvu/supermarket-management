@@ -538,43 +538,7 @@ class _InventoryProductListScreenState
                           tooltip: item.status == 'ACTIVE'
                               ? 'Deactivate product'
                               : 'Activate product',
-                          onPressed: () async {
-                            try {
-                              await ref
-                                  .read(inventoryProductsProvider.notifier)
-                                  .toggleProductStatus(
-                                    item.productNumber,
-                                    item.status,
-                                  );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Status updated successfully.',
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Status update failed: $e'),
-                                    backgroundColor: theme.colorScheme.error,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: theme.colorScheme.error,
-                          ),
-                          tooltip: 'Delete product',
-                          onPressed: () => _showDeleteConfirmation(context, item),
+                          onPressed: () => _showStatusToggleConfirmation(context, item),
                         ),
                       ],
                     ),
@@ -783,20 +747,26 @@ class _InventoryProductListScreenState
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, InventoryProduct product) {
+  void _showStatusToggleConfirmation(BuildContext context, InventoryProduct product) {
     final theme = Theme.of(context);
+    final isActivating = product.status != 'ACTIVE';
+    final actionText = isActivating ? 'kích hoạt' : 'hủy kích hoạt';
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
+              Icon(
+                isActivating ? Icons.check_circle_outline : Icons.power_settings_new_rounded,
+                color: isActivating ? Colors.green : theme.colorScheme.error,
+              ),
               const SizedBox(width: 12),
-              const Text('Xác nhận xóa'),
+              Text('Xác nhận $actionText'),
             ],
           ),
-          content: Text('Bạn có chắc chắn muốn xóa sản phẩm "${product.productName}"? Hành động này sẽ chuyển trạng thái sản phẩm thành đã xóa.'),
+          content: Text('Bạn có chắc chắn muốn $actionText sản phẩm "${product.productName}" không?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -804,19 +774,19 @@ class _InventoryProductListScreenState
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
+                backgroundColor: isActivating ? Colors.green : theme.colorScheme.error,
+                foregroundColor: Colors.white,
               ),
               onPressed: () async {
                 Navigator.of(context).pop();
                 try {
                   await ref
                       .read(inventoryProductsProvider.notifier)
-                      .deleteProduct(product.productNumber);
+                      .toggleProductStatus(product.productNumber, product.status);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Xóa sản phẩm thành công.'),
+                        content: Text('Cập nhật trạng thái thành công.'),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -825,14 +795,14 @@ class _InventoryProductListScreenState
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Xóa sản phẩm thất bại: $e'),
+                        content: Text('Cập nhật trạng thái thất bại: $e'),
                         backgroundColor: theme.colorScheme.error,
                       ),
                     );
                   }
                 }
               },
-              child: const Text('Xóa'),
+              child: Text(isActivating ? 'Kích hoạt' : 'Hủy kích hoạt'),
             ),
           ],
         );
