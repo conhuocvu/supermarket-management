@@ -15,4 +15,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByStatusAndNameContainingIgnoreCase(String status, String name);
     
     long countByStatus(String status);
+
+    boolean existsByEmailIgnoreCase(String email);
 }

@@ -73,7 +73,7 @@ public class EmployeeService {
     }
 
     public EmployeeDto createEmployee(EmployeeCreateDto dto) {
-        if (employeeRepository.findAll().stream().anyMatch(e -> e.getEmail().equalsIgnoreCase(dto.getEmail()))) {
+        if (employeeRepository.existsByEmailIgnoreCase(dto.getEmail())) {
             throw new IllegalArgumentException("Email already exists: " + dto.getEmail());
         }
 
@@ -95,8 +95,8 @@ public class EmployeeService {
         return convertToDto(saved);
     }
 
-    public EmployeeDto updateEmployeeRole(Long id, String role, String updaterRole) {
-        validateManagerOrAdmin(updaterRole);
+    public EmployeeDto updateEmployeeRole(Long id, String role) {
+        validateManagerOrAdmin();
 
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with id: " + id));
@@ -106,8 +106,8 @@ public class EmployeeService {
         return convertToDto(saved);
     }
 
-    public ShiftDto assignShift(Long employeeId, ShiftAssignDto dto, String updaterRole) {
-        validateManagerOrAdmin(updaterRole);
+    public ShiftDto assignShift(Long employeeId, ShiftAssignDto dto) {
+        validateManagerOrAdmin();
 
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with id: " + employeeId));
@@ -139,8 +139,15 @@ public class EmployeeService {
     }
 
     // Helper: Permission check
-    private void validateManagerOrAdmin(String role) {
-        if (role == null || (!role.equalsIgnoreCase("ADMIN") && !role.equalsIgnoreCase("MANAGER"))) {
+    private void validateManagerOrAdmin() {
+        org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalArgumentException("Permission Denied: Unauthenticated user.");
+        }
+        boolean isManagerOrAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equalsIgnoreCase("ROLE_ADMIN") || a.getAuthority().equalsIgnoreCase("ROLE_MANAGER"));
+        if (!isManagerOrAdmin) {
             throw new IllegalArgumentException("Permission Denied: Only Admins or Managers can perform this action.");
         }
     }

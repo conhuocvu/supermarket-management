@@ -9,6 +9,9 @@ import 'package:frontend/widgets/shared/error_view.dart';
 import 'package:frontend/widgets/shared/loading_view.dart';
 import 'package:frontend/widgets/shared/page_container.dart';
 import 'package:frontend/widgets/shared/user_avatar.dart';
+import 'package:frontend/widgets/role_options_list.dart';
+import 'package:frontend/widgets/role_permissions_card.dart';
+import 'package:frontend/core/errors/app_error.dart';
 
 class ManageRoleScreen extends ConsumerStatefulWidget {
   final int employeeId;
@@ -86,17 +89,13 @@ class _ManageRoleScreenState extends ConsumerState<ManageRoleScreen> {
     if (_selectedRole == null) return;
     setState(() => _updating = true);
 
-    final api = ref.read(apiServiceProvider);
-    final result = await api.updateRole(widget.employeeId, _selectedRole!);
+    final result = await ref.read(employeesProvider.notifier).updateRole(widget.employeeId, _selectedRole!);
 
     setState(() => _updating = false);
 
     if (!mounted) return;
 
     if (result.isSuccess) {
-      ref.invalidate(employeeDetailProvider(widget.employeeId));
-      ref.invalidate(employeesProvider);
-      ref.invalidate(employeeStatsProvider);
       context.pop();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Employee role updated successfully!'),
@@ -104,8 +103,7 @@ class _ManageRoleScreenState extends ConsumerState<ManageRoleScreen> {
       ));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content:
-            Text(result.error?.userMessage ?? 'Failed to update employee role.'),
+        content: Text(result.error?.userMessage ?? 'Failed to update employee role.'),
         backgroundColor: AppTheme.error,
       ));
     }
@@ -135,8 +133,7 @@ class _ManageRoleScreenState extends ConsumerState<ManageRoleScreen> {
             padding: EdgeInsets.only(right: 12.0),
             child: UserAvatar(
               name: "David Okafor",
-              imageUrl:
-                  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
+              imageUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
               radius: 18,
             ),
           ),
@@ -158,32 +155,32 @@ class _ManageRoleScreenState extends ConsumerState<ManageRoleScreen> {
                 AppCard(
                   child: Row(
                     children: [
-                      UserAvatar(
-                          name: emp.name,
-                          imageUrl: emp.imageUrl,
-                          radius: 28),
+                      UserAvatar(name: emp.name, imageUrl: emp.imageUrl, radius: 28),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(emp.name,
-                                style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary)),
+                            Text(
+                              emp.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                const Icon(Icons.badge_outlined,
-                                    size: 16, color: AppTheme.textSecondary),
+                                const Icon(Icons.badge_outlined, size: 16, color: AppTheme.textSecondary),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Current Role: ${emp.role.replaceAll('_', ' ')}',
                                   style: const TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.textSecondary,
-                                      fontWeight: FontWeight.w500),
+                                    fontSize: 14,
+                                    color: AppTheme.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),
@@ -200,68 +197,28 @@ class _ManageRoleScreenState extends ConsumerState<ManageRoleScreen> {
                   children: [
                     Text(
                       'Select New Role',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Text(
                       '${_roleOptions.length} Roles Available',
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 14),
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
                 // Role Radio Selection List
-                for (final opt in _roleOptions) ...[
-                  _buildRoleCard(opt),
-                  const SizedBox(height: 12),
-                ],
+                RoleOptionsList(
+                  roleOptions: _roleOptions,
+                  selectedRole: _selectedRole,
+                  onRoleSelected: (role) => setState(() => _selectedRole = role),
+                ),
 
                 // Role Permissions card
-                if (_selectedRole != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.border, width: 1.5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Role Permissions',
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary),
-                        ),
-                        const SizedBox(height: 12),
-                        for (final perm
-                            in _rolePermissions[_selectedRole] ?? [])
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.check_circle,
-                                    color: AppTheme.primary, size: 20),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(perm,
-                                      style: const TextStyle(
-                                          fontSize: 14,
-                                          color: AppTheme.textPrimary)),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                RolePermissionsCard(
+                  selectedRole: _selectedRole,
+                  rolePermissions: _rolePermissions,
+                ),
 
                 const SizedBox(height: 32),
                 AppButton(
@@ -275,78 +232,14 @@ class _ManageRoleScreenState extends ConsumerState<ManageRoleScreen> {
             ),
           );
         },
-        loading: () =>
-            const LoadingView(message: 'Đang tải thông tin nhân viên...'),
-        error: (err, stack) => ErrorView(
-          message: 'Không thể tải chi tiết nhân viên. Vui lòng thử lại.',
-          onRetry: () =>
-              ref.invalidate(employeeDetailProvider(widget.employeeId)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoleCard(Map<String, dynamic> opt) {
-    final isSelected = _selectedRole == opt['role'];
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: isSelected ? Colors.white : AppTheme.surface,
-      border: Border.all(
-        color: isSelected ? AppTheme.primary : AppTheme.border,
-        width: isSelected ? 2 : 1,
-      ),
-      onTap: () => setState(() => _selectedRole = opt['role']),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: opt['color'] as Color,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(opt['icon'] as IconData, color: AppTheme.textPrimary),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(opt['title'] as String,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary)),
-                const SizedBox(height: 2),
-                Text(opt['description'] as String,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary)),
-              ],
-            ),
-          ),
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? AppTheme.primary : AppTheme.border,
-                width: 2,
-              ),
-            ),
-            child: isSelected
-                ? Center(
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  )
-                : null,
-          ),
-        ],
+        loading: () => const LoadingView(message: 'Đang tải thông tin nhân viên...'),
+        error: (err, stack) {
+          final message = err is AppError ? err.userMessage : 'Không thể tải chi tiết nhân viên. Vui lòng thử lại.';
+          return ErrorView(
+            message: message,
+            onRetry: () => ref.invalidate(employeeDetailProvider(widget.employeeId)),
+          );
+        },
       ),
     );
   }

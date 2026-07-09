@@ -5,17 +5,14 @@ import 'package:frontend/models/shift.dart';
 
 class ApiService {
   final Dio _dio;
-  
-  // Simulation of the current user's role for backend permission checks.
-  // Can be dynamically changed in UI to test permission denied states!
-  String currentUserRole = 'MANAGER'; 
+  final String Function()? _tokenProvider;
 
   static const String _defaultBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://localhost:8080/api',
   );
 
-  ApiService({Dio? dio})
+  ApiService({Dio? dio, String Function()? tokenProvider})
       : _dio = dio ??
             Dio(BaseOptions(
               baseUrl: _defaultBaseUrl,
@@ -25,13 +22,42 @@ class ApiService {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
               },
-            )) {
+            )),
+        _tokenProvider = tokenProvider {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        options.headers['X-User-Role'] = currentUserRole;
+        if (_tokenProvider != null) {
+          final token = _tokenProvider!();
+          if (token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        }
         return handler.next(options);
       },
     ));
+  }
+
+  Future<Result<String>> getMockToken(String role) async {
+    try {
+      final response = await _dio.get('/auth/token', queryParameters: {'role': role});
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        return Result.success(apiResponse['data'] as String);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch mock token.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
   }
 
   Future<Result<List<Employee>>> getEmployees({String? search, String? status}) async {
@@ -54,7 +80,7 @@ class ApiService {
         return Result.success(list);
       } else {
         return Result.failure(AppError(
-          code: 'BUSINESS_ERROR',
+          code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to fetch employees.',
         ));
       }
@@ -62,7 +88,7 @@ class ApiService {
       return Result.failure(_handleDioException(e));
     } catch (e) {
       return Result.failure(AppError(
-        code: 'INTERNAL',
+        code: ErrorCode.INTERNAL,
         userMessage: 'An unexpected error occurred: $e',
       ));
     }
@@ -78,7 +104,7 @@ class ApiService {
         return Result.success(employee);
       } else {
         return Result.failure(AppError(
-          code: 'BUSINESS_ERROR',
+          code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to fetch employee details.',
         ));
       }
@@ -86,7 +112,7 @@ class ApiService {
       return Result.failure(_handleDioException(e));
     } catch (e) {
       return Result.failure(AppError(
-        code: 'INTERNAL',
+        code: ErrorCode.INTERNAL,
         userMessage: 'An unexpected error occurred: $e',
       ));
     }
@@ -101,7 +127,7 @@ class ApiService {
         return Result.success(apiResponse['data'] as Map<String, dynamic>);
       } else {
         return Result.failure(AppError(
-          code: 'BUSINESS_ERROR',
+          code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to fetch stats.',
         ));
       }
@@ -109,7 +135,7 @@ class ApiService {
       return Result.failure(_handleDioException(e));
     } catch (e) {
       return Result.failure(AppError(
-        code: 'INTERNAL',
+        code: ErrorCode.INTERNAL,
         userMessage: 'An unexpected error occurred: $e',
       ));
     }
@@ -139,7 +165,7 @@ class ApiService {
         return Result.success(employee);
       } else {
         return Result.failure(AppError(
-          code: 'BUSINESS_ERROR',
+          code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to hire employee.',
         ));
       }
@@ -147,7 +173,7 @@ class ApiService {
       return Result.failure(_handleDioException(e));
     } catch (e) {
       return Result.failure(AppError(
-        code: 'INTERNAL',
+        code: ErrorCode.INTERNAL,
         userMessage: 'An unexpected error occurred: $e',
       ));
     }
@@ -165,7 +191,7 @@ class ApiService {
         return Result.success(employee);
       } else {
         return Result.failure(AppError(
-          code: 'BUSINESS_ERROR',
+          code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to update employee role.',
         ));
       }
@@ -173,7 +199,7 @@ class ApiService {
       return Result.failure(_handleDioException(e));
     } catch (e) {
       return Result.failure(AppError(
-        code: 'INTERNAL',
+        code: ErrorCode.INTERNAL,
         userMessage: 'An unexpected error occurred: $e',
       ));
     }
@@ -203,7 +229,7 @@ class ApiService {
         return Result.success(shift);
       } else {
         return Result.failure(AppError(
-          code: 'BUSINESS_ERROR',
+          code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to assign shift.',
         ));
       }
@@ -211,7 +237,7 @@ class ApiService {
       return Result.failure(_handleDioException(e));
     } catch (e) {
       return Result.failure(AppError(
-        code: 'INTERNAL',
+        code: ErrorCode.INTERNAL,
         userMessage: 'An unexpected error occurred: $e',
       ));
     }
@@ -219,49 +245,53 @@ class ApiService {
 
   AppError _handleDioException(DioException e) {
     bool retryable = false;
-    String code = 'NETWORK';
+    ErrorCode code = ErrorCode.NETWORK;
     String message = 'Kết nối mạng không ổn định. Vui lòng thử lại.';
 
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.sendTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
       retryable = true;
-      code = 'TIMEOUT';
+      code = ErrorCode.TIMEOUT;
       message = 'Hết thời gian chờ kết nối. Vui lòng kiểm tra lại.';
     } else if (e.type == DioExceptionType.badResponse) {
       final statusCode = e.response?.statusCode;
       final data = e.response?.data;
-      
+
       if (statusCode == 422 && data is Map && data['success'] == false) {
-        // Validation failure
         final errors = data['data'];
         Map<String, String>? fieldErrors;
         if (errors is Map) {
           fieldErrors = errors.map((k, v) => MapEntry(k.toString(), v.toString()));
         }
         return AppError(
-          code: 'VALIDATION',
+          code: ErrorCode.VALIDATION,
           userMessage: data['message'] ?? 'Dữ liệu nhập vào không hợp lệ.',
           fieldErrors: fieldErrors,
         );
       } else if (statusCode == 400 && data is Map && data['success'] == false) {
         return AppError(
-          code: 'BAD_REQUEST',
+          code: ErrorCode.VALIDATION,
           userMessage: data['message'] ?? 'Yêu cầu không hợp lệ.',
+        );
+      } else if (statusCode == 401) {
+        return AppError(
+          code: ErrorCode.AUTHENTICATION_REQUIRED,
+          userMessage: 'Phiên làm việc hết hạn. Vui lòng đăng nhập lại.',
         );
       } else if (statusCode == 403) {
         return AppError(
-          code: 'PERMISSION_DENIED',
+          code: ErrorCode.PERMISSION_DENIED,
           userMessage: 'Bạn không có quyền thực hiện hành động này.',
         );
       } else if (statusCode == 404) {
         return AppError(
-          code: 'NOT_FOUND',
+          code: ErrorCode.NOT_FOUND,
           userMessage: 'Không tìm thấy tài nguyên yêu cầu.',
         );
       }
 
-      code = 'SERVER_ERROR';
+      code = ErrorCode.INTERNAL;
       message = (data is Map ? data['message'] : null) ?? 'Lỗi máy chủ (HTTP $statusCode).';
     }
 

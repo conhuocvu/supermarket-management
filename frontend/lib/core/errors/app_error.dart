@@ -1,5 +1,20 @@
+enum ErrorCode {
+  VALIDATION,
+  AUTHENTICATION_REQUIRED,
+  PERMISSION_DENIED,
+  NOT_FOUND,
+  CONFLICT,
+  RATE_LIMITED,
+  NETWORK,
+  TIMEOUT,
+  SERVICE_UNAVAILABLE,
+  DATA_INTEGRITY,
+  CANCELLED,
+  INTERNAL,
+}
+
 class AppError {
-  final String code;
+  final ErrorCode code;
   final String userMessage;
   final bool retryable;
   final String correlationId;
@@ -14,7 +29,7 @@ class AppError {
   });
 
   @override
-  String toString() => 'AppError[$code]: $userMessage';
+  String toString() => 'AppError[${code.name}]: $userMessage';
 }
 
 class Result<T> {
@@ -32,6 +47,6 @@ class Result<T> {
 
   T get dataOrThrow {
     if (isSuccess) return data!;
-    throw Exception(error?.userMessage ?? 'Unknown application error');
+    throw error!;
   }
 }

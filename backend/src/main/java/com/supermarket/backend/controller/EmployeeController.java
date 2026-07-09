@@ -49,18 +49,16 @@ public class EmployeeController {
     @PatchMapping("/{id}/role")
     public ApiResponse<EmployeeDto> updateEmployeeRole(
             @PathVariable Long id,
-            @Valid @RequestBody RoleUpdateDto dto,
-            @RequestHeader(value = "X-User-Role", defaultValue = "MANAGER") String updaterRole) {
-        EmployeeDto updated = employeeService.updateEmployeeRole(id, dto.getRole(), updaterRole);
+            @Valid @RequestBody RoleUpdateDto dto) {
+        EmployeeDto updated = employeeService.updateEmployeeRole(id, dto.getRole());
         return ApiResponse.success("Employee role updated successfully.", updated);
     }
 
     @PostMapping("/{id}/shifts")
     public ApiResponse<ShiftDto> assignShift(
             @PathVariable Long id,
-            @Valid @RequestBody ShiftAssignDto dto,
-            @RequestHeader(value = "X-User-Role", defaultValue = "MANAGER") String updaterRole) {
-        ShiftDto shift = employeeService.assignShift(id, dto, updaterRole);
+            @Valid @RequestBody ShiftAssignDto dto) {
+        ShiftDto shift = employeeService.assignShift(id, dto);
         return ApiResponse.success("Shift assigned successfully.", shift);
     }
 }
