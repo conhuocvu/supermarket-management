@@ -1,12 +1,13 @@
-@ -0,0 +1,200 @@
 package com.supermarket.backend.config;
 
 import com.supermarket.backend.model.Certification;
 import com.supermarket.backend.model.Employee;
 import com.supermarket.backend.model.Shift;
+import com.supermarket.backend.model.Promotion;
 import com.supermarket.backend.repository.CertificationRepository;
 import com.supermarket.backend.repository.EmployeeRepository;
 import com.supermarket.backend.repository.ShiftRepository;
+import com.supermarket.backend.repository.PromotionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -21,18 +22,26 @@ public class DataSeeder implements CommandLineRunner {
     private final EmployeeRepository employeeRepository;
     private final ShiftRepository shiftRepository;
     private final CertificationRepository certificationRepository;
+    private final PromotionRepository promotionRepository;
 
     @Autowired
     public DataSeeder(EmployeeRepository employeeRepository,
                       ShiftRepository shiftRepository,
-                      CertificationRepository certificationRepository) {
+                      CertificationRepository certificationRepository,
+                      PromotionRepository promotionRepository) {
         this.employeeRepository = employeeRepository;
         this.shiftRepository = shiftRepository;
         this.certificationRepository = certificationRepository;
+        this.promotionRepository = promotionRepository;
     }
 
     @Override
     public void run(String... args) throws Exception {
+        seedEmployees();
+        seedPromotions();
+    }
+
+    private void seedEmployees() {
         if (employeeRepository.count() > 0) {
             return; // Already seeded
         }
@@ -197,5 +206,91 @@ public class DataSeeder implements CommandLineRunner {
                 .imageUrl("https://images.unsplash.com/photo-1500048993953-d23a436266cf?w=150")
                 .build();
         employeeRepository.save(marcusSterling);
+    }
+
+    private void seedPromotions() {
+        if (promotionRepository.count() > 0) {
+            return; // Already seeded
+        }
+
+        // 1. Fresh Harvest Weekend
+        promotionRepository.save(Promotion.builder()
+                .name("Fresh Harvest Weekend")
+                .code("HARVEST15")
+                .description("15% off all organic produce sections. Applicable for loyalty members and bulk purchases. This seasonal promotion aims to increase weekend foot traffic in the fresh produce aisle while rewarding our most frequent shoppers.")
+                .priority("MEDIUM")
+                .discountType("PERCENTAGE")
+                .discountValue(15.0)
+                .targetCategories(Arrays.asList("Seasonal", "Produce"))
+                .targetProducts(Arrays.asList("Organic Kale", "Baby Carrots", "Vine Tomatoes", "Avocados"))
+                .startDate(LocalDate.now().minusDays(5))
+                .endDate(LocalDate.now().plusDays(10))
+                .imageUrl("https://images.unsplash.com/photo-1542838132-92c53300491e?w=600")
+                .visibility("Storewide & Online")
+                .build());
+
+        // 2. Autumn Bakery BOGO
+        promotionRepository.save(Promotion.builder()
+                .name("Autumn Bakery BOGO")
+                .code("BAKERYBOGO")
+                .description("Buy one get one free on all artisanal breads and pastries every Tuesday.")
+                .priority("HIGH")
+                .discountType("PERCENTAGE")
+                .discountValue(50.0)
+                .targetCategories(Arrays.asList("BOGO", "Bakery"))
+                .targetProducts(Arrays.asList("Artisanal Sourdough", "French Croissants", "Chocolate Muffins"))
+                .startDate(LocalDate.now().plusDays(2))
+                .endDate(LocalDate.now().plusDays(20))
+                .imageUrl("https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600")
+                .visibility("Storewide")
+                .build());
+
+        // 3. Flash Dairy Sale
+        promotionRepository.save(Promotion.builder()
+                .name("Flash Dairy Sale")
+                .code("DAIRY20")
+                .description("20% off all dairy products. Limited time offer only for the next 24 hours.")
+                .priority("HIGH")
+                .discountType("PERCENTAGE")
+                .discountValue(20.0)
+                .targetCategories(Arrays.asList("Flash Sale", "Dairy"))
+                .targetProducts(Arrays.asList("Whole Milk 1L", "Greek Yogurt", "Cheddar Cheese 200g"))
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(1))
+                .imageUrl("https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600")
+                .visibility("Storewide")
+                .build());
+
+        // 4. Holiday Spirits Pack
+        promotionRepository.save(Promotion.builder()
+                .name("Holiday Spirits Pack")
+                .code("SPIRITS10")
+                .description("Scheduled promotion for holiday wine packs and spirit assortments.")
+                .priority("MEDIUM")
+                .discountType("PERCENTAGE")
+                .discountValue(10.0)
+                .targetCategories(Arrays.asList("Seasonal", "Beverages"))
+                .targetProducts(Arrays.asList("Holiday Wine Pack", "Premium Spirits"))
+                .startDate(LocalDate.now().plusDays(30))
+                .endDate(LocalDate.now().plusDays(50))
+                .imageUrl("https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600")
+                .visibility("Online")
+                .build());
+
+        // 5. Home Care Week
+        promotionRepository.save(Promotion.builder()
+                .name("Home Care Week")
+                .code("HOMECARE")
+                .description("Special discounts on cleaning detergents and household supplies.")
+                .priority("LOW")
+                .discountType("FIXED_AMOUNT")
+                .discountValue(5.0)
+                .targetCategories(Arrays.asList("Household"))
+                .targetProducts(Arrays.asList("Disinfectant Spray", "Laundry Detergent"))
+                .startDate(LocalDate.now().plusDays(15))
+                .endDate(LocalDate.now().plusDays(22))
+                .imageUrl("https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600")
+                .visibility("Storewide & Online")
+                .build());
     }
 }

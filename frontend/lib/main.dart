@@ -7,6 +7,9 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/profile_screen.dart';
 import 'package:frontend/screens/manage_role_screen.dart';
 import 'package:frontend/screens/schedule_shift_screen.dart';
+import 'package:frontend/screens/promotion_list_screen.dart';
+import 'package:frontend/screens/promotion_detail_screen.dart';
+import 'package:frontend/screens/new_promotion_screen.dart';
 import 'package:http/http.dart' as http;
 
 final GoRouter _router = GoRouter(
@@ -43,6 +46,30 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/cors-test',
       builder: (context, state) => const CorsTestHomePage(),
+    ),
+    GoRoute(
+      path: '/promotions',
+      builder: (context, state) => const PromotionListScreen(),
+    ),
+    GoRoute(
+      path: '/promotions/new',
+      builder: (context, state) => const NewPromotionScreen(promotionId: null),
+    ),
+    GoRoute(
+      path: '/promotions/edit/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return NewPromotionScreen(promotionId: id);
+      },
+    ),
+    GoRoute(
+      path: '/promotions/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return PromotionDetailScreen(promotionId: id);
+      },
     ),
   ],
 );

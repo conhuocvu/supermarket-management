@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:frontend/core/errors/app_error.dart';
 import 'package:frontend/models/employee.dart';
 import 'package:frontend/models/shift.dart';
+import 'package:frontend/models/promotion.dart';
 
 class ApiService {
   final Dio _dio;
@@ -231,6 +232,188 @@ class ApiService {
         return Result.failure(AppError(
           code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to assign shift.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<List<Promotion>>> getPromotions({String? search, String? category}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (category != null && category.isNotEmpty) {
+        queryParams['category'] = category;
+      }
+
+      final response = await _dio.get('/promotions', queryParameters: queryParams);
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final list = (apiResponse['data'] as List)
+            .map((e) => Promotion.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return Result.success(list);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch promotions.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Promotion>> getPromotion(int id) async {
+    try {
+      final response = await _dio.get('/promotions/$id');
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final promotion = Promotion.fromJson(apiResponse['data'] as Map<String, dynamic>);
+        return Result.success(promotion);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch promotion details.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Promotion>> createPromotion({
+    required String name,
+    required String code,
+    required String priority,
+    required String discountType,
+    required double discountValue,
+    String? description,
+    List<String>? targetCategories,
+    List<String>? targetProducts,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? imageUrl,
+    String? visibility,
+  }) async {
+    try {
+      final response = await _dio.post('/promotions', data: {
+        'name': name,
+        'code': code,
+        'priority': priority,
+        'discountType': discountType,
+        'discountValue': discountValue,
+        'description': description ?? '',
+        'targetCategories': targetCategories ?? [],
+        'targetProducts': targetProducts ?? [],
+        'startDate': startDate.toIso8601String().substring(0, 10),
+        'endDate': endDate.toIso8601String().substring(0, 10),
+        'imageUrl': imageUrl ?? '',
+        'visibility': visibility ?? 'Storewide & Online',
+      });
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final promotion = Promotion.fromJson(apiResponse['data'] as Map<String, dynamic>);
+        return Result.success(promotion);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to create promotion.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Promotion>> updatePromotion(
+    int id, {
+    required String name,
+    required String code,
+    required String priority,
+    required String discountType,
+    required double discountValue,
+    String? description,
+    List<String>? targetCategories,
+    List<String>? targetProducts,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? imageUrl,
+    String? visibility,
+  }) async {
+    try {
+      final response = await _dio.put('/promotions/$id', data: {
+        'name': name,
+        'code': code,
+        'priority': priority,
+        'discountType': discountType,
+        'discountValue': discountValue,
+        'description': description ?? '',
+        'targetCategories': targetCategories ?? [],
+        'targetProducts': targetProducts ?? [],
+        'startDate': startDate.toIso8601String().substring(0, 10),
+        'endDate': endDate.toIso8601String().substring(0, 10),
+        'imageUrl': imageUrl ?? '',
+        'visibility': visibility ?? 'Storewide & Online',
+      });
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final promotion = Promotion.fromJson(apiResponse['data'] as Map<String, dynamic>);
+        return Result.success(promotion);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to update promotion.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<void>> deletePromotion(int id) async {
+    try {
+      final response = await _dio.delete('/promotions/$id');
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        return Result.success(null);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to delete promotion.',
         ));
       }
     } on DioException catch (e) {

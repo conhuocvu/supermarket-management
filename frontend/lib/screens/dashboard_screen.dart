@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/providers/employee_provider.dart';
 import 'package:frontend/widgets/shared/app_search_field.dart';
@@ -128,6 +129,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.local_shipping_outlined), label: 'Supplier'),
           BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined_outlined), label: 'Reports'),
         ],
+        onTap: (index) {
+          if (index == 1) {
+            context.go('/');
+          } else if (index == 2) {
+            context.go('/promotions');
+          }
+        },
       ),
     );
   }
