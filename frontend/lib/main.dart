@@ -10,6 +10,10 @@ import 'package:frontend/screens/schedule_shift_screen.dart';
 import 'package:frontend/screens/promotion_list_screen.dart';
 import 'package:frontend/screens/promotion_detail_screen.dart';
 import 'package:frontend/screens/new_promotion_screen.dart';
+import 'package:frontend/screens/supplier_list_screen.dart';
+import 'package:frontend/screens/supplier_detail_screen.dart';
+import 'package:frontend/screens/new_supplier_screen.dart';
+import 'package:frontend/screens/assign_products_screen.dart';
 import 'package:http/http.dart' as http;
 
 final GoRouter _router = GoRouter(
@@ -69,6 +73,39 @@ final GoRouter _router = GoRouter(
         final idStr = state.pathParameters['id'];
         final id = int.tryParse(idStr ?? '') ?? 0;
         return PromotionDetailScreen(promotionId: id);
+      },
+    ),
+    // ── Supplier routes (static before dynamic) ──
+    GoRoute(
+      path: '/suppliers',
+      builder: (context, state) => const SupplierListScreen(),
+    ),
+    GoRoute(
+      path: '/suppliers/new',
+      builder: (context, state) => const NewSupplierScreen(supplierId: null),
+    ),
+    GoRoute(
+      path: '/suppliers/edit/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return NewSupplierScreen(supplierId: id);
+      },
+    ),
+    GoRoute(
+      path: '/suppliers/:id/assign',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return AssignProductsScreen(supplierId: id);
+      },
+    ),
+    GoRoute(
+      path: '/suppliers/:id',
+      builder: (context, state) {
+        final idStr = state.pathParameters['id'];
+        final id = int.tryParse(idStr ?? '') ?? 0;
+        return SupplierDetailScreen(supplierId: id);
       },
     ),
   ],

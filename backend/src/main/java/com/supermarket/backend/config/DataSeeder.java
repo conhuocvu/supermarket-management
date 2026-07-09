@@ -1,13 +1,7 @@
 package com.supermarket.backend.config;
 
-import com.supermarket.backend.model.Certification;
-import com.supermarket.backend.model.Employee;
-import com.supermarket.backend.model.Shift;
-import com.supermarket.backend.model.Promotion;
-import com.supermarket.backend.repository.CertificationRepository;
-import com.supermarket.backend.repository.EmployeeRepository;
-import com.supermarket.backend.repository.ShiftRepository;
-import com.supermarket.backend.repository.PromotionRepository;
+import com.supermarket.backend.model.*;
+import com.supermarket.backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -23,22 +17,34 @@ public class DataSeeder implements CommandLineRunner {
     private final ShiftRepository shiftRepository;
     private final CertificationRepository certificationRepository;
     private final PromotionRepository promotionRepository;
+    private final ProductRepository productRepository;
+    private final SupplierRepository supplierRepository;
+    private final SupplierProductRepository supplierProductRepository;
 
     @Autowired
     public DataSeeder(EmployeeRepository employeeRepository,
                       ShiftRepository shiftRepository,
                       CertificationRepository certificationRepository,
-                      PromotionRepository promotionRepository) {
+                      PromotionRepository promotionRepository,
+                      ProductRepository productRepository,
+                      SupplierRepository supplierRepository,
+                      SupplierProductRepository supplierProductRepository) {
         this.employeeRepository = employeeRepository;
         this.shiftRepository = shiftRepository;
         this.certificationRepository = certificationRepository;
         this.promotionRepository = promotionRepository;
+        this.productRepository = productRepository;
+        this.supplierRepository = supplierRepository;
+        this.supplierProductRepository = supplierProductRepository;
     }
 
     @Override
     public void run(String... args) throws Exception {
         seedEmployees();
         seedPromotions();
+        seedProducts();
+        seedSuppliers();
+        seedSupplierProducts();
     }
 
     private void seedEmployees() {
@@ -292,5 +298,178 @@ public class DataSeeder implements CommandLineRunner {
                 .imageUrl("https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600")
                 .visibility("Storewide & Online")
                 .build());
+    }
+
+    private void seedProducts() {
+        if (productRepository.count() > 0) {
+            return;
+        }
+
+        productRepository.save(Product.builder()
+                .sku("PRO-442-KAL")
+                .name("Organic Curly Kale")
+                .category("Produce")
+                .basePrice(3.49)
+                .unit("lb")
+                .imageUrl("https://images.unsplash.com/photo-1628773822503-930a84074216?w=150")
+                .build());
+
+        productRepository.save(Product.builder()
+                .sku("DAR-102-MIL")
+                .name("Whole Milk 1 Gallon")
+                .category("Dairy")
+                .basePrice(4.99)
+                .unit("unit")
+                .imageUrl("https://images.unsplash.com/photo-1563636619-e9143da7973b?w=150")
+                .build());
+
+        productRepository.save(Product.builder()
+                .sku("BAK-551-SOU")
+                .name("Artisan Sourdough")
+                .category("Bakery")
+                .basePrice(6.50)
+                .unit("unit")
+                .imageUrl("https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=150")
+                .build());
+
+        productRepository.save(Product.builder()
+                .sku("PRO-009-STR")
+                .name("California Strawberries")
+                .category("Produce")
+                .basePrice(5.00)
+                .unit("box")
+                .imageUrl("https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=150")
+                .build());
+
+        productRepository.save(Product.builder()
+                .sku("SEA-881-SAM")
+                .name("Smoked Atlantic Salmon")
+                .category("Bakery") // Use matching categories or specific tags
+                .basePrice(12.99)
+                .unit("unit")
+                .imageUrl("https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=150")
+                .build());
+
+        productRepository.save(Product.builder()
+                .sku("DAR-322-CHE")
+                .name("Aged Sharp Cheddar")
+                .category("Dairy")
+                .basePrice(8.50)
+                .unit("unit")
+                .imageUrl("https://images.unsplash.com/photo-1618265341355-d0e2d1fdf26b?w=150")
+                .build());
+    }
+
+    private void seedSuppliers() {
+        if (supplierRepository.count() > 0) {
+            return;
+        }
+
+        supplierRepository.save(Supplier.builder()
+                .code("SUP-082")
+                .name("Global Fresh Farms")
+                .category("FRESH PRODUCE")
+                .nextDelivery("Thursday, 06:00 AM")
+                .status("Reliable")
+                .contactType("email")
+                .contactValue("info@globalfresh.com")
+                .onTimeDeliveryRate(98.0)
+                .averageRating(4.9)
+                .notes("Agricultural Logistics Partner")
+                .build());
+
+        supplierRepository.save(Supplier.builder()
+                .code("SUP-021")
+                .name("Valley Dairy Co.")
+                .category("DAIRY & COLD")
+                .nextDelivery("Daily, 04:30 AM")
+                .status("Warning")
+                .contactType("phone")
+                .contactValue("+15559876543")
+                .onTimeDeliveryRate(92.0)
+                .averageRating(4.2)
+                .notes("Dairy & Cold Storage Partner")
+                .build());
+
+        supplierRepository.save(Supplier.builder()
+                .code("SUP-045")
+                .name("Bulk Mart Logistics")
+                .category("DRY GOODS")
+                .nextDelivery("Monday, 09:00 PM")
+                .status("Reliable")
+                .contactType("email")
+                .contactValue("info@bulkmart.com")
+                .onTimeDeliveryRate(96.0)
+                .averageRating(4.7)
+                .notes("Dry Goods Wholesaler")
+                .build());
+
+        supplierRepository.save(Supplier.builder()
+                .code("SUP-099")
+                .name("Nature's Harvest")
+                .category("ORGANIC")
+                .nextDelivery("Wednesday, 05:00 AM")
+                .status("Reliable")
+                .contactType("email")
+                .contactValue("contact@naturesharvest.org")
+                .onTimeDeliveryRate(97.0)
+                .averageRating(4.8)
+                .notes("Organic Foods Supplier")
+                .certification("Certified Organic")
+                .build());
+    }
+
+    private void seedSupplierProducts() {
+        if (supplierProductRepository.count() > 0) {
+            return;
+        }
+
+        Supplier global = supplierRepository.findByCodeIgnoreCase("SUP-082").orElse(null);
+        Supplier valley = supplierRepository.findByCodeIgnoreCase("SUP-021").orElse(null);
+        Supplier bulk = supplierRepository.findByCodeIgnoreCase("SUP-045").orElse(null);
+        Supplier nature = supplierRepository.findByCodeIgnoreCase("SUP-099").orElse(null);
+
+        Product kale = productRepository.findBySkuIgnoreCase("PRO-442-KAL").orElse(null);
+        Product milk = productRepository.findBySkuIgnoreCase("DAR-102-MIL").orElse(null);
+        Product sourdough = productRepository.findBySkuIgnoreCase("BAK-551-SOU").orElse(null);
+        Product strawberry = productRepository.findBySkuIgnoreCase("PRO-009-STR").orElse(null);
+        Product salmon = productRepository.findBySkuIgnoreCase("SEA-881-SAM").orElse(null);
+        Product cheddar = productRepository.findBySkuIgnoreCase("DAR-322-CHE").orElse(null);
+
+        if (global != null) {
+            if (kale != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(global).product(kale).importPrice(3.00).build());
+            }
+            if (sourdough != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(global).product(sourdough).importPrice(5.80).build());
+            }
+            if (salmon != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(global).product(salmon).importPrice(11.50).build());
+            }
+        }
+
+        if (valley != null) {
+            if (milk != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(valley).product(milk).importPrice(4.50).build());
+            }
+            if (cheddar != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(valley).product(cheddar).importPrice(7.80).build());
+            }
+        }
+
+        if (bulk != null) {
+            if (sourdough != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(bulk).product(sourdough).importPrice(5.50).build());
+            }
+        }
+
+        if (nature != null) {
+            if (kale != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(nature).product(kale).importPrice(3.20).build());
+            }
+            if (strawberry != null) {
+                supplierProductRepository.save(SupplierProduct.builder().supplier(nature).product(strawberry).importPrice(4.80).build());
+            }
+        }
     }
 }

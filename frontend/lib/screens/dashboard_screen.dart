@@ -134,6 +134,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             context.go('/');
           } else if (index == 2) {
             context.go('/promotions');
+          } else if (index == 3) {
+            context.go('/suppliers');
           }
         },
       ),

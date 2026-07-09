@@ -3,6 +3,9 @@ import 'package:frontend/core/errors/app_error.dart';
 import 'package:frontend/models/employee.dart';
 import 'package:frontend/models/shift.dart';
 import 'package:frontend/models/promotion.dart';
+import 'package:frontend/models/supplier.dart';
+import 'package:frontend/models/product.dart';
+import 'package:frontend/models/supplier_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -414,6 +417,282 @@ class ApiService {
         return Result.failure(AppError(
           code: ErrorCode.VALIDATION,
           userMessage: apiResponse['message'] ?? 'Failed to delete promotion.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<List<Supplier>>> getSuppliers({String? search, String? category}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (category != null && category.isNotEmpty) {
+        queryParams['category'] = category;
+      }
+
+      final response = await _dio.get('/suppliers', queryParameters: queryParams);
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final list = (apiResponse['data'] as List)
+            .map((e) => Supplier.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return Result.success(list);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch suppliers.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Supplier>> getSupplier(int id) async {
+    try {
+      final response = await _dio.get('/suppliers/$id');
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        return Result.success(Supplier.fromJson(apiResponse['data'] as Map<String, dynamic>));
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch supplier details.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Supplier>> createSupplier({
+    required String code,
+    required String name,
+    required String category,
+    required String nextDelivery,
+    required String status,
+    required String contactType,
+    required String contactValue,
+    required double onTimeDeliveryRate,
+    required double averageRating,
+    required String notes,
+    required String certification,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/suppliers',
+        data: {
+          'code': code,
+          'name': name,
+          'category': category,
+          'nextDelivery': nextDelivery,
+          'status': status,
+          'contactType': contactType,
+          'contactValue': contactValue,
+          'onTimeDeliveryRate': onTimeDeliveryRate,
+          'averageRating': averageRating,
+          'notes': notes,
+          'certification': certification,
+        },
+      );
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        return Result.success(Supplier.fromJson(apiResponse['data'] as Map<String, dynamic>));
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to create supplier.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Supplier>> updateSupplier(
+    int id, {
+    required String code,
+    required String name,
+    required String category,
+    required String nextDelivery,
+    required String status,
+    required String contactType,
+    required String contactValue,
+    required double onTimeDeliveryRate,
+    required double averageRating,
+    required String notes,
+    required String certification,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/suppliers/$id',
+        data: {
+          'code': code,
+          'name': name,
+          'category': category,
+          'nextDelivery': nextDelivery,
+          'status': status,
+          'contactType': contactType,
+          'contactValue': contactValue,
+          'onTimeDeliveryRate': onTimeDeliveryRate,
+          'averageRating': averageRating,
+          'notes': notes,
+          'certification': certification,
+        },
+      );
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        return Result.success(Supplier.fromJson(apiResponse['data'] as Map<String, dynamic>));
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to update supplier.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<Supplier>> updateSupplierStatus(int id, String status) async {
+    try {
+      final response = await _dio.patch(
+        '/suppliers/$id/status',
+        data: {'status': status},
+      );
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        return Result.success(Supplier.fromJson(apiResponse['data'] as Map<String, dynamic>));
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to update status.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<List<Product>>> getProducts({String? search, String? category}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (category != null && category.isNotEmpty) {
+        queryParams['category'] = category;
+      }
+
+      final response = await _dio.get('/products', queryParameters: queryParams);
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final list = (apiResponse['data'] as List)
+            .map((e) => Product.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return Result.success(list);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch products.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<List<SupplierProduct>>> getSupplierProducts(int supplierId) async {
+    try {
+      final response = await _dio.get('/suppliers/$supplierId/products');
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final list = (apiResponse['data'] as List)
+            .map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return Result.success(list);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to fetch supplier products.',
+        ));
+      }
+    } on DioException catch (e) {
+      return Result.failure(_handleDioException(e));
+    } catch (e) {
+      return Result.failure(AppError(
+        code: ErrorCode.INTERNAL,
+        userMessage: 'An unexpected error occurred: $e',
+      ));
+    }
+  }
+
+  Future<Result<List<SupplierProduct>>> assignProducts(
+    int supplierId,
+    List<Map<String, dynamic>> assignments,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '/suppliers/$supplierId/products',
+        data: assignments,
+      );
+      final apiResponse = response.data as Map<String, dynamic>;
+
+      if (apiResponse['success'] == true) {
+        final list = (apiResponse['data'] as List)
+            .map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return Result.success(list);
+      } else {
+        return Result.failure(AppError(
+          code: ErrorCode.VALIDATION,
+          userMessage: apiResponse['message'] ?? 'Failed to assign products.',
         ));
       }
     } on DioException catch (e) {

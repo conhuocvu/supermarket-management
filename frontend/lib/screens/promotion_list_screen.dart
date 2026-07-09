@@ -182,6 +182,8 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
             context.go('/');
           } else if (index == 2) {
             // Already here
+          } else if (index == 3) {
+            context.go('/suppliers');
           }
         },
       ),
