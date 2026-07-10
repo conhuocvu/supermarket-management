@@ -3,7 +3,7 @@ package com.supermarket.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Entity
+@Entity(name = "SupplierFeatureSupplier")
 @Table(name = "suppliers_v2")
 @Getter
 @Setter

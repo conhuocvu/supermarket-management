@@ -15,7 +15,7 @@ public interface SupplierFeatureSupplierRepository extends JpaRepository<Supplie
     boolean existsByCodeIgnoreCase(String code);
     boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);
 
-    @Query("SELECT s FROM Supplier s " +
+    @Query("SELECT s FROM SupplierFeatureSupplier s " +
            "WHERE (:search IS NULL OR :search = '' OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(s.code) LIKE LOWER(CONCAT('%', :search, '%'))) " +
            "AND (:category IS NULL OR :category = '' OR :category = 'ALL' OR LOWER(s.category) = LOWER(:category))")
     List<Supplier> searchSuppliers(@Param("search") String search, @Param("category") String category);

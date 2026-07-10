@@ -33,15 +33,32 @@ final currentUserRoleProvider = Provider<String>((ref) {
   }
 });
 
-// Provide ApiService configured with the real Supabase JWT token
-final apiServiceProvider = Provider<ApiService>((ref) {
+// FutureProvider that fetches a Spring Boot-signed JWT token using the user's real Supabase role.
+// Spring Boot validates its own tokens, not Supabase tokens — this bridges the two auth systems.
+final backendTokenProvider = FutureProvider<String>((ref) async {
   final authState = ref.watch(authProvider);
+  if (!authState.isInitialized || authState.session == null) return '';
+
+  final role = ref.watch(currentUserRoleProvider);
+  if (role.isEmpty) return '';
+
+  // Use the vanilla (no-auth) service to call the public /auth/token endpoint
+  final vanillaApi = ref.read(vanillaApiServiceProvider);
+  final result = await vanillaApi.getMockToken(role);
+  if (result.isSuccess) return result.dataOrThrow;
+  return '';
+});
+
+// Provide ApiService configured with the Spring Boot-signed JWT token (derived from real Supabase role)
+final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService(
     tokenProvider: () {
-      return authState.session?.accessToken ?? '';
+      // Read the cached Spring Boot token synchronously
+      return ref.read(backendTokenProvider).value ?? '';
     },
   );
 });
+
 
 // Provide search query state
 final employeeSearchQueryProvider = StateProvider<String>((ref) => '');

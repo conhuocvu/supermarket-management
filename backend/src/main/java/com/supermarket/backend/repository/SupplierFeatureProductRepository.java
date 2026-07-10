@@ -14,7 +14,7 @@ public interface SupplierFeatureProductRepository extends JpaRepository<Product,
     Optional<Product> findBySkuIgnoreCase(String sku);
     boolean existsBySkuIgnoreCase(String sku);
 
-    @Query("SELECT p FROM Product p " +
+    @Query("SELECT p FROM SupplierFeatureProduct p " +
            "WHERE (:search IS NULL OR :search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%'))) " +
            "AND (:category IS NULL OR :category = '' OR :category = 'ALL' OR LOWER(p.category) = LOWER(:category))")
     List<Product> searchProducts(@Param("search") String search, @Param("category") String category);
