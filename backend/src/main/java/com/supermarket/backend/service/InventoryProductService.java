@@ -340,9 +340,15 @@ public class InventoryProductService {
         product.setInventoryUnitNumber(dto.getInventoryUnitNumber());
         product.setSellingPrice(dto.getSellingPrice());
         product.setReorderLevel(dto.getReorderLevel());
-        if (dto.getStatus() != null) {
-            product.setStatus(dto.getStatus());
+        
+        String status = dto.getStatus();
+        if (dto.getSellingPrice() == null || dto.getSellingPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            status = "INACTIVE";
         }
+        if (status != null) {
+            product.setStatus(status);
+        }
+        
         product.setDescription(dto.getDescription());
         product.setImageUrl(dto.getImageUrl());
         product.setExpiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30);

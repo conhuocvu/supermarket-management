@@ -62,8 +62,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Load categories for dropdown
-      final response = await _apiService.getCategories(page: 0, size: 100);
+      final response = await _apiService.getCategories(page: 0, size: 1000);
       final items = response['data']['items'] as List<dynamic>;
       _availableCategories = items
           .map((e) => CategoryItem.fromJson(e as Map<String, dynamic>))
@@ -255,27 +254,30 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                       Expanded(
                         child: _buildFormField(
                           label: 'Parent Category',
-                          child: DropdownButtonFormField<int?>(
-                            value: _selectedParentCategory,
-                            decoration: inputDecorationTheme,
-                            hint: const Text('Select Parent Category'),
-                            items: [
-                              const DropdownMenuItem<int?>(
-                                value: null,
-                                child: Text('None (Root Category)'),
-                              ),
-                              ..._availableCategories.map((cat) {
-                                return DropdownMenuItem<int?>(
-                                  value: cat.categoryNumber,
-                                  child: Text(cat.categoryName),
-                                );
-                              }),
-                            ],
-                            onChanged: (value) {
+                          child: DropdownMenu<int?>(
+                            initialSelection: _selectedParentCategory,
+                            expandedInsets: EdgeInsets.zero,
+                            inputDecorationTheme: inputDecorationTheme,
+                            hintText: 'Select Parent Category',
+                            enableFilter: true,
+                            enableSearch: true,
+                            onSelected: (int? value) {
                               setState(() {
                                 _selectedParentCategory = value;
                               });
                             },
+                            dropdownMenuEntries: [
+                              const DropdownMenuEntry<int?>(
+                                value: null,
+                                label: 'None (Root Category)',
+                              ),
+                              ..._availableCategories.map((cat) {
+                                return DropdownMenuEntry<int?>(
+                                  value: cat.categoryNumber,
+                                  label: cat.categoryName,
+                                );
+                              }),
+                            ],
                           ),
                         ),
                       ),

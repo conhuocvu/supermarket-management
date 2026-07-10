@@ -93,12 +93,20 @@ public class CategoryService {
     }
     
     private void updateStatusRecursive(Category category, String newStatus) {
-        category.setStatus(newStatus);
-        categoryRepository.save(category);
+        List<Category> allCategories = categoryRepository.findAll();
+        List<Integer> idsToUpdate = new java.util.ArrayList<>();
+        idsToUpdate.add(category.getCategoryNumber());
+        collectDescendantIds(category.getCategoryNumber(), allCategories, idsToUpdate);
         
-        List<Category> children = categoryRepository.findByParentCategoryNumber(category.getCategoryNumber());
-        for (Category child : children) {
-            updateStatusRecursive(child, newStatus);
+        categoryRepository.updateStatusForIds(idsToUpdate, newStatus);
+    }
+    
+    private void collectDescendantIds(Integer parentId, List<Category> allCategories, List<Integer> idsToUpdate) {
+        for (Category c : allCategories) {
+            if (parentId.equals(c.getParentCategoryNumber())) {
+                idsToUpdate.add(c.getCategoryNumber());
+                collectDescendantIds(c.getCategoryNumber(), allCategories, idsToUpdate);
+            }
         }
     }
 

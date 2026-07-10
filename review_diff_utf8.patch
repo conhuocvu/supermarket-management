@@ -1,0 +1,3860 @@
+﻿diff --git a/.agents/skills/implement-screen/SKILL.md b/.agents/skills/implement-screen/SKILL.md
+index f5663e5..6253bca 100644
+--- a/.agents/skills/implement-screen/SKILL.md
++++ b/.agents/skills/implement-screen/SKILL.md
+@@ -39,6 +39,35 @@ The generated screen should include:
+ - Proper navigation
+ - Theme support
+ - Shared components only
++- **Database Alignment**: Always check Supabase/PostgreSQL schema (`update_schema.sql` or DB directly) for missing columns or tables needed by the screen. If missing, add them to the entity and append the `ALTER TABLE` to `database/update_schema.sql`.
++
++## Screen UI Patterns (List & Form)
++
++When designing screens for this project (especially List or Form/Add/Edit screens), you MUST follow these patterns extracted from existing screens (e.g., Product and Category Management):
++
++### 1. App Shell & Title (Navigation)
++- **Do NOT** use a standard `AppBar` inside the screen body.
++- Use `WidgetsBinding.instance.addPostFrameCallback` inside `initState` to update the global app shell title and breadcrumbs via `shellLayoutProvider`.
++- Example: `ref.read(shellLayoutProvider.notifier).update(title: 'Category Management', breadcrumbs: ['Inventory', 'Categories']);`
++
++### 2. Form Screens (Add/Edit)
++- **No Inner Title Text**: Do not put the title text ("Add Product", "Edit Category") in the screen body since it is already on the top breadcrumbs.
++- **Back Button**: Place a back button at the very top left of the form content:
++  `IconButton(icon: Icon(Icons.arrow_back), style: IconButton.styleFrom(backgroundColor: theme.colorScheme.surfaceContainerHighest), onPressed: () => context.pop(false))`
++- **Form Container**: Wrap the actual form fields inside a `Container` with:
++  - White background (`theme.colorScheme.surface`)
++  - Padding `24px`, Border Radius `16px`
++  - Subtle border: `Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5))`
++  - Drop shadow: `BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2))`
++- **Input Fields Decoration**: All TextFormFields/Dropdowns MUST have a uniform format:
++  - `filled: true`
++  - `fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)`
++  - Border radius `16px` for normal, focused, and error borders.
++
++### 3. List Screens (Data Tables)
++- Wrap the main table in an `Expanded` `Card` with `elevation: 2`, `shadowColor: Colors.black.withOpacity(0.04)`, and rounded border `16px`.
++- In the table header/filter area, include a Search field and an "Add [Entity]" FilledButton.
++- For inactive items, fade out the text color and background color of the row slightly to distinguish them from active items.
+ 
+ ## Follow
+ 
+diff --git a/.gitignore b/.gitignore
+index 7cc3c31..048bedf 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -37,3 +37,10 @@ Thumbs.db
+ **/generated_plugins.cmake
+ **/.flutter-plugins
+ **/.flutter-plugins-dependencies
++**/generated_plugin_registrant.cc
++**/GeneratedPluginRegistrant.swift
++**/GeneratedPluginRegistrant.h
++**/generated_plugin_registrant.h
++**/GeneratedPluginRegistrant.m
++**/GeneratedPluginRegistrant.java
++
+diff --git a/backend/pom.xml b/backend/pom.xml
+index c2d2bf8..e907a57 100644
+--- a/backend/pom.xml
++++ b/backend/pom.xml
+@@ -43,12 +43,6 @@
+ 			<artifactId>spring-boot-starter-webmvc</artifactId>
+ 		</dependency>
+ 
+-		<dependency>
+-			<groupId>org.springframework.boot</groupId>
+-			<artifactId>spring-boot-devtools</artifactId>
+-			<scope>runtime</scope>
+-			<optional>true</optional>
+-		</dependency>
+ 		<dependency>
+ 			<groupId>org.postgresql</groupId>
+ 			<artifactId>postgresql</artifactId>
+@@ -79,6 +73,12 @@
+ 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+ 			<scope>test</scope>
+ 		</dependency>
++		<dependency>
++			<groupId>org.springframework.boot</groupId>
++			<artifactId>spring-boot-devtools</artifactId>
++			<scope>runtime</scope>
++			<optional>true</optional>
++		</dependency>
+ 	</dependencies>
+ 
+ 	<build>
+diff --git a/backend/src/main/java/com/supermarket/backend/controller/CategoryController.java b/backend/src/main/java/com/supermarket/backend/controller/CategoryController.java
+new file mode 100644
+index 0000000..d6c2d4c
+--- /dev/null
++++ b/backend/src/main/java/com/supermarket/backend/controller/CategoryController.java
+@@ -0,0 +1,122 @@
++package com.supermarket.backend.controller;
++
++import com.supermarket.backend.dto.CategoryDTO;
++import com.supermarket.backend.service.CategoryService;
++import lombok.RequiredArgsConstructor;
++import org.springframework.data.domain.Page;
++import org.springframework.data.domain.PageRequest;
++import org.springframework.data.domain.Sort;
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.*;
++
++import java.util.HashMap;
++import java.util.Map;
++
++@RestController
++@RequestMapping("/api/categories")
++@RequiredArgsConstructor
++public class CategoryController {
++
++    private final CategoryService categoryService;
++
++    @GetMapping
++    public ResponseEntity<Map<String, Object>> getCategories(
++            @RequestParam(value = "keyword", required = false) String keyword,
++            @RequestParam(value = "page", defaultValue = "0") int page,
++            @RequestParam(value = "size", defaultValue = "10") int size) {
++
++        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("categoryName").ascending());
++        Page<CategoryDTO> categories = categoryService.getCategories(keyword, pageRequest);
++
++        Map<String, Object> data = new HashMap<>();
++        data.put("items", categories.getContent());
++        data.put("page", categories.getNumber());
++        data.put("size", categories.getSize());
++        data.put("totalItems", categories.getTotalElements());
++        data.put("totalPages", categories.getTotalPages());
++
++        Map<String, Object> response = new HashMap<>();
++        response.put("success", true);
++        response.put("message", "Category list loaded successfully.");
++        response.put("data", data);
++
++        return ResponseEntity.ok(response);
++    }
++
++    @GetMapping("/{categoryNumber}")
++    public ResponseEntity<Map<String, Object>> getCategory(@PathVariable Integer categoryNumber) {
++        try {
++            CategoryDTO category = categoryService.getCategoryById(categoryNumber);
++            Map<String, Object> response = new HashMap<>();
++            response.put("success", true);
++            response.put("message", "Category retrieved successfully.");
++            response.put("data", category);
++            return ResponseEntity.ok(response);
++        } catch (Exception e) {
++            Map<String, Object> errorResponse = new HashMap<>();
++            errorResponse.put("success", false);
++            errorResponse.put("message", e.getMessage());
++            return ResponseEntity.badRequest().body(errorResponse);
++        }
++    }
++
++    @PostMapping
++    public ResponseEntity<Map<String, Object>> createCategory(@RequestBody CategoryDTO categoryDTO) {
++        try {
++            CategoryDTO newCategory = categoryService.createCategory(categoryDTO);
++            Map<String, Object> response = new HashMap<>();
++            response.put("success", true);
++            response.put("message", "Category has been saved successfully.");
++            response.put("data", newCategory);
++            return ResponseEntity.status(201).body(response);
++        } catch (Exception e) {
++            Map<String, Object> errorResponse = new HashMap<>();
++            errorResponse.put("success", false);
++            errorResponse.put("message", "Category cannot be saved. " + e.getMessage());
++            return ResponseEntity.badRequest().body(errorResponse);
++        }
++    }
++
++    @PutMapping("/{categoryNumber}")
++    public ResponseEntity<Map<String, Object>> updateCategory(
++            @PathVariable Integer categoryNumber,
++            @RequestBody CategoryDTO categoryDTO) {
++        try {
++            CategoryDTO updatedCategory = categoryService.updateCategory(categoryNumber, categoryDTO);
++            Map<String, Object> response = new HashMap<>();
++            response.put("success", true);
++            response.put("message", "Category has been updated successfully.");
++            response.put("data", updatedCategory);
++            return ResponseEntity.ok(response);
++        } catch (Exception e) {
++            Map<String, Object> errorResponse = new HashMap<>();
++            errorResponse.put("success", false);
++            errorResponse.put("message", "Category cannot be updated. " + e.getMessage());
++            return ResponseEntity.badRequest().body(errorResponse);
++        }
++    }
++
++    @PatchMapping("/{categoryNumber}/status")
++    public ResponseEntity<Map<String, Object>> updateCategoryStatus(
++            @PathVariable Integer categoryNumber,
++            @RequestBody Map<String, String> request) {
++        
++        String newStatus = request.get("status");
++        
++        try {
++            CategoryDTO updatedCategory = categoryService.updateCategoryStatus(categoryNumber, newStatus);
++            
++            Map<String, Object> response = new HashMap<>();
++            response.put("success", true);
++            response.put("message", "Category status updated successfully.");
++            response.put("data", updatedCategory);
++            
++            return ResponseEntity.ok(response);
++        } catch (Exception e) {
++            Map<String, Object> errorResponse = new HashMap<>();
++            errorResponse.put("success", false);
++            errorResponse.put("message", e.getMessage());
++            return ResponseEntity.badRequest().body(errorResponse);
++        }
++    }
++}
+diff --git a/backend/src/main/java/com/supermarket/backend/controller/InventoryProductController.java b/backend/src/main/java/com/supermarket/backend/controller/InventoryProductController.java
+index 9e2ea3d..326bd60 100644
+--- a/backend/src/main/java/com/supermarket/backend/controller/InventoryProductController.java
++++ b/backend/src/main/java/com/supermarket/backend/controller/InventoryProductController.java
+@@ -6,6 +6,7 @@ import com.supermarket.backend.dto.ProductCreateUpdateDTO;
+ import com.supermarket.backend.dto.ProductAdjustmentDTO;
+ import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
+ import com.supermarket.backend.dto.PurchaseRequestCreateDTO;
++import com.supermarket.backend.dto.SupplierDTO;
+ import com.supermarket.backend.dto.UnitDTO;
+ import com.supermarket.backend.service.InventoryProductService;
+ import com.supermarket.backend.service.SupabaseStorageService;
+@@ -132,6 +133,18 @@ public class InventoryProductController {
+         return ResponseEntity.ok(response);
+     }
+ 
++    @GetMapping("/suppliers")
++    public ResponseEntity<Map<String, Object>> getSuppliers() {
++        List<SupplierDTO> suppliers = inventoryProductService.getActiveSuppliers();
++        
++        Map<String, Object> response = new HashMap<>();
++        response.put("success", true);
++        response.put("message", "Suppliers loaded successfully.");
++        response.put("data", suppliers);
++
++        return ResponseEntity.ok(response);
++    }
++
+     @PostMapping("/products/upload")
+     public ResponseEntity<Map<String, Object>> uploadProductImage(
+             @RequestParam("file") MultipartFile file) {
+diff --git a/backend/src/main/java/com/supermarket/backend/dto/CategoryDTO.java b/backend/src/main/java/com/supermarket/backend/dto/CategoryDTO.java
+index 006df16..db0e28c 100644
+--- a/backend/src/main/java/com/supermarket/backend/dto/CategoryDTO.java
++++ b/backend/src/main/java/com/supermarket/backend/dto/CategoryDTO.java
+@@ -8,6 +8,10 @@ import lombok.*;
+ @AllArgsConstructor
+ public class CategoryDTO {
+     private Integer categoryNumber;
++    private Integer parentCategoryNumber;
++    private String parentCategoryName;
+     private String categoryName;
+     private String status;
++    private String description;
++    private String internalNotes;
+ }
+diff --git a/backend/src/main/java/com/supermarket/backend/dto/InventoryProductDetailDTO.java b/backend/src/main/java/com/supermarket/backend/dto/InventoryProductDetailDTO.java
+index 21164b7..346a9e4 100644
+--- a/backend/src/main/java/com/supermarket/backend/dto/InventoryProductDetailDTO.java
++++ b/backend/src/main/java/com/supermarket/backend/dto/InventoryProductDetailDTO.java
+@@ -25,6 +25,7 @@ public class InventoryProductDetailDTO {
+     private LocalDate expiryDate;
+ 
+     // Supplier Info
++    private Integer supplierNumber;
+     private String supplierName;
+     private BigDecimal importPrice;
+     private BigDecimal minimumOrderQuantity;
+diff --git a/backend/src/main/java/com/supermarket/backend/dto/ProductCreateUpdateDTO.java b/backend/src/main/java/com/supermarket/backend/dto/ProductCreateUpdateDTO.java
+index 7f44d15..0317e70 100644
+--- a/backend/src/main/java/com/supermarket/backend/dto/ProductCreateUpdateDTO.java
++++ b/backend/src/main/java/com/supermarket/backend/dto/ProductCreateUpdateDTO.java
+@@ -22,7 +22,6 @@ public class ProductCreateUpdateDTO {
+     @NotNull(message = "─É╞ín vß╗ï t├¡nh kh├┤ng ─æ╞░ß╗úc ─æß╗â trß╗æng")
+     private Integer inventoryUnitNumber;
+     
+-    @NotNull(message = "Gi├í b├ín kh├┤ng ─æ╞░ß╗úc ─æß╗â trß╗æng")
+     private BigDecimal sellingPrice;
+     
+     @NotNull(message = "Mß╗⌐c b├ío ─æß╗Öng tß╗ôn kho kh├┤ng ─æ╞░ß╗úc ─æß╗â trß╗æng")
+@@ -33,4 +32,5 @@ public class ProductCreateUpdateDTO {
+     private String imageUrl;
+     private Integer expiryWarningDays; // Default 30
+     private BigDecimal initialQuantity; // Starting stock quantity (for creation)
++    private Integer supplierNumber; // Associated supplier number
+ }
+diff --git a/backend/src/main/java/com/supermarket/backend/dto/SupplierDTO.java b/backend/src/main/java/com/supermarket/backend/dto/SupplierDTO.java
+new file mode 100644
+index 0000000..7721763
+--- /dev/null
++++ b/backend/src/main/java/com/supermarket/backend/dto/SupplierDTO.java
+@@ -0,0 +1,15 @@
++package com.supermarket.backend.dto;
++
++import lombok.AllArgsConstructor;
++import lombok.Builder;
++import lombok.Data;
++import lombok.NoArgsConstructor;
++
++@Data
++@Builder
++@NoArgsConstructor
++@AllArgsConstructor
++public class SupplierDTO {
++    private Integer supplierNumber;
++    private String supplierName;
++}
+diff --git a/backend/src/main/java/com/supermarket/backend/entity/Category.java b/backend/src/main/java/com/supermarket/backend/entity/Category.java
+index 0985255..77d6890 100644
+--- a/backend/src/main/java/com/supermarket/backend/entity/Category.java
++++ b/backend/src/main/java/com/supermarket/backend/entity/Category.java
+@@ -25,4 +25,10 @@ public class Category {
+ 
+     @Column(name = "status")
+     private String status;
++
++    @Column(name = "description")
++    private String description;
++
++    @Column(name = "internal_notes")
++    private String internalNotes;
+ }
+diff --git a/backend/src/main/java/com/supermarket/backend/exception/GlobalExceptionHandler.java b/backend/src/main/java/com/supermarket/backend/exception/GlobalExceptionHandler.java
+new file mode 100644
+index 0000000..ec72744
+--- /dev/null
++++ b/backend/src/main/java/com/supermarket/backend/exception/GlobalExceptionHandler.java
+@@ -0,0 +1,23 @@
++package com.supermarket.backend.exception;
++
++import org.springframework.http.HttpStatus;
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.ControllerAdvice;
++import org.springframework.web.bind.annotation.ExceptionHandler;
++import org.springframework.web.multipart.MaxUploadSizeExceededException;
++
++import java.util.HashMap;
++import java.util.Map;
++
++@ControllerAdvice
++public class GlobalExceptionHandler {
++
++    @ExceptionHandler(MaxUploadSizeExceededException.class)
++    public ResponseEntity<Map<String, Object>> handleMaxSizeException(MaxUploadSizeExceededException exc) {
++        Map<String, Object> errorResponse = new HashMap<>();
++        errorResponse.put("success", false);
++        errorResponse.put("message", "File size exceeds the limit (maximum 5MB).");
++        
++        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(errorResponse);
++    }
++}
+diff --git a/backend/src/main/java/com/supermarket/backend/repository/CategoryRepository.java b/backend/src/main/java/com/supermarket/backend/repository/CategoryRepository.java
+index ff95d33..2f69d55 100644
+--- a/backend/src/main/java/com/supermarket/backend/repository/CategoryRepository.java
++++ b/backend/src/main/java/com/supermarket/backend/repository/CategoryRepository.java
+@@ -9,4 +9,8 @@ import java.util.List;
+ @Repository
+ public interface CategoryRepository extends JpaRepository<Category, Integer> {
+     List<Category> findByStatus(String status);
++    
++    org.springframework.data.domain.Page<Category> findByCategoryNameContainingIgnoreCase(String name, org.springframework.data.domain.Pageable pageable);
++    
++    List<Category> findByParentCategoryNumber(Integer parentCategoryNumber);
+ }
+diff --git a/backend/src/main/java/com/supermarket/backend/service/CategoryService.java b/backend/src/main/java/com/supermarket/backend/service/CategoryService.java
+new file mode 100644
+index 0000000..531c64c
+--- /dev/null
++++ b/backend/src/main/java/com/supermarket/backend/service/CategoryService.java
+@@ -0,0 +1,146 @@
++package com.supermarket.backend.service;
++
++import com.supermarket.backend.dto.CategoryDTO;
++import com.supermarket.backend.entity.Category;
++import com.supermarket.backend.repository.CategoryRepository;
++import lombok.RequiredArgsConstructor;
++import org.springframework.data.domain.Page;
++import org.springframework.data.domain.Pageable;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++import java.util.List;
++import java.util.Set;
++import java.util.HashSet;
++
++@Service
++@RequiredArgsConstructor
++public class CategoryService {
++
++    private final CategoryRepository categoryRepository;
++
++    public Page<CategoryDTO> getCategories(String keyword, Pageable pageable) {
++        Page<Category> categories;
++        if (keyword != null && !keyword.trim().isEmpty()) {
++            categories = categoryRepository.findByCategoryNameContainingIgnoreCase(keyword.trim(), pageable);
++        } else {
++            categories = categoryRepository.findAll(pageable);
++        }
++        
++        return categories.map(this::mapToDTO);
++    }
++
++    public CategoryDTO getCategoryById(Integer categoryNumber) {
++        Category category = categoryRepository.findById(categoryNumber)
++                .orElseThrow(() -> new RuntimeException("Category not found"));
++        return mapToDTO(category);
++    }
++
++    @Transactional
++    public CategoryDTO createCategory(CategoryDTO categoryDTO) {
++        Category category = Category.builder()
++                .categoryName(categoryDTO.getCategoryName())
++                .parentCategoryNumber(categoryDTO.getParentCategoryNumber())
++                .status(categoryDTO.getStatus() != null ? categoryDTO.getStatus() : "ACTIVE")
++                .description(categoryDTO.getDescription())
++                .internalNotes(categoryDTO.getInternalNotes())
++                .build();
++        
++        category = categoryRepository.save(category);
++        return mapToDTO(category);
++    }
++
++    @Transactional
++    public CategoryDTO updateCategory(Integer categoryNumber, CategoryDTO categoryDTO) {
++        Category category = categoryRepository.findById(categoryNumber)
++                .orElseThrow(() -> new RuntimeException("Category not found"));
++        
++        category.setCategoryName(categoryDTO.getCategoryName());
++        
++        if (categoryDTO.getParentCategoryNumber() != null) {
++            validateParentCategory(categoryNumber, categoryDTO.getParentCategoryNumber());
++        }
++        category.setParentCategoryNumber(categoryDTO.getParentCategoryNumber());
++        
++        category.setDescription(categoryDTO.getDescription());
++        category.setInternalNotes(categoryDTO.getInternalNotes());
++        
++        if (categoryDTO.getStatus() != null && !categoryDTO.getStatus().equals(category.getStatus())) {
++            updateStatusRecursive(category, categoryDTO.getStatus());
++        }
++        
++        category = categoryRepository.save(category);
++        return mapToDTO(category);
++    }
++
++    @Transactional
++    public CategoryDTO updateCategoryStatus(Integer categoryNumber, String newStatus) {
++        if (newStatus == null || newStatus.trim().isEmpty()) {
++            throw new IllegalArgumentException("Status is required");
++        }
++        
++        newStatus = newStatus.trim().toUpperCase();
++        if (!newStatus.equals("ACTIVE") && !newStatus.equals("INACTIVE")) {
++            throw new IllegalArgumentException("Invalid status value. Allowed values are ACTIVE or INACTIVE.");
++        }
++
++        Category category = categoryRepository.findById(categoryNumber)
++                .orElseThrow(() -> new RuntimeException("Category not found"));
++        
++        updateStatusRecursive(category, newStatus);
++        
++        return mapToDTO(category);
++    }
++    
++    private void updateStatusRecursive(Category category, String newStatus) {
++        category.setStatus(newStatus);
++        categoryRepository.save(category);
++        
++        List<Category> children = categoryRepository.findByParentCategoryNumber(category.getCategoryNumber());
++        for (Category child : children) {
++            updateStatusRecursive(child, newStatus);
++        }
++    }
++
++    private void validateParentCategory(Integer currentCategoryId, Integer parentCategoryId) {
++        if (parentCategoryId == null) {
++            return;
++        }
++        if (parentCategoryId.equals(currentCategoryId)) {
++            throw new IllegalArgumentException("A category cannot be its own parent.");
++        }
++
++        Set<Integer> visited = new HashSet<>();
++        visited.add(currentCategoryId);
++
++        Integer currentParent = parentCategoryId;
++        while (currentParent != null) {
++            if (visited.contains(currentParent)) {
++                throw new IllegalArgumentException("Cyclic parent assignment detected.");
++            }
++            visited.add(currentParent);
++            currentParent = categoryRepository.findById(currentParent)
++                    .map(Category::getParentCategoryNumber)
++                    .orElse(null);
++        }
++    }
++
++    private CategoryDTO mapToDTO(Category category) {
++        String parentName = null;
++        if (category.getParentCategoryNumber() != null) {
++            parentName = categoryRepository.findById(category.getParentCategoryNumber())
++                    .map(Category::getCategoryName)
++                    .orElse(null);
++        }
++        
++        return CategoryDTO.builder()
++                .categoryNumber(category.getCategoryNumber())
++                .parentCategoryNumber(category.getParentCategoryNumber())
++                .parentCategoryName(parentName)
++                .categoryName(category.getCategoryName())
++                .status(category.getStatus())
++                .description(category.getDescription())
++                .internalNotes(category.getInternalNotes())
++                .build();
++    }
++}
+diff --git a/backend/src/main/java/com/supermarket/backend/service/InventoryProductService.java b/backend/src/main/java/com/supermarket/backend/service/InventoryProductService.java
+index 31c0bf0..3c8c079 100644
+--- a/backend/src/main/java/com/supermarket/backend/service/InventoryProductService.java
++++ b/backend/src/main/java/com/supermarket/backend/service/InventoryProductService.java
+@@ -6,6 +6,7 @@ import com.supermarket.backend.dto.InventoryProductDetailDTO;
+ import com.supermarket.backend.dto.ProductCreateUpdateDTO;
+ import com.supermarket.backend.dto.ProductAdjustmentDTO;
+ import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
++import com.supermarket.backend.dto.SupplierDTO;
+ import com.supermarket.backend.dto.UnitDTO;
+ import com.supermarket.backend.entity.*;
+ import com.supermarket.backend.repository.*;
+@@ -263,12 +264,30 @@ public class InventoryProductService {
+                 .collect(Collectors.toList());
+     }
+ 
++    @Transactional(readOnly = true)
++    public List<SupplierDTO> getActiveSuppliers() {
++        return supplierRepository.findAll().stream()
++                .filter(s -> "ACTIVE".equals(s.getStatus()))
++                .map(s -> SupplierDTO.builder()
++                        .supplierNumber(s.getSupplierNumber())
++                        .supplierName(s.getSupplierName())
++                        .build())
++                .collect(Collectors.toList());
++    }
++
+     @Transactional
+     public Product createProduct(ProductCreateUpdateDTO dto) {
+         if (productRepository.existsByBarcode(dto.getBarcode())) {
+             throw new IllegalArgumentException("M├ú vß║ích n├áy ─æ├ú tß╗ôn tß║íi tr├¬n hß╗ç thß╗æng");
+         }
+ 
++        String status = dto.getStatus();
++        if (dto.getSellingPrice() == null || dto.getSellingPrice().compareTo(BigDecimal.ZERO) <= 0) {
++            status = "INACTIVE";
++        } else if (status == null) {
++            status = "ACTIVE";
++        }
++
+         Product product = Product.builder()
+                 .productName(dto.getProductName())
+                 .barcode(dto.getBarcode())
+@@ -276,7 +295,7 @@ public class InventoryProductService {
+                 .inventoryUnitNumber(dto.getInventoryUnitNumber())
+                 .sellingPrice(dto.getSellingPrice())
+                 .reorderLevel(dto.getReorderLevel())
+-                .status(dto.getStatus() != null ? dto.getStatus() : "ACTIVE")
++                .status(status)
+                 .description(dto.getDescription())
+                 .imageUrl(dto.getImageUrl())
+                 .expiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30)
+@@ -286,13 +305,22 @@ public class InventoryProductService {
+         BigDecimal initialQty = dto.getInitialQuantity() != null ? dto.getInitialQuantity() : BigDecimal.ZERO;
+         Inventory inventory = Inventory.builder()
+                 .productNumber(product.getProductNumber())
+-                .product(product)
+                 .totalQuantity(initialQty)
+                 .availableQuantity(initialQty)
+                 .lastUpdated(LocalDateTime.now())
+                 .build();
+         inventoryRepository.save(inventory);
+ 
++        if (dto.getSupplierNumber() != null) {
++            ProductSupplier ps = ProductSupplier.builder()
++                    .productNumber(product.getProductNumber())
++                    .supplierNumber(dto.getSupplierNumber())
++                    .importPrice(BigDecimal.ZERO)
++                    .minimumOrderQuantity(BigDecimal.ZERO)
++                    .build();
++            productSupplierRepository.save(ps);
++        }
++
+         return product;
+     }
+ 
+@@ -320,6 +348,23 @@ public class InventoryProductService {
+         product.setExpiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30);
+ 
+         productRepository.save(product);
++
++        if (dto.getSupplierNumber() != null) {
++            List<ProductSupplier> existing = productSupplierRepository.findByProductNumber(productNumber);
++            if (!existing.isEmpty()) {
++                ProductSupplier ps = existing.get(0);
++                ps.setSupplierNumber(dto.getSupplierNumber());
++                productSupplierRepository.save(ps);
++            } else {
++                ProductSupplier ps = ProductSupplier.builder()
++                        .productNumber(productNumber)
++                        .supplierNumber(dto.getSupplierNumber())
++                        .importPrice(BigDecimal.ZERO)
++                        .minimumOrderQuantity(BigDecimal.ZERO)
++                        .build();
++                productSupplierRepository.save(ps);
++            }
++        }
+     }
+ 
+     @Transactional(readOnly = true)
+@@ -498,12 +543,14 @@ public class InventoryProductService {
+         String supplierName = "N/A";
+         BigDecimal importPrice = null;
+         BigDecimal minOrderQty = null;
++        Integer supplierNumber = null;
+ 
+         List<ProductSupplier> prodSuppliers = productSupplierRepository.findByProductNumber(productNumber);
+         if (!prodSuppliers.isEmpty()) {
+             ProductSupplier ps = prodSuppliers.get(0);
+             importPrice = ps.getImportPrice();
+             minOrderQty = ps.getMinimumOrderQuantity();
++            supplierNumber = ps.getSupplierNumber();
+ 
+             Optional<Supplier> sOpt = supplierRepository.findById(ps.getSupplierNumber());
+             if (sOpt.isPresent()) {
+@@ -550,6 +597,7 @@ public class InventoryProductService {
+                 .imageUrl(p.getImageUrl() != null ? p.getImageUrl() : "")
+                 .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
+                 .expiryDate(expiryDate)
++                .supplierNumber(supplierNumber)
+                 .supplierName(supplierName)
+                 .importPrice(importPrice)
+                 .minimumOrderQuantity(minOrderQty)
+diff --git a/backend/src/main/resources/application.properties b/backend/src/main/resources/application.properties
+index e98954b..cc2b346 100644
+--- a/backend/src/main/resources/application.properties
++++ b/backend/src/main/resources/application.properties
+@@ -15,3 +15,6 @@ supabase.url=${SUPABASE_URL}
+ supabase.service-role-key=${SUPABASE_SERVICE_ROLE_KEY}
+ supabase.storage.bucket=${SUPABASE_STORAGE_BUCKET:product-images}
+ 
++# File Upload Configuration
++spring.servlet.multipart.max-file-size=5MB
++spring.servlet.multipart.max-request-size=5MB
+diff --git a/database/update_schema.sql b/database/update_schema.sql
+index ef9d7a9..b08f422 100644
+--- a/database/update_schema.sql
++++ b/database/update_schema.sql
+@@ -41,3 +41,9 @@ VALUES
+ (4, 4, 1, 30000, 15),
+ (5, 5, 1, 38000, 8)
+ ON CONFLICT (product_supplier_number) DO NOTHING;
++
++-- 7. Add description to categories table
++ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
++
++-- 8. Add internal notes to categories table
++ALTER TABLE categories ADD COLUMN IF NOT EXISTS internal_notes TEXT;
+diff --git a/frontend/.flutter-plugins-dependencies b/frontend/.flutter-plugins-dependencies
+deleted file mode 100644
+index 542e092..0000000
+--- a/frontend/.flutter-plugins-dependencies
++++ /dev/null
+@@ -1 +0,0 @@
+-{"info":"This is a generated file; do not edit or check into version control.","plugins":{"ios":[{"name":"app_links","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\app_links-7.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"image_picker_ios","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\image_picker_ios-0.8.13+6\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"path_provider_foundation","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\path_provider_foundation-2.6.0\\\\","native_build":false,"dependencies":[],"dev_dependency":false},{"name":"shared_preferences_foundation","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\shared_preferences_foundation-2.5.6\\\\","shared_darwin_source":true,"native_build":true,"dependencies":[],"dev_dependency":false},{"name":"url_launcher_ios","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\url_launcher_ios-6.4.1\\\\","native_build":true,"dependencies":[],"dev_dependency":false}],"android":[{"name":"app_links","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\app_links-7.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"flutter_plugin_android_lifecycle","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\flutter_plugin_android_lifecycle-2.0.35\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"image_picker_android","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\image_picker_android-0.8.13+17\\\\","native_build":true,"dependencies":["flutter_plugin_android_lifecycle"],"dev_dependency":false},{"name":"jni","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\jni-1.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"jni_flutter","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\jni_flutter-1.0.1\\\\","native_build":true,"dependencies":["jni"],"dev_dependency":false},{"name":"path_provider_android","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\path_provider_android-2.3.1\\\\","native_build":false,"dependencies":["jni","jni_flutter"],"dev_dependency":false},{"name":"shared_preferences_android","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\shared_preferences_android-2.4.23\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"url_launcher_android","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\url_launcher_android-6.3.30\\\\","native_build":true,"dependencies":[],"dev_dependency":false}],"macos":[{"name":"app_links","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\app_links-7.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"file_selector_macos","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\file_selector_macos-0.9.5\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"image_picker_macos","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\image_picker_macos-0.2.2+1\\\\","native_build":false,"dependencies":["file_selector_macos"],"dev_dependency":false},{"name":"path_provider_foundation","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\path_provider_foundation-2.6.0\\\\","native_build":false,"dependencies":[],"dev_dependency":false},{"name":"shared_preferences_foundation","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\shared_preferences_foundation-2.5.6\\\\","shared_darwin_source":true,"native_build":true,"dependencies":[],"dev_dependency":false},{"name":"url_launcher_macos","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\url_launcher_macos-3.2.5\\\\","native_build":true,"dependencies":[],"dev_dependency":false}],"linux":[{"name":"app_links_linux","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\app_links_linux-1.0.3\\\\","native_build":false,"dependencies":["gtk"],"dev_dependency":false},{"name":"file_selector_linux","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\file_selector_linux-0.9.4\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"gtk","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\gtk-2.2.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"image_picker_linux","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\image_picker_linux-0.2.2\\\\","native_build":false,"dependencies":["file_selector_linux"],"dev_dependency":false},{"name":"jni","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\jni-1.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"path_provider_linux","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\path_provider_linux-2.2.2\\\\","native_build":false,"dependencies":[],"dev_dependency":false},{"name":"shared_preferences_linux","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\shared_preferences_linux-2.4.1\\\\","native_build":false,"dependencies":["path_provider_linux"],"dev_dependency":false},{"name":"url_launcher_linux","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\url_launcher_linux-3.2.2\\\\","native_build":true,"dependencies":[],"dev_dependency":false}],"windows":[{"name":"app_links","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\app_links-7.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"file_selector_windows","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\file_selector_windows-0.9.3+5\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"image_picker_windows","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\image_picker_windows-0.2.2\\\\","native_build":false,"dependencies":["file_selector_windows"],"dev_dependency":false},{"name":"jni","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\jni-1.0.0\\\\","native_build":true,"dependencies":[],"dev_dependency":false},{"name":"path_provider_windows","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\path_provider_windows-2.3.0\\\\","native_build":false,"dependencies":[],"dev_dependency":false},{"name":"shared_preferences_windows","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\shared_preferences_windows-2.4.1\\\\","native_build":false,"dependencies":["path_provider_windows"],"dev_dependency":false},{"name":"url_launcher_windows","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\url_launcher_windows-3.1.5\\\\","native_build":true,"dependencies":[],"dev_dependency":false}],"web":[{"name":"app_links_web","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\app_links_web-1.0.4\\\\","dependencies":[],"dev_dependency":false},{"name":"image_picker_for_web","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\image_picker_for_web-3.1.1\\\\","dependencies":[],"dev_dependency":false},{"name":"shared_preferences_web","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\shared_preferences_web-2.4.3\\\\","dependencies":[],"dev_dependency":false},{"name":"url_launcher_web","path":"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Pub\\\\Cache\\\\hosted\\\\pub.dev\\\\url_launcher_web-2.4.3\\\\","dependencies":[],"dev_dependency":false}]},"dependencyGraph":[{"name":"app_links","dependencies":["app_links_linux","app_links_web"]},{"name":"app_links_linux","dependencies":["gtk"]},{"name":"app_links_web","dependencies":[]},{"name":"file_selector_linux","dependencies":[]},{"name":"file_selector_macos","dependencies":[]},{"name":"file_selector_windows","dependencies":[]},{"name":"flutter_plugin_android_lifecycle","dependencies":[]},{"name":"gtk","dependencies":[]},{"name":"image_picker","dependencies":["image_picker_android","image_picker_for_web","image_picker_ios","image_picker_linux","image_picker_macos","image_picker_windows"]},{"name":"image_picker_android","dependencies":["flutter_plugin_android_lifecycle"]},{"name":"image_picker_for_web","dependencies":[]},{"name":"image_picker_ios","dependencies":[]},{"name":"image_picker_linux","dependencies":["file_selector_linux"]},{"name":"image_picker_macos","dependencies":["file_selector_macos"]},{"name":"image_picker_windows","dependencies":["file_selector_windows"]},{"name":"jni","dependencies":[]},{"name":"jni_flutter","dependencies":["jni"]},{"name":"path_provider","dependencies":["path_provider_android","path_provider_foundation","path_provider_linux","path_provider_windows"]},{"name":"path_provider_android","dependencies":["jni","jni_flutter"]},{"name":"path_provider_foundation","dependencies":[]},{"name":"path_provider_linux","dependencies":[]},{"name":"path_provider_windows","dependencies":[]},{"name":"shared_preferences","dependencies":["shared_preferences_android","shared_preferences_foundation","shared_preferences_linux","shared_preferences_web","shared_preferences_windows"]},{"name":"shared_preferences_android","dependencies":[]},{"name":"shared_preferences_foundation","dependencies":[]},{"name":"shared_preferences_linux","dependencies":["path_provider_linux"]},{"name":"shared_preferences_web","dependencies":[]},{"name":"shared_preferences_windows","dependencies":["path_provider_windows"]},{"name":"url_launcher","dependencies":["url_launcher_android","url_launcher_ios","url_launcher_linux","url_launcher_macos","url_launcher_web","url_launcher_windows"]},{"name":"url_launcher_android","dependencies":[]},{"name":"url_launcher_ios","dependencies":[]},{"name":"url_launcher_linux","dependencies":[]},{"name":"url_launcher_macos","dependencies":[]},{"name":"url_launcher_web","dependencies":[]},{"name":"url_launcher_windows","dependencies":[]}],"date_created":"2026-07-10 19:19:15.509417","version":"3.41.9","swift_package_manager_enabled":{"ios":false,"macos":false}}
+\ No newline at end of file
+diff --git a/frontend/lib/main.dart b/frontend/lib/main.dart
+index 3bf5bb3..e5aed37 100644
+--- a/frontend/lib/main.dart
++++ b/frontend/lib/main.dart
+@@ -1,25 +1,28 @@
+-import 'dart:convert';
+ import 'dart:io';
++import 'dart:convert';
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:go_router/go_router.dart';
+-import 'package:http/http.dart' as http;
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'core/theme/app_theme.dart';
+-import 'models/inventory_product.dart';
++import 'package:http/http.dart' as http;
++
+ import 'models/profile.dart';
++import 'models/inventory_product.dart';
+ import 'providers/auth_provider.dart';
+ import 'providers/splash_finished_provider.dart';
+ import 'providers/router_notifier.dart';
+-import 'screens/add_edit_product_screen.dart';
++import 'screens/product_form_screen.dart';
+ import 'screens/inventory_dashboard_screen.dart';
+ import 'screens/inventory_product_list_screen.dart';
+ import 'screens/inventory_product_detail_screen.dart';
++import 'screens/category_list_screen.dart';
++import 'screens/category_form_screen.dart';
+ import 'screens/splash_screen.dart';
+ import 'screens/login_screen.dart';
+ import 'screens/register_screen.dart';
+ import 'screens/role_screens.dart';
+ import 'widgets/app_scaffold.dart';
++import 'core/theme/app_theme.dart';
+ 
+ void main() async {
+   WidgetsFlutterBinding.ensureInitialized();
+@@ -123,9 +126,15 @@ final routerProvider = Provider<GoRouter>((ref) {
+         return '/login';
+       }
+ 
+-      // 3. If logged in:
+-      final role = auth.profile?.roleNumber ?? UserRoles.stockController;
+-      String landingPage = '/';
++      // 3. If logged in but profile is null:
++      if (auth.profile?.roleNumber == null) {
++        // Wait on splash while profile is loading
++        return isSplashRoute ? null : '/splash';
++      }
++
++      // 4. If logged in and profile loaded:
++      final role = auth.profile!.roleNumber;
++      String landingPage;
+       switch (role) {
+         case UserRoles.admin:
+           landingPage = '/admin';
+@@ -134,7 +143,7 @@ final routerProvider = Provider<GoRouter>((ref) {
+           landingPage = '/manager';
+           break;
+         case UserRoles.stockController:
+-          landingPage = '/';
++          landingPage = '/stock';
+           break;
+         case UserRoles.salesAssociate:
+           landingPage = '/sales';
+@@ -142,12 +151,20 @@ final routerProvider = Provider<GoRouter>((ref) {
+         case UserRoles.cashier:
+           landingPage = '/cashier';
+           break;
++        default:
++          landingPage = '/login'; // Fallback for invalid role
+       }
+ 
++      // Redirect if on a public/splash route
+       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
+         return landingPage;
+       }
+ 
++      // Root path redirect
++      if (state.uri.path == '/') {
++        return landingPage;
++      }
++
+       // Protect routes based on role:
+       final path = state.uri.path;
+       if (role == UserRoles.admin && !path.startsWith('/admin')) {
+@@ -167,7 +184,7 @@ final routerProvider = Provider<GoRouter>((ref) {
+             path.startsWith('/manager') ||
+             path.startsWith('/sales') ||
+             path.startsWith('/cashier')) {
+-          return '/';
++          return '/stock';
+         }
+       }
+ 
+@@ -202,43 +219,67 @@ final routerProvider = Provider<GoRouter>((ref) {
+         },
+         routes: [
+           GoRoute(
+-            path: '/',
++            path: '/stock',
+             pageBuilder: (context, state) =>
+                 const NoTransitionPage(child: InventoryDashboardScreen()),
+-          ),
+-          GoRoute(
+-            path: '/products',
+-            pageBuilder: (context, state) =>
+-                const NoTransitionPage(child: InventoryProductListScreen()),
+             routes: [
+               GoRoute(
+-                path: 'add',
++                path: 'categories',
+                 pageBuilder: (context, state) =>
+-                    const NoTransitionPage(child: AddEditProductScreen()),
+-              ),
+-              GoRoute(
+-                path: 'edit/:id',
+-                pageBuilder: (context, state) {
+-                  final idStr = state.pathParameters['id'] ?? '';
+-                  final id = int.tryParse(idStr) ?? 0;
+-                  final product = state.extra as InventoryProduct?;
+-                  return NoTransitionPage(
+-                    child: AddEditProductScreen(
+-                      productId: id,
+-                      product: product,
+-                    ),
+-                  );
+-                },
++                    const NoTransitionPage(child: CategoryListScreen()),
++                routes: [
++                  GoRoute(
++                    path: 'add',
++                    pageBuilder: (context, state) =>
++                        const NoTransitionPage(child: CategoryFormScreen()),
++                  ),
++                  GoRoute(
++                    path: 'edit/:id',
++                    pageBuilder: (context, state) {
++                      final idStr = state.pathParameters['id'] ?? '';
++                      final id = int.tryParse(idStr);
++                      return NoTransitionPage(
++                        child: CategoryFormScreen(categoryNumber: id),
++                      );
++                    },
++                  ),
++                ],
+               ),
+               GoRoute(
+-                path: 'detail/:id',
+-                pageBuilder: (context, state) {
+-                  final idStr = state.pathParameters['id'] ?? '';
+-                  final id = int.tryParse(idStr) ?? 0;
+-                  return NoTransitionPage(
+-                    child: InventoryProductDetailScreen(productNumber: id),
+-                  );
+-                },
++                path: 'products',
++                pageBuilder: (context, state) =>
++                    const NoTransitionPage(child: InventoryProductListScreen()),
++                routes: [
++                  GoRoute(
++                    path: 'add',
++                    pageBuilder: (context, state) =>
++                        const NoTransitionPage(child: ProductFormScreen()),
++                  ),
++                  GoRoute(
++                    path: 'edit/:id',
++                    pageBuilder: (context, state) {
++                      final idStr = state.pathParameters['id'] ?? '';
++                      final id = int.tryParse(idStr) ?? 0;
++                      final product = state.extra as InventoryProduct?;
++                      return NoTransitionPage(
++                        child: ProductFormScreen(
++                          productId: id,
++                          product: product,
++                        ),
++                      );
++                    },
++                  ),
++                  GoRoute(
++                    path: 'detail/:id',
++                    pageBuilder: (context, state) {
++                      final idStr = state.pathParameters['id'] ?? '';
++                      final id = int.tryParse(idStr) ?? 0;
++                      return NoTransitionPage(
++                        child: InventoryProductDetailScreen(productNumber: id),
++                      );
++                    },
++                  ),
++                ],
+               ),
+             ],
+           ),
+@@ -268,6 +309,8 @@ class MyApp extends ConsumerWidget {
+   }
+ }
+ 
++
++
+ class CorsTestHomePage extends StatefulWidget {
+   const CorsTestHomePage({super.key});
+ 
+diff --git a/frontend/lib/models/category_item.dart b/frontend/lib/models/category_item.dart
+index d3394c0..881183a 100644
+--- a/frontend/lib/models/category_item.dart
++++ b/frontend/lib/models/category_item.dart
+@@ -1,27 +1,43 @@
+ class CategoryItem {
+   final int categoryNumber;
++  final int? parentCategoryNumber;
++  final String? parentCategoryName;
+   final String categoryName;
+   final String status;
++  final String? description;
++  final String? internalNotes;
+ 
+   CategoryItem({
+     required this.categoryNumber,
++    this.parentCategoryNumber,
++    this.parentCategoryName,
+     required this.categoryName,
+     required this.status,
++    this.description,
++    this.internalNotes,
+   });
+ 
+   factory CategoryItem.fromJson(Map<String, dynamic> json) {
+     return CategoryItem(
+       categoryNumber: (json['categoryNumber'] as num?)?.toInt() ?? 0,
++      parentCategoryNumber: (json['parentCategoryNumber'] as num?)?.toInt(),
++      parentCategoryName: json['parentCategoryName'],
+       categoryName: json['categoryName'] ?? '',
+       status: json['status'] ?? 'ACTIVE',
++      description: json['description'],
++      internalNotes: json['internalNotes'],
+     );
+   }
+ 
+   Map<String, dynamic> toJson() {
+     return {
+       'categoryNumber': categoryNumber,
++      'parentCategoryNumber': parentCategoryNumber,
++      'parentCategoryName': parentCategoryName,
+       'categoryName': categoryName,
+       'status': status,
++      'description': description,
++      'internalNotes': internalNotes,
+     };
+   }
+ }
+diff --git a/frontend/lib/models/inventory_product_detail.dart b/frontend/lib/models/inventory_product_detail.dart
+index 3a5cb44..a5fb1be 100644
+--- a/frontend/lib/models/inventory_product_detail.dart
++++ b/frontend/lib/models/inventory_product_detail.dart
+@@ -14,6 +14,7 @@ class InventoryProductDetail {
+   final DateTime? expiryDate;
+ 
+   // Supplier Info
++  final int? supplierNumber;
+   final String supplierName;
+   final double? importPrice;
+   final double? minimumOrderQuantity;
+@@ -35,6 +36,7 @@ class InventoryProductDetail {
+     required this.imageUrl,
+     required this.expiryWarningDays,
+     this.expiryDate,
++    this.supplierNumber,
+     required this.supplierName,
+     this.importPrice,
+     this.minimumOrderQuantity,
+@@ -64,6 +66,7 @@ class InventoryProductDetail {
+       expiryDate: json['expiryDate'] != null
+           ? DateTime.tryParse(json['expiryDate'] as String)
+           : null,
++      supplierNumber: (json['supplierNumber'] as num?)?.toInt(),
+       supplierName: json['supplierName'] ?? 'N/A',
+       importPrice: (json['importPrice'] as num?)?.toDouble(),
+       minimumOrderQuantity: (json['minimumOrderQuantity'] as num?)?.toDouble(),
+diff --git a/frontend/lib/providers/category_provider.dart b/frontend/lib/providers/category_provider.dart
+new file mode 100644
+index 0000000..6375146
+--- /dev/null
++++ b/frontend/lib/providers/category_provider.dart
+@@ -0,0 +1,233 @@
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import '../models/category_item.dart';
++import '../services/api_service.dart';
++
++final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
++
++class CategoryListState {
++  final List<CategoryItem> categories;
++  final bool isLoading;
++  final bool isLoadingMore;
++  final String? error;
++  final String? pageError;
++  final int currentPage;
++  final int totalPages;
++  final int totalItems;
++  final String searchQuery;
++
++  CategoryListState({
++    this.categories = const [],
++    this.isLoading = false,
++    this.isLoadingMore = false,
++    this.error,
++    this.pageError,
++    this.currentPage = 0,
++    this.totalPages = 1,
++    this.totalItems = 0,
++    this.searchQuery = '',
++  });
++
++  CategoryListState copyWith({
++    List<CategoryItem>? categories,
++    bool? isLoading,
++    bool? isLoadingMore,
++    String? error,
++    bool clearError = false,
++    String? pageError,
++    bool clearPageError = false,
++    int? currentPage,
++    int? totalPages,
++    int? totalItems,
++    String? searchQuery,
++  }) {
++    return CategoryListState(
++      categories: categories ?? this.categories,
++      isLoading: isLoading ?? this.isLoading,
++      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
++      error: clearError ? null : (error ?? this.error),
++      pageError: clearPageError ? null : (pageError ?? this.pageError),
++      currentPage: currentPage ?? this.currentPage,
++      totalPages: totalPages ?? this.totalPages,
++      totalItems: totalItems ?? this.totalItems,
++      searchQuery: searchQuery ?? this.searchQuery,
++    );
++  }
++}
++
++class CategoryListNotifier extends StateNotifier<CategoryListState> {
++  final ApiService _apiService;
++
++  CategoryListNotifier(this._apiService) : super(CategoryListState()) {
++    loadCategories();
++  }
++
++  Future<void> loadCategories({bool isRefresh = false, String? query}) async {
++    if (state.isLoading) return;
++
++    if (query != null) {
++      state = state.copyWith(
++          searchQuery: query, currentPage: 0, categories: [], isLoading: true);
++    } else if (isRefresh) {
++      state = state.copyWith(currentPage: 0, categories: [], isLoading: true);
++    } else {
++      state = state.copyWith(
++      isLoading: true, 
++      clearError: true,
++      clearPageError: true
++    );
++    }
++
++    try {
++      final response = await _apiService.getCategories(
++        keyword: state.searchQuery,
++        page: state.currentPage,
++        size: 10,
++      );
++
++      final data = response['data'] as Map<String, dynamic>;
++      final List<dynamic> items = data['items'] ?? [];
++      
++      final parsedCategories =
++          items.map((e) => CategoryItem.fromJson(e as Map<String, dynamic>)).toList();
++
++      state = state.copyWith(
++        categories: parsedCategories,
++        currentPage: data['page'] ?? 0,
++        totalPages: data['totalPages'] ?? 1,
++        totalItems: data['totalItems'] ?? 0,
++        isLoading: false,
++        clearError: true,
++      );
++    } catch (e) {
++      state = state.copyWith(
++        isLoading: false,
++        error: e.toString(),
++      );
++    }
++  }
++
++  Future<void> loadNextPage() async {
++    if (state.isLoadingMore || state.currentPage >= state.totalPages - 1) return;
++
++    state = state.copyWith(isLoadingMore: true, clearPageError: true);
++
++    try {
++      final nextPage = state.currentPage + 1;
++      final response = await _apiService.getCategories(
++        keyword: state.searchQuery,
++        page: nextPage,
++        size: 10,
++      );
++
++      final data = response['data'] as Map<String, dynamic>;
++      final List<dynamic> items = data['items'] ?? [];
++      
++      final newCategories =
++          items.map((e) => CategoryItem.fromJson(e as Map<String, dynamic>)).toList();
++
++      state = state.copyWith(
++        categories: newCategories,
++        currentPage: nextPage,
++        totalPages: data['totalPages'] ?? state.totalPages,
++        totalItems: data['totalItems'] ?? state.totalItems,
++        isLoadingMore: false,
++        clearPageError: true,
++      );
++    } catch (e) {
++      state = state.copyWith(
++        isLoadingMore: false,
++        pageError: e.toString(),
++      );
++    }
++  }
++  
++  Future<void> loadPreviousPage() async {
++    if (state.isLoadingMore || state.currentPage <= 0) return;
++    
++    state = state.copyWith(isLoadingMore: true, clearPageError: true);
++    try {
++      final prevPage = state.currentPage - 1;
++      final response = await _apiService.getCategories(
++        keyword: state.searchQuery,
++        page: prevPage,
++        size: 10,
++      );
++
++      final data = response['data'] as Map<String, dynamic>;
++      final List<dynamic> items = data['items'] ?? [];
++      
++      final newCategories =
++          items.map((e) => CategoryItem.fromJson(e as Map<String, dynamic>)).toList();
++
++      state = state.copyWith(
++        categories: newCategories,
++        currentPage: prevPage,
++        totalPages: data['totalPages'] ?? state.totalPages,
++        totalItems: data['totalItems'] ?? state.totalItems,
++        isLoadingMore: false,
++        clearPageError: true,
++      );
++    } catch (e) {
++      state = state.copyWith(
++        isLoadingMore: false,
++        pageError: e.toString(),
++      );
++    }
++  }
++  
++  Future<void> goToPage(int pageIndex) async {
++    if (state.isLoadingMore || pageIndex < 0 || pageIndex >= state.totalPages) return;
++    
++    state = state.copyWith(isLoadingMore: true, clearPageError: true);
++    try {
++      final response = await _apiService.getCategories(
++        keyword: state.searchQuery,
++        page: pageIndex,
++        size: 10,
++      );
++
++      final data = response['data'] as Map<String, dynamic>;
++      final List<dynamic> items = data['items'] ?? [];
++      
++      final newCategories =
++          items.map((e) => CategoryItem.fromJson(e as Map<String, dynamic>)).toList();
++
++      state = state.copyWith(
++        categories: newCategories,
++        currentPage: pageIndex,
++        totalPages: data['totalPages'] ?? state.totalPages,
++        totalItems: data['totalItems'] ?? state.totalItems,
++        isLoadingMore: false,
++        clearPageError: true,
++      );
++    } catch (e) {
++      state = state.copyWith(
++        isLoadingMore: false,
++        pageError: e.toString(),
++      );
++    }
++  }
++
++  void search(String query) {
++    loadCategories(query: query);
++  }
++
++  Future<void> updateCategoryStatus(int categoryNumber, String newStatus) async {
++    try {
++      await _apiService.updateCategoryStatus(categoryNumber, newStatus);
++      
++      // Refresh to ensure all child categories are synced
++      loadCategories(isRefresh: true);
++    } catch (e) {
++      // Refresh to ensure sync if failed
++      loadCategories(isRefresh: true);
++      rethrow;
++    }
++  }
++}
++
++final categoryListProvider =
++    StateNotifierProvider<CategoryListNotifier, CategoryListState>((ref) {
++  final apiService = ref.watch(apiServiceProvider);
++  return CategoryListNotifier(apiService);
++});
+diff --git a/frontend/lib/providers/inventory_products_provider.dart b/frontend/lib/providers/inventory_products_provider.dart
+index 37af089..f18ee80 100644
+--- a/frontend/lib/providers/inventory_products_provider.dart
++++ b/frontend/lib/providers/inventory_products_provider.dart
+@@ -256,3 +256,8 @@ final unitsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
+   final apiService = ref.watch(apiServiceProvider);
+   return apiService.fetchUnits();
+ });
++
++final suppliersListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
++  final apiService = ref.watch(apiServiceProvider);
++  return apiService.fetchSuppliers();
++});
+diff --git a/frontend/lib/screens/category_form_screen.dart b/frontend/lib/screens/category_form_screen.dart
+new file mode 100644
+index 0000000..7b7520c
+--- /dev/null
++++ b/frontend/lib/screens/category_form_screen.dart
+@@ -0,0 +1,362 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:go_router/go_router.dart';
++import '../core/theme/app_theme.dart';
++import '../models/category_item.dart';
++import '../providers/shell_layout_provider.dart';
++import '../services/api_service.dart';
++
++class CategoryFormScreen extends ConsumerStatefulWidget {
++  final int? categoryNumber;
++
++  const CategoryFormScreen({super.key, this.categoryNumber});
++
++  @override
++  ConsumerState<CategoryFormScreen> createState() => _CategoryFormScreenState();
++}
++
++class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
++  final _formKey = GlobalKey<FormState>();
++  final _apiService = ApiService();
++
++  bool _isLoading = false;
++  bool _isSaving = false;
++
++  final _nameController = TextEditingController();
++  final _descriptionController = TextEditingController();
++  final _internalNotesController = TextEditingController();
++
++  int? _selectedParentCategory;
++  List<CategoryItem> _availableCategories = [];
++  String? _status;
++
++  @override
++  void initState() {
++    super.initState();
++    WidgetsBinding.instance.addPostFrameCallback((_) {
++      final isEdit = widget.categoryNumber != null;
++      ref
++          .read(shellLayoutProvider.notifier)
++          .update(
++            title: isEdit ? 'Edit Category' : 'Add New Category',
++            actions: [],
++            breadcrumbs: [
++              'Inventory',
++              'Categories',
++              isEdit ? 'Edit Category' : 'Add Category',
++            ],
++          );
++    });
++    _loadData();
++  }
++
++  @override
++  void dispose() {
++    _nameController.dispose();
++    _descriptionController.dispose();
++    _internalNotesController.dispose();
++    super.dispose();
++  }
++
++  Future<void> _loadData() async {
++    setState(() => _isLoading = true);
++
++    try {
++      // Load categories for dropdown
++      final response = await _apiService.getCategories(page: 0, size: 100);
++      final items = response['data']['items'] as List<dynamic>;
++      _availableCategories = items
++          .map((e) => CategoryItem.fromJson(e as Map<String, dynamic>))
++          .where((c) => c.categoryNumber != widget.categoryNumber) // prevent self as parent
++          .toList();
++
++      if (widget.categoryNumber != null) {
++        final categoryMap = await _apiService.getCategoryById(widget.categoryNumber!);
++        final category = CategoryItem.fromJson(categoryMap);
++        _nameController.text = category.categoryName;
++        _descriptionController.text = category.description ?? '';
++        _internalNotesController.text = category.internalNotes ?? '';
++        _selectedParentCategory = category.parentCategoryNumber;
++        _status = category.status;
++      }
++    } catch (e) {
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text('Failed to load data: $e'),
++            backgroundColor: AppTheme.errorColor,
++          ),
++        );
++      }
++    } finally {
++      if (mounted) {
++        setState(() => _isLoading = false);
++      }
++    }
++  }
++
++  Future<void> _saveCategory() async {
++    if (!_formKey.currentState!.validate()) {
++      ScaffoldMessenger.of(context).showSnackBar(
++        const SnackBar(
++          content: Text('Please correct invalid category information.'),
++          backgroundColor: AppTheme.errorColor,
++        ),
++      );
++      return;
++    }
++
++    setState(() => _isSaving = true);
++
++    try {
++      final data = {
++        'categoryName': _nameController.text.trim(),
++        'parentCategoryNumber': _selectedParentCategory,
++        'description': _descriptionController.text.trim(),
++        'internalNotes': _internalNotesController.text.trim(),
++        'status': _status ?? 'ACTIVE',
++      };
++
++      if (widget.categoryNumber == null) {
++        await _apiService.createCategory(data);
++        if (mounted) {
++          ScaffoldMessenger.of(context).showSnackBar(
++            const SnackBar(
++              content: Text('Category has been saved successfully.'),
++              backgroundColor: AppTheme.primaryColor,
++            ),
++          );
++        }
++      } else {
++        await _apiService.updateCategory(widget.categoryNumber!, data);
++        if (mounted) {
++          ScaffoldMessenger.of(context).showSnackBar(
++            const SnackBar(
++              content: Text('Category has been updated successfully.'),
++              backgroundColor: AppTheme.primaryColor,
++            ),
++          );
++        }
++      }
++
++      if (mounted) {
++        context.pop(true);
++      }
++    } catch (e) {
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text(
++              widget.categoryNumber == null
++                  ? 'Category cannot be saved. $e'
++                  : 'Category cannot be updated. $e',
++            ),
++            backgroundColor: AppTheme.errorColor,
++          ),
++        );
++      }
++    } finally {
++      if (mounted) {
++        setState(() => _isSaving = false);
++      }
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    final isEdit = widget.categoryNumber != null;
++
++    final inputDecorationTheme = InputDecoration(
++      filled: true,
++      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
++      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
++      border: OutlineInputBorder(
++        borderRadius: BorderRadius.circular(16),
++        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
++      ),
++      focusedBorder: OutlineInputBorder(
++        borderRadius: BorderRadius.circular(16),
++        borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
++      ),
++      errorBorder: OutlineInputBorder(
++        borderRadius: BorderRadius.circular(16),
++        borderSide: BorderSide(color: theme.colorScheme.error, width: 1),
++      ),
++      focusedErrorBorder: OutlineInputBorder(
++        borderRadius: BorderRadius.circular(16),
++        borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
++      ),
++    );
++
++    if (_isLoading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++
++    return SingleChildScrollView(
++      padding: const EdgeInsets.all(32.0),
++      child: Column(
++        crossAxisAlignment: CrossAxisAlignment.start,
++        children: [
++          Row(
++            children: [
++              IconButton(
++                icon: const Icon(Icons.arrow_back),
++                style: IconButton.styleFrom(
++                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
++                ),
++                onPressed: () => context.pop(false),
++              ),
++            ],
++          ),
++          const SizedBox(height: 24),
++          Container(
++            padding: const EdgeInsets.all(24),
++            decoration: BoxDecoration(
++              color: theme.colorScheme.surface,
++              borderRadius: BorderRadius.circular(16),
++              border: Border.all(
++                color: theme.colorScheme.outlineVariant.withOpacity(0.5),
++              ),
++              boxShadow: [
++                BoxShadow(
++                  color: Colors.black.withOpacity(0.04),
++                  blurRadius: 8,
++                  offset: const Offset(0, 2),
++                ),
++              ],
++            ),
++            child: Form(
++              key: _formKey,
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  Row(
++                    crossAxisAlignment: CrossAxisAlignment.start,
++                    children: [
++                      Expanded(
++                        child: _buildFormField(
++                          label: 'Category Name',
++                          child: TextFormField(
++                            controller: _nameController,
++                            decoration: inputDecorationTheme.copyWith(
++                              hintText: 'Enter Category Name',
++                            ),
++                            validator: (value) {
++                              if (value == null || value.trim().isEmpty) {
++                                return 'Category Name is required';
++                              }
++                              return null;
++                            },
++                          ),
++                        ),
++                      ),
++                      const SizedBox(width: 32),
++                      Expanded(
++                        child: _buildFormField(
++                          label: 'Parent Category',
++                          child: DropdownButtonFormField<int?>(
++                            value: _selectedParentCategory,
++                            decoration: inputDecorationTheme,
++                            hint: const Text('Select Parent Category'),
++                            items: [
++                              const DropdownMenuItem<int?>(
++                                value: null,
++                                child: Text('None (Root Category)'),
++                              ),
++                              ..._availableCategories.map((cat) {
++                                return DropdownMenuItem<int?>(
++                                  value: cat.categoryNumber,
++                                  child: Text(cat.categoryName),
++                                );
++                              }),
++                            ],
++                            onChanged: (value) {
++                              setState(() {
++                                _selectedParentCategory = value;
++                              });
++                            },
++                          ),
++                        ),
++                      ),
++                    ],
++                  ),
++                  const SizedBox(height: 32),
++                  _buildFormField(
++                    label: 'Description',
++                    child: TextFormField(
++                      controller: _descriptionController,
++                      maxLines: 4,
++                      decoration: inputDecorationTheme.copyWith(
++                        hintText: 'Provide a brief overview of the category purposes',
++                      ),
++                    ),
++                  ),
++                  const SizedBox(height: 32),
++                  _buildFormField(
++                    label: 'Internal Notes (Visible to Staff Only)',
++                    child: TextFormField(
++                      controller: _internalNotesController,
++                      maxLines: 3,
++                      decoration: inputDecorationTheme.copyWith(
++                        hintText: 'Enter any confidential or administrative notes here',
++                      ),
++                    ),
++                  ),
++                  const SizedBox(height: 32),
++                  const Divider(),
++                  const SizedBox(height: 16),
++                  Row(
++                    children: [
++                      FilledButton(
++                        onPressed: _isSaving ? null : _saveCategory,
++                        style: FilledButton.styleFrom(
++                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
++                        ),
++                        child: _isSaving
++                            ? const SizedBox(
++                                width: 20,
++                                height: 20,
++                                child: CircularProgressIndicator(
++                                  strokeWidth: 2,
++                                  color: Colors.white,
++                                ),
++                              )
++                            : const Text('Save Category'),
++                      ),
++                      const SizedBox(width: 16),
++                      TextButton(
++                        onPressed: () => context.pop(),
++                        style: TextButton.styleFrom(
++                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
++                        ),
++                        child: const Text('Cancel'),
++                      ),
++                    ],
++                  ),
++                ],
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++
++  Widget _buildFormField({required String label, required Widget child}) {
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.start,
++      children: [
++        Text(
++          label,
++          style: Theme.of(context).textTheme.titleSmall?.copyWith(
++                fontWeight: FontWeight.w600,
++              ),
++        ),
++        const SizedBox(height: 8),
++        child,
++      ],
++    );
++  }
++}
+diff --git a/frontend/lib/screens/category_list_screen.dart b/frontend/lib/screens/category_list_screen.dart
+new file mode 100644
+index 0000000..cdb56eb
+--- /dev/null
++++ b/frontend/lib/screens/category_list_screen.dart
+@@ -0,0 +1,408 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import '../core/theme/app_theme.dart';
++import 'package:go_router/go_router.dart';
++import '../models/category_item.dart';
++import '../providers/category_provider.dart';
++import '../providers/shell_layout_provider.dart';
++import '../widgets/empty_view.dart';
++import '../widgets/error_view.dart';
++import '../widgets/loading_view.dart';
++
++class CategoryListScreen extends ConsumerStatefulWidget {
++  const CategoryListScreen({super.key});
++
++  @override
++  ConsumerState<CategoryListScreen> createState() =>
++      _CategoryListScreenState();
++}
++
++class _CategoryListScreenState
++    extends ConsumerState<CategoryListScreen> {
++  final TextEditingController _searchController = TextEditingController();
++
++  @override
++  void initState() {
++    super.initState();
++    WidgetsBinding.instance.addPostFrameCallback((_) {
++      ref
++          .read(shellLayoutProvider.notifier)
++          .update(
++            title: 'Category Management',
++            actions: [],
++            breadcrumbs: ['Inventory', 'Categories'],
++          );
++    });
++  }
++
++  @override
++  void dispose() {
++    _searchController.dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final theme = Theme.of(context);
++    final state = ref.watch(categoryListProvider);
++
++    ref.listen<CategoryListState>(categoryListProvider, (previous, next) {
++      if (next.pageError != null && next.pageError != previous?.pageError) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(
++            content: Text(next.pageError!.replaceAll('Exception: ', '')),
++            backgroundColor: AppTheme.errorColor,
++          ),
++        );
++      }
++    });
++
++    return Stack(
++      children: [
++        Padding(
++          padding: const EdgeInsets.all(24.0),
++          child: Column(
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: [
++              _buildFilterHeader(context, state),
++              const SizedBox(height: 24),
++              Expanded(
++                child: Card(
++                  elevation: 2,
++                  shadowColor: Colors.black.withValues(alpha: 0.04),
++                  shape: RoundedRectangleBorder(
++                    borderRadius: BorderRadius.circular(16),
++                    side: BorderSide(
++                      color: theme.colorScheme.outlineVariant.withValues(
++                        alpha: 0.5,
++                      ),
++                    ),
++                  ),
++                  child: _buildBody(state),
++                ),
++              ),
++            ],
++          ),
++        ),
++      ],
++    );
++  }
++
++  Widget _buildBody(CategoryListState state) {
++    if (state.isLoading) return const LoadingView();
++    if (state.error != null) {
++      return ErrorView(
++        title: 'Category data cannot be loaded.',
++        description: state.error!.replaceAll('Exception: ', ''),
++        onRetry: () =>
++            ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true),
++      );
++    }
++    if (state.categories.isEmpty) {
++      return EmptyView(
++        icon: Icons.search_off,
++        title: 'No categories found',
++        description: 'No categories match your search criteria.',
++        actionLabel: 'Reset Filters',
++        onActionPressed: () {
++          _searchController.clear();
++          ref.read(categoryListProvider.notifier).search('');
++        },
++      );
++    }
++
++    return Column(
++      children: [
++        Expanded(child: _buildTable(context, state.categories)),
++        const Divider(height: 1),
++        _buildPagination(context, state),
++      ],
++    );
++  }
++
++  Widget _buildFilterHeader(BuildContext context, CategoryListState state) {
++    final theme = Theme.of(context);
++    return LayoutBuilder(
++      builder: (context, constraints) {
++        final isWide = constraints.maxWidth >= 700;
++
++        Widget searchField = SizedBox(
++          height: 48,
++          child: TextField(
++            controller: _searchController,
++            decoration: InputDecoration(
++              hintText: 'Search categories...',
++              prefixIcon: const Icon(Icons.search),
++              suffixIcon: _searchController.text.isNotEmpty
++                  ? IconButton(
++                      icon: const Icon(Icons.clear),
++                      onPressed: () {
++                        _searchController.clear();
++                        ref.read(categoryListProvider.notifier).search('');
++                      },
++                    )
++                  : null,
++              border: OutlineInputBorder(
++                borderRadius: BorderRadius.circular(16),
++                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
++              ),
++              contentPadding: const EdgeInsets.symmetric(
++                vertical: 0,
++                horizontal: 16,
++              ),
++            ),
++            onSubmitted: (val) {
++              ref.read(categoryListProvider.notifier).search(val);
++            },
++          ),
++        );
++
++        Widget addBtn = SizedBox(
++          height: 48,
++          child: FilledButton.icon(
++            onPressed: () async {
++              final result = await context.push('/stock/categories/add');
++              if (result == true && context.mounted) {
++                ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true);
++              }
++            },
++            icon: const Icon(Icons.add, size: 20),
++            label: const Text('Add Category'),
++            style: FilledButton.styleFrom(
++              shape: RoundedRectangleBorder(
++                borderRadius: BorderRadius.circular(16),
++              ),
++              padding: const EdgeInsets.symmetric(horizontal: 20),
++            ),
++          ),
++        );
++
++        if (isWide) {
++          return Row(
++            children: [
++              Expanded(child: searchField),
++              const SizedBox(width: 16),
++              addBtn,
++            ],
++          );
++        } else {
++          return Column(
++            crossAxisAlignment: CrossAxisAlignment.stretch,
++            children: [
++              searchField,
++              const SizedBox(height: 16),
++              addBtn,
++            ],
++          );
++        }
++      },
++    );
++  }
++
++  Widget _buildTable(BuildContext context, List<CategoryItem> items) {
++    final theme = Theme.of(context);
++    
++    return LayoutBuilder(
++      builder: (context, constraints) {
++        return SingleChildScrollView(
++          scrollDirection: Axis.horizontal,
++          child: ConstrainedBox(
++            constraints: BoxConstraints(minWidth: constraints.maxWidth),
++            child: SingleChildScrollView(
++              child: DataTable(
++                headingRowHeight: 56,
++                dataRowMinHeight: 64,
++                dataRowMaxHeight: 64,
++                horizontalMargin: 24,
++                columnSpacing: 24,
++                headingTextStyle: theme.textTheme.labelLarge?.copyWith(
++                  color: theme.colorScheme.onSurfaceVariant,
++                  fontWeight: FontWeight.w600,
++                ),
++                columns: const [
++                  DataColumn(label: Text('ID')),
++                  DataColumn(label: Text('Name')),
++                  DataColumn(label: Text('Parent Name')),
++                  DataColumn(label: Text('Description')),
++                  DataColumn(label: Text('Status')),
++                  DataColumn(label: Text('Actions')),
++                ],
++                rows: items.map((item) {
++                  final bool isActive = item.status == 'ACTIVE';
++                  return DataRow(
++                    color: WidgetStateProperty.resolveWith<Color?>(
++                      (Set<WidgetState> states) {
++                        if (!isActive) {
++                          return theme.colorScheme.onSurface.withValues(alpha: 0.05);
++                        }
++                        return null; // Use default
++                      },
++                    ),
++                    cells: [
++                      DataCell(Text('#${item.categoryNumber}')),
++                      DataCell(Text(
++                        item.categoryName,
++                        style: TextStyle(
++                          fontWeight: FontWeight.w500,
++                          color: isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.5),
++                        ),
++                      )),
++                      DataCell(Text(item.parentCategoryName ?? '-')),
++                      DataCell(Text(item.description ?? '-')),
++                      DataCell(_buildStatusBadge(item.status)),
++                      DataCell(
++                        _buildActionButtons(context, item),
++                      ),
++                    ],
++                  );
++                }).toList(),
++              ),
++            ),
++          ),
++        );
++      },
++    );
++  }
++
++  Widget _buildStatusBadge(String status) {
++    final bool isActive = status == 'ACTIVE';
++    final color = isActive ? AppTheme.primaryColor : AppTheme.errorColor;
++    final bgColor = isActive 
++        ? AppTheme.primaryColor.withValues(alpha: 0.1) 
++        : AppTheme.errorColor.withValues(alpha: 0.1);
++
++    return Container(
++      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
++      decoration: BoxDecoration(
++        color: bgColor,
++        borderRadius: BorderRadius.circular(24),
++      ),
++      child: Text(
++        status,
++        style: TextStyle(
++          color: color,
++          fontSize: 12,
++          fontWeight: FontWeight.w600,
++        ),
++      ),
++    );
++  }
++
++  Widget _buildActionButtons(BuildContext context, CategoryItem item) {
++    final isActive = item.status == 'ACTIVE';
++    
++    return Row(
++      mainAxisSize: MainAxisSize.min,
++      children: [
++        IconButton(
++          icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
++          tooltip: 'Edit Category',
++          onPressed: () async {
++            final result = await context.push('/stock/categories/edit/${item.categoryNumber}');
++            if (result == true && context.mounted) {
++              ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true);
++            }
++          },
++        ),
++        IconButton(
++          icon: Icon(
++            isActive ? Icons.toggle_on : Icons.toggle_off,
++            color: isActive ? AppTheme.primaryColor : Colors.grey,
++            size: 28,
++          ),
++          tooltip: isActive ? 'Deactivate Category' : 'Activate Category',
++          onPressed: () => _confirmToggleStatus(context, item),
++        ),
++      ],
++    );
++  }
++  
++  Future<void> _confirmToggleStatus(BuildContext context, CategoryItem item) async {
++    final isActive = item.status == 'ACTIVE';
++    final newStatus = isActive ? 'INACTIVE' : 'ACTIVE';
++    
++    final confirm = await showDialog<bool>(
++      context: context,
++      builder: (ctx) => AlertDialog(
++        title: Text(isActive ? 'Deactivate Category?' : 'Activate Category?'),
++        content: Text(
++          isActive 
++            ? 'Are you sure you want to deactivate ${item.categoryName}?'
++            : 'Are you sure you want to activate ${item.categoryName}?',
++        ),
++        actions: [
++          TextButton(
++            onPressed: () => Navigator.pop(ctx, false),
++            child: const Text('Cancel'),
++          ),
++          FilledButton(
++            onPressed: () => Navigator.pop(ctx, true),
++            style: FilledButton.styleFrom(
++              backgroundColor: isActive ? AppTheme.errorColor : AppTheme.primaryColor,
++            ),
++            child: Text(isActive ? 'Deactivate' : 'Activate'),
++          ),
++        ],
++      ),
++    );
++    
++    if (confirm == true) {
++      try {
++        await ref.read(categoryListProvider.notifier)
++            .updateCategoryStatus(item.categoryNumber, newStatus);
++            
++        if (!context.mounted) return;
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(
++            content: Text('Category status has been updated successfully.'),
++            backgroundColor: AppTheme.primaryColor,
++          ),
++        );
++      } catch (e) {
++        if (!context.mounted) return;
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(
++            content: Text('Category status cannot be updated.'),
++            backgroundColor: AppTheme.errorColor,
++          ),
++        );
++      }
++    }
++  }
++
++  Widget _buildPagination(BuildContext context, CategoryListState state) {
++    final theme = Theme.of(context);
++    return Padding(
++      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
++      child: Row(
++        mainAxisAlignment: MainAxisAlignment.spaceBetween,
++        children: [
++          Text(
++            'Showing page ${state.currentPage + 1} of ${state.totalPages} (${state.totalItems} items)',
++            style: theme.textTheme.bodyMedium?.copyWith(
++              color: theme.colorScheme.onSurfaceVariant,
++            ),
++          ),
++          Row(
++            mainAxisSize: MainAxisSize.min,
++            children: [
++              IconButton(
++                icon: const Icon(Icons.chevron_left),
++                onPressed: state.currentPage > 0
++                    ? () => ref.read(categoryListProvider.notifier).loadPreviousPage()
++                    : null,
++              ),
++              const SizedBox(width: 8),
++              IconButton(
++                icon: const Icon(Icons.chevron_right),
++                onPressed: state.currentPage < state.totalPages - 1
++                    ? () => ref.read(categoryListProvider.notifier).loadNextPage()
++                    : null,
++              ),
++            ],
++          ),
++        ],
++      ),
++    );
++  }
++}
+diff --git a/frontend/lib/screens/inventory_product_detail_screen.dart b/frontend/lib/screens/inventory_product_detail_screen.dart
+index a647898..5853d71 100644
+--- a/frontend/lib/screens/inventory_product_detail_screen.dart
++++ b/frontend/lib/screens/inventory_product_detail_screen.dart
+@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:go_router/go_router.dart';
+ import 'package:intl/intl.dart';
+ import '../models/inventory_product_detail.dart';
++import '../models/inventory_product.dart';
+ import '../services/api_service.dart';
+ import '../providers/dashboard_provider.dart';
+ import '../providers/shell_layout_provider.dart';
+@@ -509,8 +510,22 @@ class _InventoryProductDetailScreenState
+                               child: OutlinedButton.icon(
+                                 onPressed: () async {
+                                   final result = await context.push<bool>(
+-                                    '/products/edit/${product.productNumber}',
+-                                    extra: product,
++                                    '/stock/products/edit/${product.productNumber}',
++                                    extra: InventoryProduct(
++                                      productNumber: product.productNumber,
++                                      productName: product.productName,
++                                      barcode: product.barcode,
++                                      categoryName: product.categoryName,
++                                      unitName: product.unitName,
++                                      stock: product.stock,
++                                      sellingPrice: product.sellingPrice,
++                                      reorderLevel: product.reorderLevel,
++                                      status: product.status,
++                                      description: product.description,
++                                      imageUrl: product.imageUrl,
++                                      expiryWarningDays: product.expiryWarningDays,
++                                      expiryDate: product.expiryDate,
++                                    ),
+                                   );
+                                   if (!context.mounted) return;
+                                   _setProductDetailHeader(product.productName);
+diff --git a/frontend/lib/screens/inventory_product_list_screen.dart b/frontend/lib/screens/inventory_product_list_screen.dart
+index 64908b2..2c45ab3 100644
+--- a/frontend/lib/screens/inventory_product_list_screen.dart
++++ b/frontend/lib/screens/inventory_product_list_screen.dart
+@@ -298,7 +298,7 @@ class _InventoryProductListScreenState
+         final List<Widget> actionButtons = [
+           IconButton.filled(
+             onPressed: () async {
+-              final hasChanged = await context.push<bool>('/products/add');
++              final hasChanged = await context.push<bool>('/stock/products/add');
+               if (!context.mounted) return;
+               _setProductListHeader();
+               if (hasChanged == true) {
+@@ -768,7 +768,7 @@ class _InventoryProductListScreenState
+                             tooltip: 'View details',
+                             onPressed: () async {
+                               final hasChanged = await context.push<bool>(
+-                                '/products/detail/${item.productNumber}',
++                                '/stock/products/detail/${item.productNumber}',
+                               );
+                               if (!context.mounted) return;
+                               _setProductListHeader();
+@@ -784,7 +784,7 @@ class _InventoryProductListScreenState
+                             tooltip: 'Edit product',
+                             onPressed: () async {
+                               final hasChanged = await context.push<bool>(
+-                                '/products/edit/${item.productNumber}',
++                                '/stock/products/edit/${item.productNumber}',
+                                 extra: item,
+                               );
+                               if (!context.mounted) return;
+diff --git a/frontend/lib/screens/add_edit_product_screen.dart b/frontend/lib/screens/product_form_screen.dart
+similarity index 58%
+rename from frontend/lib/screens/add_edit_product_screen.dart
+rename to frontend/lib/screens/product_form_screen.dart
+index 3fc3ec8..deb0add 100644
+--- a/frontend/lib/screens/add_edit_product_screen.dart
++++ b/frontend/lib/screens/product_form_screen.dart
+@@ -1,28 +1,50 @@
+-import 'dart:io';
+-import 'package:flutter/foundation.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:go_router/go_router.dart';
+ import 'package:image_picker/image_picker.dart';
++import 'package:file_picker/file_picker.dart';
+ import '../models/inventory_product.dart';
+ import '../providers/dashboard_provider.dart';
+ import '../providers/inventory_products_provider.dart';
+ import '../providers/shell_layout_provider.dart';
+-import '../services/api_service.dart';
+ 
+-class AddEditProductScreen extends ConsumerStatefulWidget {
++/// Formats integers with dots as thousand separators (Vietnamese style: 100.000).
++class _ThousandsSeparatorFormatter extends TextInputFormatter {
++  @override
++  TextEditingValue formatEditUpdate(
++    TextEditingValue oldValue,
++    TextEditingValue newValue,
++  ) {
++    // Strip all non-digit characters
++    final digits = newValue.text.replaceAll('.', '');
++    if (digits.isEmpty) return newValue.copyWith(text: '');
++
++    // Insert dot every 3 digits from the right
++    final buffer = StringBuffer();
++    for (int i = 0; i < digits.length; i++) {
++      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
++      buffer.write(digits[i]);
++    }
++    final formatted = buffer.toString();
++    return newValue.copyWith(
++      text: formatted,
++      selection: TextSelection.collapsed(offset: formatted.length),
++    );
++  }
++}
++
++class ProductFormScreen extends ConsumerStatefulWidget {
+   final int? productId;
+   final InventoryProduct? product;
+ 
+-  const AddEditProductScreen({super.key, this.productId, this.product});
++  const ProductFormScreen({super.key, this.productId, this.product});
+ 
+   @override
+-  ConsumerState<AddEditProductScreen> createState() =>
+-      _AddEditProductScreenState();
++  ConsumerState<ProductFormScreen> createState() => _ProductFormScreenState();
+ }
+ 
+-class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
++class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
+   final _formKey = GlobalKey<FormState>();
+ 
+   final _nameController = TextEditingController();
+@@ -36,6 +58,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+ 
+   int? _selectedCategoryNumber;
+   int? _selectedUnitNumber;
++  int? _selectedSupplierNumber;
+   String _status = 'ACTIVE';
+   String _imageUrl = '';
+ 
+@@ -55,13 +78,40 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+       final p = widget.product!;
+       _nameController.text = p.productName;
+       _barcodeController.text = p.barcode;
+-      _priceController.text = p.sellingPrice.toString();
++      _priceController.text = _formatPrice(p.sellingPrice);
+       _reorderController.text = p.reorderLevel.toString();
+       _expiryController.text = p.expiryWarningDays.toString();
+       _descriptionController.text = p.description;
+       _status = p.status;
+       _imageUrl = p.imageUrl;
+-      // We will match the category and unit names to ids when they load
++      
++      // Load supplier mapping
++      _loadProductSupplierDetails();
++    }
++  }
++
++  /// Formats a double to Vietnamese dot-separated integer string (e.g. 100000.0 ΓåÆ "100.000")
++  String _formatPrice(double price) {
++    final intVal = price.toInt().toString();
++    final buffer = StringBuffer();
++    for (int i = 0; i < intVal.length; i++) {
++      if (i > 0 && (intVal.length - i) % 3 == 0) buffer.write('.');
++      buffer.write(intVal[i]);
++    }
++    return buffer.toString();
++  }
++
++  Future<void> _loadProductSupplierDetails() async {
++    try {
++      final apiService = ref.read(apiServiceProvider);
++      final details = await apiService.fetchProductDetails(widget.productId!);
++      if (mounted) {
++        setState(() {
++          _selectedSupplierNumber = details.supplierNumber;
++        });
++      }
++    } catch (e) {
++      debugPrint('Failed to load product supplier: $e');
+     }
+   }
+ 
+@@ -85,17 +135,24 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+     });
+ 
+     try {
+-      final picker = ImagePicker();
+-      final pickedFile = await picker.pickImage(
+-        source: ImageSource.gallery,
+-        maxWidth: 1024,
+-        maxHeight: 1024,
+-        imageQuality: 85,
++      FilePickerResult? result = await FilePicker.pickFiles(
++        type: FileType.image,
+       );
+ 
+-      if (pickedFile != null) {
++      if (result != null && result.files.single.path != null) {
++        final fileSize = result.files.single.size;
++        // Check if file is larger than 2MB (2 * 1024 * 1024 bytes)
++        if (fileSize > 2 * 1024 * 1024) {
++          setState(() {
++            _errorMessage = 'File size exceeds the limit (maximum 2MB).';
++            _isUploadingImage = false;
++          });
++          return;
++        }
++
++        final xFile = XFile(result.files.single.path!);
+         final apiService = ref.read(apiServiceProvider);
+-        final publicUrl = await apiService.uploadProductImage(pickedFile);
++        final publicUrl = await apiService.uploadProductImage(xFile);
+ 
+         setState(() {
+           _imageUrl = publicUrl;
+@@ -122,6 +179,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+       setState(() => _errorMessage = 'Please select a unit.');
+       return;
+     }
++    if (_selectedSupplierNumber == null) {
++      setState(() => _errorMessage = 'Please select a supplier.');
++      return;
++    }
+ 
+     setState(() {
+       _isSaving = true;
+@@ -133,7 +194,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+       'barcode': _barcodeController.text.trim(),
+       'categoryNumber': _selectedCategoryNumber,
+       'inventoryUnitNumber': _selectedUnitNumber,
+-      'sellingPrice': double.parse(_priceController.text),
++      'supplierNumber': _selectedSupplierNumber,
++      'sellingPrice': _priceController.text.trim().isEmpty 
++          ? 0.0 
++          : double.parse(_priceController.text.replaceAll('.', '')),
+       'reorderLevel': double.parse(_reorderController.text),
+       'status': _status,
+       'description': _descriptionController.text.trim(),
+@@ -183,6 +247,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+     final theme = Theme.of(context);
+     final categoriesState = ref.watch(categoriesListProvider);
+     final unitsState = ref.watch(unitsListProvider);
++    final suppliersState = ref.watch(suppliersListProvider);
+ 
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+       ref
+@@ -237,13 +302,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+ 
+     final inputDecorationTheme = InputDecoration(
+       filled: true,
+-      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+-        alpha: 0.3,
+-      ),
++      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+       border: OutlineInputBorder(
+         borderRadius: BorderRadius.circular(16),
+-        borderSide: BorderSide.none,
++        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+       ),
+       focusedBorder: OutlineInputBorder(
+         borderRadius: BorderRadius.circular(16),
+@@ -275,25 +338,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+-                  // Top Header back button
++                  // Header
+                   Row(
+                     children: [
+                       IconButton(
+                         icon: const Icon(Icons.arrow_back),
+                         style: IconButton.styleFrom(
+-                          backgroundColor: theme.colorScheme.surfaceVariant,
++                          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                         ),
+                         onPressed: () => context.pop(false),
+                       ),
+-                      const SizedBox(width: 16),
+-                      Text(
+-                        isEditMode
+-                            ? 'Edit Product Details'
+-                            : 'Register New Product',
+-                        style: theme.textTheme.headlineSmall?.copyWith(
+-                          fontWeight: FontWeight.bold,
+-                        ),
+-                      ),
+                     ],
+                   ),
+                   const SizedBox(height: 24),
+@@ -303,9 +357,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                       width: double.infinity,
+                       padding: const EdgeInsets.all(16),
+                       decoration: BoxDecoration(
+-                        color: theme.colorScheme.errorContainer.withValues(
+-                          alpha: 0.2,
+-                        ),
++                        color: theme.colorScheme.errorContainer.withValues(alpha: 0.2),
+                         border: Border.all(
+                           color: theme.colorScheme.error.withValues(alpha: 0.3),
+                         ),
+@@ -332,42 +384,58 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                     const SizedBox(height: 24),
+                   ],
+ 
+-                  // Grid layout for fields and image
+-                  LayoutBuilder(
+-                    builder: (context, constraints) {
+-                      final isWide = constraints.maxWidth > 800;
+-                      return Row(
++                  // Card containing the entire form
++                  Card(
++                    elevation: 0,
++                    shape: RoundedRectangleBorder(
++                      borderRadius: BorderRadius.circular(16),
++                      side: BorderSide(color: theme.colorScheme.outlineVariant),
++                    ),
++                    color: theme.colorScheme.surface,
++                    child: Padding(
++                      padding: const EdgeInsets.all(24.0),
++                      child: Column(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+-                          // Left side: Image upload
+-                          Expanded(
+-                            flex: isWide ? 1 : 2,
+-                            child: _buildImageSelector(theme),
+-                          ),
+-                          if (isWide) const SizedBox(width: 24),
+-                          // Right side: Form inputs
+-                          Expanded(
+-                            flex: 2,
+-                            child: Column(
+-                              crossAxisAlignment: CrossAxisAlignment.start,
+-                              children: [
+-                                if (!isWide) const SizedBox(height: 24),
+-                                _buildFormInputs(
+-                                  theme,
+-                                  categoriesState,
+-                                  unitsState,
+-                                  inputDecorationTheme,
+-                                ),
+-                              ],
+-                            ),
++                          // Top section: Image Selector and basic fields
++                          LayoutBuilder(
++                            builder: (context, constraints) {
++                              final isWide = constraints.maxWidth > 800;
++                              return Row(
++                                crossAxisAlignment: CrossAxisAlignment.start,
++                                children: [
++                                  Expanded(
++                                    flex: isWide ? 1 : 2,
++                                    child: _buildImageSelector(theme),
++                                  ),
++                                  if (isWide) const SizedBox(width: 24),
++                                  Expanded(
++                                    flex: 2,
++                                    child: Column(
++                                      crossAxisAlignment: CrossAxisAlignment.start,
++                                      children: [
++                                        if (!isWide) const SizedBox(height: 24),
++                                        _buildFormFields(
++                                          theme,
++                                          categoriesState,
++                                          unitsState,
++                                          suppliersState,
++                                          inputDecorationTheme,
++                                        ),
++                                      ],
++                                    ),
++                                  ),
++                                ],
++                              );
++                            },
+                           ),
+                         ],
+-                      );
+-                    },
++                      ),
++                    ),
+                   ),
+-                  const SizedBox(height: 32),
++                  const SizedBox(height: 24),
+ 
+-                  // Action buttons at the bottom
++                  // Actions row
+                   Row(
+                     mainAxisAlignment: MainAxisAlignment.end,
+                     children: [
+@@ -383,9 +451,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                       ),
+                       const SizedBox(width: 16),
+                       FilledButton(
+-                        onPressed: _isSaving || _isUploadingImage
+-                            ? null
+-                            : _saveProduct,
++                        onPressed: _isSaving || _isUploadingImage ? null : _saveProduct,
+                         style: FilledButton.styleFrom(
+                           minimumSize: const Size(140, 48),
+                           shape: RoundedRectangleBorder(
+@@ -402,7 +468,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                                 ),
+                               )
+                             : Text(
+-                                isEditMode ? 'Update Product' : 'Add Product',
++                                isEditMode ? 'Update Product' : 'Save Product',
+                               ),
+                       ),
+                     ],
+@@ -417,129 +483,125 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+   }
+ 
+   Widget _buildImageSelector(ThemeData theme) {
+-    return Card(
+-      elevation: 0,
+-      shape: RoundedRectangleBorder(
+-        borderRadius: BorderRadius.circular(16),
+-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+-      ),
+-      clipBehavior: Clip.antiAlias,
+-      child: AspectRatio(
+-        aspectRatio: 1,
+-        child: InkWell(
+-          onTap: _isUploadingImage || _isSaving ? null : _pickAndUploadImage,
+-          child: Stack(
+-            alignment: Alignment.center,
+-            children: [
+-              if (_imageUrl.isNotEmpty)
+-                Image.network(
+-                  _imageUrl,
+-                  fit: BoxFit.cover,
+-                  width: double.infinity,
+-                  height: double.infinity,
+-                  errorBuilder: (context, error, stackTrace) => Column(
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.start,
++      children: [
++        _buildLabel('Product Reference Image', theme),
++        const SizedBox(height: 8),
++        Container(
++          height: 240,
++          width: double.infinity,
++          decoration: BoxDecoration(
++            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
++            borderRadius: BorderRadius.circular(16),
++            border: Border.all(
++              color: theme.colorScheme.outlineVariant,
++              style: BorderStyle.solid,
++              width: 1.5,
++            ),
++          ),
++          clipBehavior: Clip.antiAlias,
++          child: InkWell(
++            onTap: _isUploadingImage || _isSaving ? null : _pickAndUploadImage,
++            child: Stack(
++              alignment: Alignment.center,
++              children: [
++                if (_imageUrl.isNotEmpty)
++                  Image.network(
++                    _imageUrl,
++                    fit: BoxFit.cover,
++                    width: double.infinity,
++                    height: double.infinity,
++                    errorBuilder: (context, error, stackTrace) => Column(
++                      mainAxisAlignment: MainAxisAlignment.center,
++                      children: [
++                        Icon(
++                          Icons.broken_image_outlined,
++                          size: 48,
++                          color: theme.colorScheme.error,
++                        ),
++                        const SizedBox(height: 12),
++                        const Text('Failed to load image'),
++                      ],
++                    ),
++                  )
++                else
++                  Column(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     children: [
+                       Icon(
+-                        Icons.broken_image_outlined,
+-                        size: 64,
+-                        color: theme.colorScheme.error,
++                        Icons.image_outlined,
++                        size: 48,
++                        color: theme.colorScheme.onSurfaceVariant,
+                       ),
+                       const SizedBox(height: 12),
+-                      const Text('Failed to load image link'),
+-                    ],
+-                  ),
+-                )
+-              else
+-                Column(
+-                  mainAxisAlignment: MainAxisAlignment.center,
+-                  children: [
+-                    Icon(
+-                      Icons.add_photo_alternate_outlined,
+-                      size: 64,
+-                      color: theme.colorScheme.onSurfaceVariant,
+-                    ),
+-                    const SizedBox(height: 12),
+-                    Text(
+-                      'Upload Image',
+-                      style: theme.textTheme.labelLarge?.copyWith(
+-                        color: theme.colorScheme.onSurfaceVariant,
++                      Text(
++                        'Upload Image',
++                        style: theme.textTheme.labelLarge?.copyWith(
++                          color: theme.colorScheme.onSurfaceVariant,
++                        ),
+                       ),
+-                    ),
+-                    const SizedBox(height: 4),
+-                    Text(
+-                      'PNG, JPG up to 5MB',
+-                      style: theme.textTheme.bodySmall?.copyWith(
+-                        color: theme.colorScheme.onSurfaceVariant.withValues(
+-                          alpha: 0.6,
++                      const SizedBox(height: 4),
++                      Text(
++                        'Max size: 2MB. JPG or PNG only.',
++                        style: theme.textTheme.bodySmall?.copyWith(
++                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                         ),
+                       ),
+-                    ),
+-                  ],
+-                ),
+-              if (_isUploadingImage)
+-                Container(
+-                  color: Colors.black.withValues(alpha: 0.4),
+-                  child: const Center(
+-                    child: CircularProgressIndicator(color: Colors.white),
++                    ],
+                   ),
+-                ),
+-              if (_imageUrl.isNotEmpty && !_isUploadingImage && !_isSaving)
+-                Positioned(
+-                  bottom: 12,
+-                  right: 12,
+-                  child: Container(
+-                    padding: const EdgeInsets.symmetric(
+-                      horizontal: 12,
+-                      vertical: 6,
+-                    ),
+-                    decoration: BoxDecoration(
+-                      color: Colors.black.withValues(alpha: 0.6),
+-                      borderRadius: BorderRadius.circular(24),
++                if (_isUploadingImage)
++                  Container(
++                    color: Colors.black.withValues(alpha: 0.4),
++                    child: const Center(
++                      child: CircularProgressIndicator(color: Colors.white),
+                     ),
+-                    child: const Row(
+-                      mainAxisSize: MainAxisSize.min,
+-                      children: [
+-                        Icon(Icons.edit, size: 16, color: Colors.white),
+-                        SizedBox(width: 6),
+-                        Text(
+-                          'Change',
+-                          style: TextStyle(color: Colors.white, fontSize: 12),
+-                        ),
+-                      ],
++                  ),
++                if (_imageUrl.isNotEmpty && !_isUploadingImage && !_isSaving)
++                  Positioned(
++                    bottom: 12,
++                    right: 12,
++                    child: Container(
++                      padding: const EdgeInsets.symmetric(
++                        horizontal: 12,
++                        vertical: 6,
++                      ),
++                      decoration: BoxDecoration(
++                        color: Colors.black.withValues(alpha: 0.6),
++                        borderRadius: BorderRadius.circular(24),
++                      ),
++                      child: const Row(
++                        mainAxisSize: MainAxisSize.min,
++                        children: [
++                          Icon(Icons.edit, size: 16, color: Colors.white),
++                          SizedBox(width: 6),
++                          Text(
++                            'Change',
++                            style: TextStyle(color: Colors.white, fontSize: 12),
++                          ),
++                        ],
++                      ),
+                     ),
+                   ),
+-                ),
+-            ],
++              ],
++            ),
+           ),
+         ),
+-      ),
++      ],
+     );
+   }
+ 
+-  Widget _buildFormInputs(
++  Widget _buildFormFields(
+     ThemeData theme,
+     AsyncValue<List<dynamic>> categoriesState,
+     AsyncValue<List<dynamic>> unitsState,
+-    InputDecoration inputDecorationTheme,
++    AsyncValue<List<dynamic>> suppliersState,
++    InputDecoration inputDecoration,
+   ) {
+     return Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+       children: [
+-        // Product Name
+-        _buildLabel('Product Name *', theme),
+-        TextFormField(
+-          controller: _nameController,
+-          decoration: inputDecorationTheme.copyWith(
+-            hintText: 'Enter product name',
+-          ),
+-          validator: (val) => val == null || val.trim().isEmpty
+-              ? 'Product name is required'
+-              : null,
+-        ),
+-        const SizedBox(height: 20),
+-
+-        // Barcode & Status Row
++        // Product Name & Barcode
+         Row(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+@@ -547,14 +609,14 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+-                  _buildLabel('Barcode *', theme),
++                  _buildLabel('Product Name *', theme),
+                   TextFormField(
+-                    controller: _barcodeController,
+-                    decoration: inputDecorationTheme.copyWith(
+-                      hintText: 'Enter product barcode',
++                    controller: _nameController,
++                    decoration: inputDecoration.copyWith(
++                      hintText: 'Enter product name',
+                     ),
+                     validator: (val) => val == null || val.trim().isEmpty
+-                        ? 'Barcode is required'
++                        ? 'Product name is required'
+                         : null,
+                   ),
+                 ],
+@@ -565,22 +627,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+-                  _buildLabel('Status *', theme),
+-                  DropdownButtonFormField<String>(
+-                    value: _status,
+-                    decoration: inputDecorationTheme,
+-                    items: const [
+-                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
+-                      DropdownMenuItem(
+-                        value: 'INACTIVE',
+-                        child: Text('Inactive'),
+-                      ),
+-                    ],
+-                    onChanged: (val) {
+-                      if (val != null) {
+-                        setState(() => _status = val);
+-                      }
+-                    },
++                  _buildLabel('Barcode *', theme),
++                  TextFormField(
++                    controller: _barcodeController,
++                    enabled: !isEditMode, // Product code cannot be modified after creation (BR-I-02)
++                    decoration: inputDecoration.copyWith(
++                      hintText: 'Enter product barcode',
++                    ),
++                    validator: (val) => val == null || val.trim().isEmpty
++                        ? 'Barcode is required'
++                        : null,
+                   ),
+                 ],
+               ),
+@@ -593,21 +649,17 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+         Row(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+-            // Category Dropdown
+             Expanded(
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   _buildLabel('Category *', theme),
+                   categoriesState.when(
+-                    loading: () =>
+-                        const Center(child: CircularProgressIndicator()),
+-                    error: (err, stack) =>
+-                        const Text('Error loading categories'),
++                    loading: () => const Center(child: CircularProgressIndicator()),
++                    error: (err, stack) => const Text('Error loading categories'),
+                     data: (categories) => DropdownButtonFormField<int?>(
+-                      key: ValueKey('category_$_selectedCategoryNumber'),
+-                      value: _selectedCategoryNumber,
+-                      decoration: inputDecorationTheme.copyWith(
++                      initialValue: _selectedCategoryNumber,
++                      decoration: inputDecoration.copyWith(
+                         hintText: 'Select category',
+                       ),
+                       items: categories.map((c) {
+@@ -616,28 +668,24 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                           child: Text(c.categoryName),
+                         );
+                       }).toList(),
+-                      onChanged: (val) =>
+-                          setState(() => _selectedCategoryNumber = val),
++                      onChanged: (val) => setState(() => _selectedCategoryNumber = val),
+                     ),
+                   ),
+                 ],
+               ),
+             ),
+             const SizedBox(width: 16),
+-            // Unit Dropdown
+             Expanded(
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   _buildLabel('Unit *', theme),
+                   unitsState.when(
+-                    loading: () =>
+-                        const Center(child: CircularProgressIndicator()),
++                    loading: () => const Center(child: CircularProgressIndicator()),
+                     error: (err, stack) => const Text('Error loading units'),
+                     data: (units) => DropdownButtonFormField<int?>(
+-                      key: ValueKey('unit_$_selectedUnitNumber'),
+-                      value: _selectedUnitNumber,
+-                      decoration: inputDecorationTheme.copyWith(
++                      initialValue: _selectedUnitNumber,
++                      decoration: inputDecoration.copyWith(
+                         hintText: 'Select unit',
+                       ),
+                       items: units.map((u) {
+@@ -646,8 +694,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                           child: Text(u['unitName'] ?? ''),
+                         );
+                       }).toList(),
+-                      onChanged: (val) =>
+-                          setState(() => _selectedUnitNumber = val),
++                      onChanged: (val) => setState(() => _selectedUnitNumber = val),
+                     ),
+                   ),
+                 ],
+@@ -657,6 +704,61 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+         ),
+         const SizedBox(height: 20),
+ 
++        // Supplier & Status Row
++        Row(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            Expanded(
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  _buildLabel('Supplier *', theme),
++                  suppliersState.when(
++                    loading: () => const Center(child: CircularProgressIndicator()),
++                    error: (err, stack) => const Text('Error loading suppliers'),
++                    data: (suppliers) => DropdownButtonFormField<int?>(
++                      initialValue: _selectedSupplierNumber,
++                      decoration: inputDecoration.copyWith(
++                        hintText: 'Select Supplier',
++                      ),
++                      items: suppliers.map((s) {
++                        return DropdownMenuItem<int?>(
++                          value: s['supplierNumber'] as int?,
++                          child: Text(s['supplierName'] ?? ''),
++                        );
++                      }).toList(),
++                      onChanged: (val) => setState(() => _selectedSupplierNumber = val),
++                    ),
++                  ),
++                ],
++              ),
++            ),
++            const SizedBox(width: 16),
++            Expanded(
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  _buildLabel('Status *', theme),
++                  DropdownButtonFormField<String>(
++                    initialValue: _status,
++                    decoration: inputDecoration,
++                    items: const [
++                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
++                      DropdownMenuItem(value: 'INACTIVE', child: Text('Inactive')),
++                    ],
++                    onChanged: (val) {
++                      if (val != null) {
++                        setState(() => _status = val);
++                      }
++                    },
++                  ),
++                ],
++              ),
++            ),
++          ],
++        ),
++        const SizedBox(height: 20),
++
+         // Selling Price & Reorder Level Row
+         Row(
+           crossAxisAlignment: CrossAxisAlignment.start,
+@@ -665,24 +767,20 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+-                  _buildLabel('Selling Price (VND) *', theme),
++                  _buildLabel('Selling Price (VND)', theme),
+                   TextFormField(
+                     controller: _priceController,
+-                    keyboardType: const TextInputType.numberWithOptions(
+-                      decimal: true,
+-                    ),
+-                    inputFormatters: [
+-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+-                    ],
+-                    decoration: inputDecorationTheme.copyWith(
+-                      hintText: 'e.g. 15000',
++                    keyboardType: TextInputType.number,
++                    inputFormatters: [_ThousandsSeparatorFormatter()],
++                    decoration: inputDecoration.copyWith(
++                      hintText: 'e.g. 100.000',
++                      suffixText: 'VND',
+                     ),
+                     validator: (val) {
+-                      if (val == null || val.trim().isEmpty)
+-                        return 'Price is required';
+-                      final numVal = double.tryParse(val);
+-                      if (numVal == null || numVal <= 0)
+-                        return 'Price must be greater than 0';
++                      if (val != null && val.trim().isNotEmpty) {
++                        final numVal = double.tryParse(val.replaceAll('.', ''));
++                        if (numVal != null && numVal < 0) return 'Price cannot be negative';
++                      }
+                       return null;
+                     },
+                   ),
+@@ -697,21 +795,17 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                   _buildLabel('Reorder Level *', theme),
+                   TextFormField(
+                     controller: _reorderController,
+-                    keyboardType: const TextInputType.numberWithOptions(
+-                      decimal: true,
+-                    ),
++                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                     inputFormatters: [
+                       FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+                     ],
+-                    decoration: inputDecorationTheme.copyWith(
++                    decoration: inputDecoration.copyWith(
+                       hintText: 'e.g. 10',
+                     ),
+                     validator: (val) {
+-                      if (val == null || val.trim().isEmpty)
+-                        return 'Reorder level is required';
++                      if (val == null || val.trim().isEmpty) return 'Reorder level is required';
+                       final numVal = double.tryParse(val);
+-                      if (numVal == null || numVal < 0)
+-                        return 'Value cannot be negative';
++                      if (numVal == null || numVal < 0) return 'Value cannot be negative';
+                       return null;
+                     },
+                   ),
+@@ -722,7 +816,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+         ),
+         const SizedBox(height: 20),
+ 
+-        // Expiry Warning & Initial Stock (if Add mode) Row
++        // Shelf Life (Expiry warning) & Initial / Current Stock Row
+         Row(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+@@ -730,17 +824,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+-                  _buildLabel('Expiry Warning Days *', theme),
++                  _buildLabel('Shelf Life (Days) *', theme),
+                   TextFormField(
+                     controller: _expiryController,
+                     keyboardType: TextInputType.number,
+                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+-                    decoration: inputDecorationTheme.copyWith(
++                    decoration: inputDecoration.copyWith(
+                       hintText: 'e.g. 30',
+                     ),
+                     validator: (val) {
+-                      if (val == null || val.trim().isEmpty)
+-                        return 'Number of days is required';
++                      if (val == null || val.trim().isEmpty) return 'Shelf life is required';
+                       final numVal = int.tryParse(val);
+                       if (numVal == null || numVal < 0) return 'Invalid value';
+                       return null;
+@@ -755,33 +848,24 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   _buildLabel(
+-                    isEditMode
+-                        ? 'Current Stock (Read-only)'
+-                        : 'Initial Stock *',
++                    isEditMode ? 'Current Stock (Read-only)' : 'Initial Stock *',
+                     theme,
+                   ),
+                   TextFormField(
+                     controller: isEditMode
+                         ? _stockDisplayController
+                         : _initialQtyController,
+-                    enabled:
+-                        !isEditMode, // Locked in Edit mode, stock changes must go through transactions
+-                    keyboardType: const TextInputType.numberWithOptions(
+-                      decimal: true,
+-                    ),
++                    enabled: !isEditMode,
++                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                     inputFormatters: [
+                       FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+                     ],
+-                    decoration: inputDecorationTheme,
++                    decoration: inputDecoration,
+                     validator: (val) {
+                       if (!isEditMode) {
+-                        if (val == null || val.trim().isEmpty) {
+-                          return 'Initial stock is required';
+-                        }
++                        if (val == null || val.trim().isEmpty) return 'Initial stock is required';
+                         final numVal = double.tryParse(val);
+-                        if (numVal == null || numVal < 0) {
+-                          return 'Value cannot be negative';
+-                        }
++                        if (numVal == null || numVal < 0) return 'Value cannot be negative';
+                       }
+                       return null;
+                     },
+@@ -794,12 +878,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+         const SizedBox(height: 20),
+ 
+         // Description
+-        _buildLabel('Product Description', theme),
++        _buildLabel('Description', theme),
+         TextFormField(
+           controller: _descriptionController,
+-          maxLines: 3,
+-          decoration: inputDecorationTheme.copyWith(
+-            hintText: 'Enter product description...',
++          maxLines: 4,
++          decoration: inputDecoration.copyWith(
++            hintText: 'Provide detailed product description...',
+           ),
+         ),
+       ],
+@@ -811,9 +895,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
+       padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+       child: Text(
+         text,
+-        style: theme.textTheme.labelMedium?.copyWith(
++        style: theme.textTheme.labelLarge?.copyWith(
+           fontWeight: FontWeight.bold,
+-          color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
++          color: theme.colorScheme.onSurfaceVariant,
+         ),
+       ),
+     );
+diff --git a/frontend/lib/services/api_service.dart b/frontend/lib/services/api_service.dart
+index e2e2fb4..d2ca25c 100644
+--- a/frontend/lib/services/api_service.dart
++++ b/frontend/lib/services/api_service.dart
+@@ -32,18 +32,18 @@ class ApiService {
+           return DashboardData.fromJson(body['data']);
+         } else {
+           throw Exception(
+-            body['message'] ?? 'Kh├┤ng thß╗â tß║úi dß╗» liß╗çu bß║úng ─æiß╗üu khiß╗ân.',
++            body['message'] ?? 'Failed to load dashboard data.',
+           );
+         }
+       } else {
+         throw Exception(
+-          'Kh├┤ng thß╗â tß║úi dß╗» liß╗çu bß║úng ─æiß╗üu khiß╗ân: HTTP ${response.statusCode}',
++          'Failed to load dashboard data: HTTP ${response.statusCode}',
+         );
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -82,18 +82,18 @@ class ApiService {
+           };
+         } else {
+           throw Exception(
+-            body['message'] ?? 'Kh├┤ng thß╗â tß║úi danh s├ích sß║ún phß║⌐m.',
++            body['message'] ?? 'Failed to load products list.',
+           );
+         }
+       } else {
+         throw Exception(
+-          'Kh├┤ng thß╗â tß║úi danh s├ích sß║ún phß║⌐m: HTTP ${response.statusCode}',
++          'Failed to load products list: HTTP ${response.statusCode}',
+         );
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -106,15 +106,15 @@ class ApiService {
+           final data = body['data'] as List? ?? [];
+           return data.map((item) => CategoryItem.fromJson(item)).toList();
+         } else {
+-          throw Exception(body['message'] ?? 'Kh├┤ng thß╗â tß║úi danh mß╗Ñc.');
++          throw Exception(body['message'] ?? 'Failed to load categories.');
+         }
+       } else {
+-        throw Exception('Kh├┤ng thß╗â tß║úi danh mß╗Ñc: HTTP ${response.statusCode}');
++        throw Exception('Failed to load categories: HTTP ${response.statusCode}');
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -126,13 +126,13 @@ class ApiService {
+       );
+       if (response.statusCode != 200 || response.data['success'] != true) {
+         throw Exception(
+-          response.data['message'] ?? 'Kh├┤ng thß╗â cß║¡p nhß║¡t trß║íng th├íi.',
++          response.data['message'] ?? 'Failed to update status.',
+         );
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -169,18 +169,43 @@ class ApiService {
+           return data.map((item) => Map<String, dynamic>.from(item)).toList();
+         } else {
+           throw Exception(
+-            body['message'] ?? 'Kh├┤ng thß╗â tß║úi danh s├ích ─æ╞ín vß╗ï t├¡nh.',
++            body['message'] ?? 'Failed to load units.',
+           );
+         }
+       } else {
+         throw Exception(
+-          'Kh├┤ng thß╗â tß║úi danh s├ích ─æ╞ín vß╗ï t├¡nh: HTTP ${response.statusCode}',
++          'Failed to load units: HTTP ${response.statusCode}',
+         );
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
++    }
++  }
++
++  Future<List<Map<String, dynamic>>> fetchSuppliers() async {
++    try {
++      final response = await _dio.get('/inventory/suppliers');
++      if (response.statusCode == 200) {
++        final body = response.data;
++        if (body['success'] == true) {
++          final data = body['data'] as List? ?? [];
++          return data.map((item) => Map<String, dynamic>.from(item)).toList();
++        } else {
++          throw Exception(
++            body['message'] ?? 'Failed to load suppliers list.',
++          );
++        }
++      } else {
++        throw Exception(
++          'Failed to load suppliers: HTTP ${response.statusCode}',
++        );
++      }
++    } on DioException catch (e) {
++      throw Exception(_handleDioError(e));
++    } catch (e) {
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -200,15 +225,15 @@ class ApiService {
+         if (body['success'] == true) {
+           return body['data']['url'] as String;
+         } else {
+-          throw Exception(body['message'] ?? 'Kh├┤ng thß╗â tß║úi ß║únh l├¬n.');
++          throw Exception(body['message'] ?? 'Failed to upload image.');
+         }
+       } else {
+-        throw Exception('Kh├┤ng thß╗â tß║úi ß║únh l├¬n: HTTP ${response.statusCode}');
++        throw Exception('Failed to upload image: HTTP ${response.statusCode}');
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -216,12 +241,12 @@ class ApiService {
+     try {
+       final response = await _dio.post('/inventory/products', data: data);
+       if (response.statusCode != 200 || response.data['success'] != true) {
+-        throw Exception(response.data['message'] ?? 'Kh├┤ng thß╗â th├¬m sß║ún phß║⌐m.');
++        throw Exception(response.data['message'] ?? 'Failed to add product.');
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -230,13 +255,13 @@ class ApiService {
+       final response = await _dio.put('/inventory/products/$id', data: data);
+       if (response.statusCode != 200 || response.data['success'] != true) {
+         throw Exception(
+-          response.data['message'] ?? 'Kh├┤ng thß╗â cß║¡p nhß║¡t sß║ún phß║⌐m.',
++          response.data['message'] ?? 'Failed to update product.',
+         );
+       }
+     } on DioException catch (e) {
+       throw Exception(_handleDioError(e));
+     } catch (e) {
+-      throw Exception('─É├ú xß║úy ra lß╗ùi kh├┤ng mong muß╗æn: $e');
++      throw Exception('Unexpected error occurred: $e');
+     }
+   }
+ 
+@@ -359,4 +384,87 @@ class ApiService {
+     }
+     return message;
+   }
++
++  // ==========================================
++  // Category Methods
++  // ==========================================
++
++  Future<Map<String, dynamic>> getCategories({
++    String? keyword,
++    int page = 0,
++    int size = 10,
++  }) async {
++    try {
++      final queryParams = <String, dynamic>{
++        'page': page,
++        'size': size,
++      };
++
++      if (keyword != null && keyword.isNotEmpty) {
++        queryParams['keyword'] = keyword;
++      }
++
++      final response = await _dio.get(
++        '/categories',
++        queryParameters: queryParams,
++      );
++      return response.data as Map<String, dynamic>;
++    } catch (e) {
++      throw Exception('Failed to get categories: $e');
++    }
++  }
++
++  Future<void> updateCategoryStatus(int categoryNumber, String status) async {
++    try {
++      await _dio.patch(
++        '/categories/$categoryNumber/status',
++        data: {'status': status},
++      );
++    } catch (e) {
++      throw Exception('Failed to update category status: $e');
++    }
++  }
++
++  Future<Map<String, dynamic>> getCategoryById(int categoryNumber) async {
++    try {
++      final response = await _dio.get('/categories/$categoryNumber');
++      if (response.statusCode == 200) {
++        final body = response.data;
++        if (body['success'] == true) {
++          return body['data'] as Map<String, dynamic>;
++        }
++      }
++      throw Exception('Failed to load category.');
++    } on DioException catch (e) {
++      throw Exception(_handleDioError(e));
++    } catch (e) {
++      throw Exception('Unexpected error occurred: $e');
++    }
++  }
++
++  Future<void> createCategory(Map<String, dynamic> data) async {
++    try {
++      final response = await _dio.post('/categories', data: data);
++      if (response.statusCode != 201 && response.statusCode != 200 || response.data['success'] != true) {
++        throw Exception(response.data['message'] ?? 'Failed to create category.');
++      }
++    } on DioException catch (e) {
++      throw Exception(_handleDioError(e));
++    } catch (e) {
++      throw Exception('Unexpected error occurred: $e');
++    }
++  }
++
++  Future<void> updateCategory(int categoryNumber, Map<String, dynamic> data) async {
++    try {
++      final response = await _dio.put('/categories/$categoryNumber', data: data);
++      if (response.statusCode != 200 || response.data['success'] != true) {
++        throw Exception(response.data['message'] ?? 'Failed to update category.');
++      }
++    } on DioException catch (e) {
++      throw Exception(_handleDioError(e));
++    } catch (e) {
++      throw Exception('Unexpected error occurred: $e');
++    }
++  }
+ }
+diff --git a/frontend/lib/widgets/app_scaffold.dart b/frontend/lib/widgets/app_scaffold.dart
+index 03e5912..1df6508 100644
+--- a/frontend/lib/widgets/app_scaffold.dart
++++ b/frontend/lib/widgets/app_scaffold.dart
+@@ -34,14 +34,18 @@ class AppScaffold extends ConsumerWidget {
+       {
+         'title': 'Dashboard',
+         'icon': Icons.dashboard_outlined,
+-        'active': currentPath == '/',
++        'active': currentPath == '/stock',
+       },
+       {
+         'title': 'Products',
+         'icon': Icons.inventory_2_outlined,
+-        'active': currentPath.startsWith('/products'),
++        'active': currentPath.startsWith('/stock/products'),
++      },
++      {
++        'title': 'Categories',
++        'icon': Icons.category_outlined,
++        'active': currentPath.startsWith('/stock/categories'),
+       },
+-      {'title': 'Categories', 'icon': Icons.category_outlined, 'active': false},
+       {
+         'title': 'Transactions',
+         'icon': Icons.swap_horiz_outlined,
+@@ -118,9 +122,11 @@ class AppScaffold extends ConsumerWidget {
+                           Navigator.pop(context);
+                         }
+                         if (item['title'] == 'Dashboard') {
+-                          context.go('/');
++                          context.go('/stock');
+                         } else if (item['title'] == 'Products') {
+-                          context.go('/products');
++                          context.go('/stock/products');
++                        } else if (item['title'] == 'Categories') {
++                          context.go('/stock/categories');
+                         }
+                       },
+                       borderRadius: BorderRadius.circular(12),
+diff --git a/frontend/linux/flutter/generated_plugin_registrant.h b/frontend/linux/flutter/generated_plugin_registrant.h
+deleted file mode 100644
+index e0f0a47..0000000
+--- a/frontend/linux/flutter/generated_plugin_registrant.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-//
+-//  Generated file. Do not edit.
+-//
+-
+-// clang-format off
+-
+-#ifndef GENERATED_PLUGIN_REGISTRANT_
+-#define GENERATED_PLUGIN_REGISTRANT_
+-
+-#include <flutter_linux/flutter_linux.h>
+-
+-// Registers Flutter plugins.
+-void fl_register_plugins(FlPluginRegistry* registry);
+-
+-#endif  // GENERATED_PLUGIN_REGISTRANT_
+diff --git a/frontend/macos/Flutter/GeneratedPluginRegistrant.swift b/frontend/macos/Flutter/GeneratedPluginRegistrant.swift
+index 4110229..2193577 100644
+--- a/frontend/macos/Flutter/GeneratedPluginRegistrant.swift
++++ b/frontend/macos/Flutter/GeneratedPluginRegistrant.swift
+@@ -6,12 +6,14 @@ import FlutterMacOS
+ import Foundation
+ 
+ import app_links
++import file_picker
+ import file_selector_macos
+ import shared_preferences_foundation
+ import url_launcher_macos
+ 
+ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
+   AppLinksMacosPlugin.register(with: registry.registrar(forPlugin: "AppLinksMacosPlugin"))
++  FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
+   FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))
+   SharedPreferencesPlugin.register(with: registry.registrar(forPlugin: "SharedPreferencesPlugin"))
+   UrlLauncherPlugin.register(with: registry.registrar(forPlugin: "UrlLauncherPlugin"))
+diff --git a/frontend/pubspec.lock b/frontend/pubspec.lock
+index b5e8d3c..988c86a 100644
+--- a/frontend/pubspec.lock
++++ b/frontend/pubspec.lock
+@@ -129,6 +129,14 @@ packages:
+       url: "https://pub.dev"
+     source: hosted
+     version: "3.4.1"
++  dbus:
++    dependency: transitive
++    description:
++      name: dbus
++      sha256: "0ce9b0a839e6dee59a37a623d2fc26a35bbbe6404213e419b0d6411023d62645"
++      url: "https://pub.dev"
++    source: hosted
++    version: "0.7.14"
+   dio:
+     dependency: "direct main"
+     description:
+@@ -169,6 +177,14 @@ packages:
+       url: "https://pub.dev"
+     source: hosted
+     version: "7.0.1"
++  file_picker:
++    dependency: "direct main"
++    description:
++      name: file_picker
++      sha256: f13a03000d942e476bc1ff0a736d2e9de711d2f89a95cd4c1d88f861c3348387
++      url: "https://pub.dev"
++    source: hosted
++    version: "11.0.2"
+   file_selector_linux:
+     dependency: transitive
+     description:
+@@ -560,6 +576,14 @@ packages:
+       url: "https://pub.dev"
+     source: hosted
+     version: "2.3.0"
++  petitparser:
++    dependency: transitive
++    description:
++      name: petitparser
++      sha256: "91bd59303e9f769f108f8df05e371341b15d59e995e6806aefab827b58336675"
++      url: "https://pub.dev"
++    source: hosted
++    version: "7.0.2"
+   platform:
+     dependency: transitive
+     description:
+@@ -893,6 +917,14 @@ packages:
+       url: "https://pub.dev"
+     source: hosted
+     version: "3.0.3"
++  win32:
++    dependency: transitive
++    description:
++      name: win32
++      sha256: d7cb55e04cd34096cd3a79b3330245f54cb96a370a1c27adb3c84b917de8b08e
++      url: "https://pub.dev"
++    source: hosted
++    version: "5.15.0"
+   xdg_directories:
+     dependency: transitive
+     description:
+@@ -901,6 +933,14 @@ packages:
+       url: "https://pub.dev"
+     source: hosted
+     version: "1.1.0"
++  xml:
++    dependency: transitive
++    description:
++      name: xml
++      sha256: "971043b3a0d3da28727e40ed3e0b5d18b742fa5a68665cca88e74b7876d5e025"
++      url: "https://pub.dev"
++    source: hosted
++    version: "6.6.1"
+   yaml:
+     dependency: transitive
+     description:
+diff --git a/frontend/pubspec.yaml b/frontend/pubspec.yaml
+index 02aa0d0..249a7d1 100644
+--- a/frontend/pubspec.yaml
++++ b/frontend/pubspec.yaml
+@@ -43,6 +43,7 @@ dependencies:
+   # Use with the CupertinoIcons class for iOS style icons.
+   cupertino_icons: ^1.0.8
+   intl: ^0.20.3
++  file_picker: ^11.0.2
+ 
+ dev_dependencies:
+   flutter_test:
+diff --git a/frontend/windows/flutter/generated_plugin_registrant.h b/frontend/windows/flutter/generated_plugin_registrant.h
+deleted file mode 100644
+index dc139d8..0000000
+--- a/frontend/windows/flutter/generated_plugin_registrant.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-//
+-//  Generated file. Do not edit.
+-//
+-
+-// clang-format off
+-
+-#ifndef GENERATED_PLUGIN_REGISTRANT_
+-#define GENERATED_PLUGIN_REGISTRANT_
+-
+-#include <flutter/plugin_registry.h>
+-
+-// Registers Flutter plugins.
+-void RegisterPlugins(flutter::PluginRegistry* registry);
+-
+-#endif  // GENERATED_PLUGIN_REGISTRANT_
+diff --git a/stitch_supermarket_inventory_management_wireframes/DESIGN.md b/stitch_supermarket_inventory_management_wireframes/DESIGN.md
+new file mode 100644
+index 0000000..37f736b
+--- /dev/null
++++ b/stitch_supermarket_inventory_management_wireframes/DESIGN.md
+@@ -0,0 +1,180 @@
++---
++name: Viridian Ops
++colors:
++  surface: '#f8f9ff'
++  surface-dim: '#d0daee'
++  surface-bright: '#f8f9ff'
++  surface-container-lowest: '#ffffff'
++  surface-container-low: '#eff3ff'
++  surface-container: '#e6eeff'
++  surface-container-high: '#dfe9fc'
++  surface-container-highest: '#d9e3f7'
++  on-surface: '#121c2a'
++  on-surface-variant: '#3f4945'
++  inverse-surface: '#273140'
++  inverse-on-surface: '#ebf1ff'
++  outline: '#6f7974'
++  outline-variant: '#bfc9c3'
++  surface-tint: '#256955'
++  primary: '#00503e'
++  on-primary: '#ffffff'
++  primary-container: '#246955'
++  on-primary-container: '#a1e6cc'
++  inverse-primary: '#90d4bb'
++  secondary: '#8e4e14'
++  on-secondary: '#ffffff'
++  secondary-container: '#fca867'
++  on-secondary-container: '#763b00'
++  tertiary: '#244e3f'
++  on-tertiary: '#ffffff'
++  tertiary-container: '#3c6656'
++  on-tertiary-container: '#b4e2ce'
++  error: '#ba1a1a'
++  on-error: '#ffffff'
++  error-container: '#ffdad6'
++  on-error-container: '#93000a'
++  primary-fixed: '#acf1d7'
++  primary-fixed-dim: '#90d4bb'
++  on-primary-fixed: '#002117'
++  on-primary-fixed-variant: '#00513f'
++  secondary-fixed: '#ffdcc4'
++  secondary-fixed-dim: '#ffb781'
++  on-secondary-fixed: '#301400'
++  on-secondary-fixed-variant: '#703800'
++  tertiary-fixed: '#bfedd8'
++  tertiary-fixed-dim: '#a3d0bd'
++  on-tertiary-fixed: '#002117'
++  on-tertiary-fixed-variant: '#244e3f'
++  background: '#f8f9ff'
++  on-background: '#121c2a'
++  surface-variant: '#d9e3f7'
++typography:
++  headline-lg:
++    fontFamily: Bricolage Grotesque
++    fontSize: 32px
++    fontWeight: '700'
++    lineHeight: 40px
++    letterSpacing: -0.02em
++  headline-md:
++    fontFamily: Bricolage Grotesque
++    fontSize: 24px
++    fontWeight: '600'
++    lineHeight: 32px
++    letterSpacing: -0.01em
++  headline-sm:
++    fontFamily: Bricolage Grotesque
++    fontSize: 20px
++    fontWeight: '600'
++    lineHeight: 28px
++  body-lg:
++    fontFamily: Inter
++    fontSize: 16px
++    fontWeight: '400'
++    lineHeight: 24px
++  body-md:
++    fontFamily: Inter
++    fontSize: 14px
++    fontWeight: '400'
++    lineHeight: 20px
++  label-lg:
++    fontFamily: Inter
++    fontSize: 14px
++    fontWeight: '600'
++    lineHeight: 20px
++    letterSpacing: 0.1px
++  label-sm:
++    fontFamily: Inter
++    fontSize: 12px
++    fontWeight: '500'
++    lineHeight: 16px
++    letterSpacing: 0.5px
++  headline-lg-mobile:
++    fontFamily: Bricolage Grotesque
++    fontSize: 28px
++    fontWeight: '700'
++    lineHeight: 36px
++rounded:
++  sm: 0.25rem
++  DEFAULT: 0.5rem
++  md: 0.75rem
++  lg: 1rem
++  xl: 1.5rem
++  full: 9999px
++spacing:
++  base: 4px
++  xs: 4px
++  sm: 8px
++  md: 16px
++  lg: 24px
++  xl: 32px
++  gutter: 16px
++  margin-mobile: 16px
++  margin-tablet: 32px
++---
++
++## Brand & Style
++
++The design system is centered on a **refined minimalist** aesthetic, blending the systematic efficiency of Material Design 3 with a custom, high-end editorial clarity. The target audience consists of supermarket floor managers and logistics personnel who require high-speed data processing without cognitive fatigue.
++
++The emotional response is one of **composed control**. By utilizing a generous whitespace strategy and a sophisticated Viridian-centered palette, the UI feels less like a cluttered inventory sheet and more like a premium productivity suite. The style prioritizes functional beautyΓÇöeliminating unnecessary decorative elements in favor of purposeful geometry and subtle tactile cues.
++
++## Colors
++
++The color architecture is built on a "Natural Professionalism" theme. The **primary (#00503e)** is used for key actions and brand presence, evoking freshness and reliability. 
++
++- **Primary & Tints:** Use primary for core interaction points. The primary-fixed (#acf1d7) serves as a soft background for selected states or categories (e.g., "In Stock" badges).
++- **Surface Strategy:** The background uses a slightly off-white gray-blue (#f8f9ff) to reduce screen glare during long shifts, while the Surface remains pure white to create a distinct layer of information.
++- **Accents:** The secondary-container (#fca867) is reserved strictly for warnings, low-stock alerts, or items requiring immediate managerial attention.
++- **Grayscale:** Text Primary is a deep charcoal rather than pure black to maintain a softer, more modern contrast.
++
++## Typography
++
++This design system utilizes a dual-font strategy to balance character with utility. 
++
++**Bricolage Grotesque** is used for headlines. Its unique, slightly quirky terminals add a distinctive "premium tool" feel that differentiates the app from generic enterprise software. **Inter** is used for all body text, data points, and labels to ensure maximum legibility at small sizes, particularly for SKU numbers and pricing.
++
++- **Hierarchy:** Use `headline-md` for screen titles and `label-lg` for section headers within lists.
++- **Readability:** For data-heavy views (like inventory lists), use `body-md` with the `text-secondary` color to ensure the primary information (quantities/names) remains the focal point.
++
++## Layout & Spacing
++
++The system follows a strict **8px grid** rhythm. 
++
++- **Mobile Layout:** Uses a fluid 4-column grid with 16px side margins. Elements should align to the 16px "safe zone."
++- **Vertical Rhythm:** Components are separated by `md` (16px) or `lg` (24px) spacing. In dense data lists, `sm` (8px) padding is used between line items to maintain high information density without sacrificing touch targets.
++- **Touch Targets:** All interactive elements must maintain a minimum height of 48px, even if their visual representation is smaller.
++
++## Elevation & Depth
++
++This design system uses **Tonal Elevation** combined with **Ambient Shadows**. Instead of heavy shadows, we use surface color shifts and extremely soft, diffused blurs to signify depth.
++
++- **Level 0 (Background):** #f8f9ff.
++- **Level 1 (Cards/Lists):** Surface White with a 1px border (#E5E7EB) or a very soft shadow (0px 2px 8px rgba(0,0,0,0.04)).
++- **Level 2 (Floating Action Buttons/Modals):** Surface White with a more pronounced shadow (0px 8px 24px rgba(0,0,0,0.08)).
++- **Interactions:** When an item is pressed, it should transition from its elevation to a slightly darker tonal overlay (5% primary color tint) rather than a deep shadow.
++
++## Shapes
++
++The shape language is **"Modern Friendly."** We use a consistent medium-high corner radius to soften the professional aesthetic.
++
++- **Standard Components:** Buttons, Input Fields, and Cards use the `rounded-md` (16px) standard.
++- **Small Elements:** Tags and Chips use a more aggressive `rounded-xl` (24px) to create a "pill" appearance, making them easily distinguishable from actionable buttons.
++- **Containers:** Bottom sheets and large modals use `rounded-xl` only on the top corners to anchor them to the bottom of the viewport.
++
++## Components
++
++### Buttons
++- **Primary:** primary (#00503e) background, white text, 16px radius. No shadow; high color contrast provides the hierarchy.
++- **Secondary:** primary tint background (10% opacity) with primary text. Used for less critical actions.
++
++### Cards & Lists
++- **Inventory Cards:** White surface, 16px radius, subtle 1px border. Use a vertical stack for product images and horizontal layouts for SKU list items.
++- **Selection State:** Active list items should use a 2px left-side border in primary and a light primary-fixed (#acf1d7) background tint.
++
++### Inputs
++- **Search & Fields:** Light gray fill (#F3F4F6) with no border in resting state. On focus, transition to a white background with a 2px primary border.
++- **Icons:** Use 24px line-icons with a consistent stroke weight (1.5px to 2px) to match the Inter typography weight.
++
++### Feedback & Status
++- **Low Stock Chip:** secondary-container (#fca867) background with dark text.
++- **Success Toast:** primary background with white text, positioned at the top of the screen to avoid thumb obstruction.
+\ No newline at end of file
+diff --git a/stitch_supermarket_inventory_management_wireframes/code.html b/stitch_supermarket_inventory_management_wireframes/code.html
+new file mode 100644
+index 0000000..84b2b7d
+--- /dev/null
++++ b/stitch_supermarket_inventory_management_wireframes/code.html
+@@ -0,0 +1,228 @@
++<!DOCTYPE html>
++
++<html class="light" lang="en"><head>
++<meta charset="utf-8"/>
++<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
++<title>Add Category - Inventory Staff</title>
++<!-- Google Fonts -->
++<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
++<!-- Material Symbols -->
++<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
++<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
++<script id="tailwind-config">
++        tailwind.config = {
++            darkMode: "class",
++            theme: {
++                extend: {
++                    "colors": {
++                        "surface-container-high": "#dfe9fc",
++                        "background": "#f8f9ff",
++                        "primary-fixed-dim": "#90d4bb",
++                        "on-error": "#ffffff",
++                        "inverse-primary": "#90d4bb",
++                        "surface-container-highest": "#d9e3f7",
++                        "on-surface": "#121c2a",
++                        "primary": "#00503e",
++                        "surface-tint": "#256955",
++                        "on-tertiary-container": "#b4e2ce",
++                        "surface-variant": "#d9e3f7",
++                        "surface-bright": "#f8f9ff",
++                        "on-tertiary-fixed": "#002117",
++                        "on-error-container": "#93000a",
++                        "tertiary-fixed": "#bfedd8",
++                        "primary-container": "#246955",
++                        "outline-variant": "#bfc9c3",
++                        "error": "#ba1a1a",
++                        "surface": "#f8f9ff",
++                        "tertiary-fixed-dim": "#a3d0bd",
++                        "secondary-fixed-dim": "#ffb781",
++                        "tertiary": "#244e3f",
++                        "inverse-surface": "#273140",
++                        "surface-container-lowest": "#ffffff",
++                        "tertiary-container": "#3c6656",
++                        "on-secondary-container": "#763b00",
++                        "surface-container": "#e6eeff",
++                        "on-background": "#121c2a",
++                        "secondary-container": "#fca867",
++                        "on-secondary": "#ffffff",
++                        "outline": "#6f7974",
++                        "on-primary-container": "#a1e6cc",
++                        "on-secondary-fixed-variant": "#703800",
++                        "secondary-fixed": "#ffdcc4",
++                        "on-primary-fixed-variant": "#00513f",
++                        "on-tertiary": "#ffffff",
++                        "inverse-on-surface": "#ebf1ff",
++                        "surface-dim": "#d0daee",
++                        "secondary": "#8e4e14",
++                        "on-surface-variant": "#3f4945",
++                        "on-secondary-fixed": "#301400",
++                        "surface-container-low": "#eff3ff",
++                        "on-tertiary-fixed-variant": "#244e3f",
++                        "on-primary-fixed": "#002117",
++                        "error-container": "#ffdad6",
++                        "primary-fixed": "#acf1d7",
++                        "on-primary": "#ffffff"
++                    },
++                    "borderRadius": {
++                        "DEFAULT": "0.25rem",
++                        "lg": "0.5rem",
++                        "xl": "0.75rem",
++                        "full": "9999px"
++                    },
++                    "spacing": {
++                        "margin-tablet": "32px",
++                        "lg": "24px",
++                        "xs": "4px",
++                        "base": "4px",
++                        "sm": "8px",
++                        "margin-mobile": "16px",
++                        "xl": "32px",
++                        "gutter": "16px",
++                        "md": "16px"
++                    },
++                    "fontFamily": {
++                        "headline-lg-mobile": ["Bricolage Grotesque"],
++                        "body-md": ["Inter"],
++                        "headline-lg": ["Bricolage Grotesque"],
++                        "label-sm": ["Inter"],
++                        "label-lg": ["Inter"],
++                        "headline-sm": ["Bricolage Grotesque"],
++                        "headline-md": ["Bricolage Grotesque"],
++                        "body-lg": ["Inter"]
++                    },
++                    "fontSize": {
++                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
++                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
++                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
++                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
++                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
++                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
++                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
++                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
++                    }
++                },
++            },
++        };
++    </script>
++<style>
++        body {
++            background-color: #f8f9ff;
++            color: #121c2a;
++        }
++        .material-symbols-outlined {
++            font-size: 20px;
++        }
++        input, select, textarea {
++            border: 1px solid #bfc9c3 !important;
++            border-radius: 0.5rem !important;
++            transition: all 0.2s ease;
++        }
++        input:focus, select:focus, textarea:focus {
++            border-color: #256955 !important;
++            ring-color: #256955 !important;
++            box-shadow: 0 0 0 2px rgba(37, 105, 85, 0.2) !important;
++        }
++    </style>
++</head>
++<body class="font-body-md text-on-background">
++<!-- Sidebar Navigation -->
++<aside class="fixed left-0 top-0 h-full w-64 bg-surface-container flex flex-col p-6 overflow-y-auto border-r border-outline-variant min-h-screen">
++<div class="mb-10">
++<h1 class="font-headline-md text-headline-md font-bold text-primary">Inventory Staff</h1>
++<p class="font-label-sm text-on-surface-variant opacity-70">Warehouse v1.0</p>
++</div>
++<nav class="flex-grow flex flex-col gap-2">
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">dashboard</span>
++<span class="font-label-lg">Dashboard</span>
++</a>
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">inventory_2</span>
++<span class="font-label-lg">Products</span>
++</a>
++<!-- Active Tab: Categories -->
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary-container text-on-primary-container font-semibold" href="#">
++<span class="material-symbols-outlined">category</span>
++<span class="font-label-lg">Categories</span>
++</a>
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">swap_horiz</span>
++<span class="font-label-lg">Transactions</span>
++</a>
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">priority_high</span>
++<span class="font-label-lg">Low Stock</span>
++</a>
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">shopping_cart</span>
++<span class="font-label-lg">Purchase Requests</span>
++</a>
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">event_busy</span>
++<span class="font-label-lg">Expiring Products</span>
++</a>
++<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
++<span class="material-symbols-outlined">assessment</span>
++<span class="font-label-lg">Product Reports</span>
++</a>
++</nav>
++</aside>
++<!-- Main Content Canvas -->
++<main class="ml-64 p-xl min-h-screen bg-background">
++<!-- Header Section -->
++<header class="mb-8">
++<div class="flex justify-between items-end mb-4">
++<h2 class="font-headline-lg text-headline-lg font-bold text-on-surface">Add/Edit Category</h2>
++</div>
++<div class="h-px bg-outline-variant mb-4"></div>
++<nav class="font-label-sm text-on-surface-variant flex items-center gap-2">
++<span>Inventory</span>
++<span class="material-symbols-outlined !text-[14px]">chevron_right</span>
++<span>Categories</span>
++<span class="material-symbols-outlined !text-[14px]">chevron_right</span>
++<span class="text-primary font-bold">Add Category</span>
++</nav>
++</header>
++<!-- Main Form Container -->
++<section class="bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant max-w-4xl mb-12">
++<form class="flex flex-col gap-8">
++<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
++<!-- Category Name -->
++<div class="flex flex-col gap-2">
++<label class="font-label-lg text-on-surface">Category Name</label>
++<input class="p-3 w-full bg-surface-bright" placeholder="Enter Category Name" type="text"/>
++</div>
++<!-- Parent Category -->
++<div class="flex flex-col gap-2">
++<label class="font-label-lg text-on-surface">Parent Category</label>
++<select class="p-3 w-full appearance-none bg-surface-bright">
++<option value="">Select Parent Category</option>
++<option value="1">Electronics</option>
++<option value="2">Raw Materials</option>
++<option value="3">Finished Goods</option>
++</select>
++</div>
++</div>
++<!-- Description -->
++<div class="flex flex-col gap-2">
++<label class="font-label-lg text-on-surface">Description</label>
++<textarea class="p-3 w-full bg-surface-bright" placeholder="Provide a brief overview of the category purposes" rows="4"></textarea>
++</div>
++<!-- Internal Notes -->
++<div class="flex flex-col gap-2">
++<label class="font-label-lg text-on-surface">Internal Notes (Visible to Staff Only)</label>
++<textarea class="p-3 w-full bg-surface-bright" placeholder="Enter any confidential or administrative notes here" rows="3"></textarea>
++</div>
++<!-- Action Buttons -->
++<div class="flex gap-4 pt-4 border-t border-outline-variant">
++<button class="bg-primary text-white font-bold px-8 py-3 rounded-lg hover:bg-surface-tint transition-all shadow-md active:scale-95" type="submit">
++                        Save Category
++                    </button>
++<button class="bg-surface-container-high text-on-surface font-bold px-8 py-3 rounded-lg hover:bg-surface-container-highest transition-all active:scale-95" type="button">
++                        Cancel
++                    </button>
++</div>
++</form>
++</section>
++</main>
++</body></html>
+\ No newline at end of file
+diff --git a/stitch_supermarket_inventory_management_wireframes/screen.png b/stitch_supermarket_inventory_management_wireframes/screen.png
+new file mode 100644
+index 0000000..ca40611
+--- /dev/null
++++ b/stitch_supermarket_inventory_management_wireframes/screen.png
+@@ -0,0 +1 @@
++<FIFE Image failed to fetch>
+\ No newline at end of file

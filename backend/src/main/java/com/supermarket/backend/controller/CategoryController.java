@@ -1,7 +1,9 @@
 package com.supermarket.backend.controller;
 
+import com.supermarket.backend.dto.ApiResponse;
 import com.supermarket.backend.dto.CategoryDTO;
 import com.supermarket.backend.service.CategoryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,7 +22,7 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getCategories(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getCategories(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
@@ -35,69 +37,43 @@ public class CategoryController {
         data.put("totalItems", categories.getTotalElements());
         data.put("totalPages", categories.getTotalPages());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Category list loaded successfully.");
-        response.put("data", data);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Category list loaded successfully.", data));
     }
 
     @GetMapping("/{categoryNumber}")
-    public ResponseEntity<Map<String, Object>> getCategory(@PathVariable Integer categoryNumber) {
+    public ResponseEntity<ApiResponse<CategoryDTO>> getCategory(@PathVariable Integer categoryNumber) {
         try {
             CategoryDTO category = categoryService.getCategoryById(categoryNumber);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Category retrieved successfully.");
-            response.put("data", category);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(ApiResponse.success("Category retrieved successfully.", category));
         } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createCategory(@RequestBody CategoryDTO categoryDTO) {
+    public ResponseEntity<ApiResponse<CategoryDTO>> createCategory(@Valid @RequestBody CategoryDTO categoryDTO) {
         try {
             CategoryDTO newCategory = categoryService.createCategory(categoryDTO);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Category has been saved successfully.");
-            response.put("data", newCategory);
-            return ResponseEntity.status(201).body(response);
+            return ResponseEntity.status(201).body(ApiResponse.success("Category has been saved successfully.", newCategory));
         } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Category cannot be saved. " + e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Category cannot be saved. " + e.getMessage()));
         }
     }
 
     @PutMapping("/{categoryNumber}")
-    public ResponseEntity<Map<String, Object>> updateCategory(
+    public ResponseEntity<ApiResponse<CategoryDTO>> updateCategory(
             @PathVariable Integer categoryNumber,
-            @RequestBody CategoryDTO categoryDTO) {
+            @Valid @RequestBody CategoryDTO categoryDTO) {
         try {
             CategoryDTO updatedCategory = categoryService.updateCategory(categoryNumber, categoryDTO);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Category has been updated successfully.");
-            response.put("data", updatedCategory);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(ApiResponse.success("Category has been updated successfully.", updatedCategory));
         } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Category cannot be updated. " + e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Category cannot be updated. " + e.getMessage()));
         }
     }
 
     @PatchMapping("/{categoryNumber}/status")
-    public ResponseEntity<Map<String, Object>> updateCategoryStatus(
+    public ResponseEntity<ApiResponse<CategoryDTO>> updateCategoryStatus(
             @PathVariable Integer categoryNumber,
             @RequestBody Map<String, String> request) {
         
@@ -105,18 +81,10 @@ public class CategoryController {
         
         try {
             CategoryDTO updatedCategory = categoryService.updateCategoryStatus(categoryNumber, newStatus);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Category status updated successfully.");
-            response.put("data", updatedCategory);
-            
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(ApiResponse.success("Category status updated successfully.", updatedCategory));
         } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 }
+
