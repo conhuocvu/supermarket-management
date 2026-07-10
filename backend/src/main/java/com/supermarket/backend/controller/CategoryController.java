@@ -102,21 +102,7 @@ public class CategoryController {
             @RequestBody Map<String, String> request) {
         
         String newStatus = request.get("status");
-        if (newStatus == null || newStatus.trim().isEmpty()) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Status is required");
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-
-        newStatus = newStatus.trim().toUpperCase();
-        if (!newStatus.equals("ACTIVE") && !newStatus.equals("INACTIVE")) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Invalid status value. Allowed values are ACTIVE or INACTIVE.");
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-
+        
         try {
             CategoryDTO updatedCategory = categoryService.updateCategoryStatus(categoryNumber, newStatus);
             

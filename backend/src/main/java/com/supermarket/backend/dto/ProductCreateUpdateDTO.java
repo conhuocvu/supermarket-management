@@ -22,7 +22,6 @@ public class ProductCreateUpdateDTO {
     @NotNull(message = "Đơn vị tính không được để trống")
     private Integer inventoryUnitNumber;
     
-    @NotNull(message = "Giá bán không được để trống")
     private BigDecimal sellingPrice;
     
     @NotNull(message = "Mức báo động tồn kho không được để trống")

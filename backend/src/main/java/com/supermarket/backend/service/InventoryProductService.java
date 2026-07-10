@@ -281,6 +281,13 @@ public class InventoryProductService {
             throw new IllegalArgumentException("Mã vạch này đã tồn tại trên hệ thống");
         }
 
+        String status = dto.getStatus();
+        if (dto.getSellingPrice() == null || dto.getSellingPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            status = "INACTIVE";
+        } else if (status == null) {
+            status = "ACTIVE";
+        }
+
         Product product = Product.builder()
                 .productName(dto.getProductName())
                 .barcode(dto.getBarcode())
@@ -288,7 +295,7 @@ public class InventoryProductService {
                 .inventoryUnitNumber(dto.getInventoryUnitNumber())
                 .sellingPrice(dto.getSellingPrice())
                 .reorderLevel(dto.getReorderLevel())
-                .status(dto.getStatus() != null ? dto.getStatus() : "ACTIVE")
+                .status(status)
                 .description(dto.getDescription())
                 .imageUrl(dto.getImageUrl())
                 .expiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30)
@@ -308,8 +315,8 @@ public class InventoryProductService {
             ProductSupplier ps = ProductSupplier.builder()
                     .productNumber(product.getProductNumber())
                     .supplierNumber(dto.getSupplierNumber())
-                    .importPrice(product.getSellingPrice() != null ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.7)) : BigDecimal.ZERO)
-                    .minimumOrderQuantity(BigDecimal.valueOf(10))
+                    .importPrice(BigDecimal.ZERO)
+                    .minimumOrderQuantity(BigDecimal.ZERO)
                     .build();
             productSupplierRepository.save(ps);
         }
@@ -352,8 +359,8 @@ public class InventoryProductService {
                 ProductSupplier ps = ProductSupplier.builder()
                         .productNumber(productNumber)
                         .supplierNumber(dto.getSupplierNumber())
-                        .importPrice(product.getSellingPrice() != null ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.7)) : BigDecimal.ZERO)
-                        .minimumOrderQuantity(BigDecimal.valueOf(10))
+                        .importPrice(BigDecimal.ZERO)
+                        .minimumOrderQuantity(BigDecimal.ZERO)
                         .build();
                 productSupplierRepository.save(ps);
             }

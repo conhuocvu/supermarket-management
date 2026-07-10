@@ -75,6 +75,15 @@ public class CategoryService {
 
     @Transactional
     public CategoryDTO updateCategoryStatus(Integer categoryNumber, String newStatus) {
+        if (newStatus == null || newStatus.trim().isEmpty()) {
+            throw new IllegalArgumentException("Status is required");
+        }
+        
+        newStatus = newStatus.trim().toUpperCase();
+        if (!newStatus.equals("ACTIVE") && !newStatus.equals("INACTIVE")) {
+            throw new IllegalArgumentException("Invalid status value. Allowed values are ACTIVE or INACTIVE.");
+        }
+
         Category category = categoryRepository.findById(categoryNumber)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
         

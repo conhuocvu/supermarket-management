@@ -140,6 +140,16 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
 
       if (result != null && result.files.single.path != null) {
+        final fileSize = result.files.single.size;
+        // Check if file is larger than 2MB (2 * 1024 * 1024 bytes)
+        if (fileSize > 2 * 1024 * 1024) {
+          setState(() {
+            _errorMessage = 'File size exceeds the limit (maximum 2MB).';
+            _isUploadingImage = false;
+          });
+          return;
+        }
+
         final xFile = XFile(result.files.single.path!);
         final apiService = ref.read(apiServiceProvider);
         final publicUrl = await apiService.uploadProductImage(xFile);
@@ -185,7 +195,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       'categoryNumber': _selectedCategoryNumber,
       'inventoryUnitNumber': _selectedUnitNumber,
       'supplierNumber': _selectedSupplierNumber,
-      'sellingPrice': double.parse(_priceController.text.replaceAll('.', '')),
+      'sellingPrice': _priceController.text.trim().isEmpty 
+          ? 0.0 
+          : double.parse(_priceController.text.replaceAll('.', '')),
       'reorderLevel': double.parse(_reorderController.text),
       'status': _status,
       'description': _descriptionController.text.trim(),
@@ -755,7 +767,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('Selling Price (VND) *', theme),
+                  _buildLabel('Selling Price (VND)', theme),
                   TextFormField(
                     controller: _priceController,
                     keyboardType: TextInputType.number,
@@ -765,9 +777,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       suffixText: 'VND',
                     ),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Price is required';
-                      final numVal = double.tryParse(val.replaceAll('.', ''));
-                      if (numVal == null || numVal <= 0) return 'Price must be greater than 0';
+                      if (val != null && val.trim().isNotEmpty) {
+                        final numVal = double.tryParse(val.replaceAll('.', ''));
+                        if (numVal != null && numVal < 0) return 'Price cannot be negative';
+                      }
                       return null;
                     },
                   ),

@@ -32,18 +32,18 @@ class ApiService {
           return DashboardData.fromJson(body['data']);
         } else {
           throw Exception(
-            body['message'] ?? 'Không thể tải dữ liệu bảng điều khiển.',
+            body['message'] ?? 'Failed to load dashboard data.',
           );
         }
       } else {
         throw Exception(
-          'Không thể tải dữ liệu bảng điều khiển: HTTP ${response.statusCode}',
+          'Failed to load dashboard data: HTTP ${response.statusCode}',
         );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -82,18 +82,18 @@ class ApiService {
           };
         } else {
           throw Exception(
-            body['message'] ?? 'Không thể tải danh sách sản phẩm.',
+            body['message'] ?? 'Failed to load products list.',
           );
         }
       } else {
         throw Exception(
-          'Không thể tải danh sách sản phẩm: HTTP ${response.statusCode}',
+          'Failed to load products list: HTTP ${response.statusCode}',
         );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -106,15 +106,15 @@ class ApiService {
           final data = body['data'] as List? ?? [];
           return data.map((item) => CategoryItem.fromJson(item)).toList();
         } else {
-          throw Exception(body['message'] ?? 'Không thể tải danh mục.');
+          throw Exception(body['message'] ?? 'Failed to load categories.');
         }
       } else {
-        throw Exception('Không thể tải danh mục: HTTP ${response.statusCode}');
+        throw Exception('Failed to load categories: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -126,13 +126,13 @@ class ApiService {
       );
       if (response.statusCode != 200 || response.data['success'] != true) {
         throw Exception(
-          response.data['message'] ?? 'Không thể cập nhật trạng thái.',
+          response.data['message'] ?? 'Failed to update status.',
         );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -169,18 +169,18 @@ class ApiService {
           return data.map((item) => Map<String, dynamic>.from(item)).toList();
         } else {
           throw Exception(
-            body['message'] ?? 'Không thể tải danh sách đơn vị tính.',
+            body['message'] ?? 'Failed to load units.',
           );
         }
       } else {
         throw Exception(
-          'Không thể tải danh sách đơn vị tính: HTTP ${response.statusCode}',
+          'Failed to load units: HTTP ${response.statusCode}',
         );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -225,15 +225,15 @@ class ApiService {
         if (body['success'] == true) {
           return body['data']['url'] as String;
         } else {
-          throw Exception(body['message'] ?? 'Không thể tải ảnh lên.');
+          throw Exception(body['message'] ?? 'Failed to upload image.');
         }
       } else {
-        throw Exception('Không thể tải ảnh lên: HTTP ${response.statusCode}');
+        throw Exception('Failed to upload image: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -241,12 +241,12 @@ class ApiService {
     try {
       final response = await _dio.post('/inventory/products', data: data);
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Không thể thêm sản phẩm.');
+        throw Exception(response.data['message'] ?? 'Failed to add product.');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -255,13 +255,13 @@ class ApiService {
       final response = await _dio.put('/inventory/products/$id', data: data);
       if (response.statusCode != 200 || response.data['success'] != true) {
         throw Exception(
-          response.data['message'] ?? 'Không thể cập nhật sản phẩm.',
+          response.data['message'] ?? 'Failed to update product.',
         );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
