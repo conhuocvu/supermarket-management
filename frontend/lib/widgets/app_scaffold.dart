@@ -114,6 +114,9 @@ class AppScaffold extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: InkWell(
                       onTap: () {
+                        if (!isDesktop) {
+                          Navigator.pop(context);
+                        }
                         if (item['title'] == 'Dashboard') {
                           context.go('/');
                         } else if (item['title'] == 'Products') {

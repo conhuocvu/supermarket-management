@@ -32,6 +32,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _expiryController = TextEditingController(text: '30');
   final _initialQtyController = TextEditingController(text: '0');
   final _descriptionController = TextEditingController();
+  late final TextEditingController _stockDisplayController;
 
   int? _selectedCategoryNumber;
   int? _selectedUnitNumber;
@@ -47,6 +48,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   @override
   void initState() {
     super.initState();
+    _stockDisplayController = TextEditingController(
+      text: widget.product?.stock.toString() ?? '0',
+    );
     if (isEditMode && widget.product != null) {
       final p = widget.product!;
       _nameController.text = p.productName;
@@ -70,6 +74,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _expiryController.dispose();
     _initialQtyController.dispose();
     _descriptionController.dispose();
+    _stockDisplayController.dispose();
     super.dispose();
   }
 
@@ -202,8 +207,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
           (c) => c.categoryName == widget.product!.categoryName,
         );
         if (matches.isNotEmpty) {
-          setState(() {
-            _selectedCategoryNumber = matches.first.categoryNumber;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedCategoryNumber = matches.first.categoryNumber;
+              });
+            }
           });
         }
       }
@@ -215,8 +224,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
           (u) => u['unitName'] == widget.product!.unitName,
         );
         if (matches.isNotEmpty) {
-          setState(() {
-            _selectedUnitNumber = matches.first['unitNumber'] as int?;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedUnitNumber = matches.first['unitNumber'] as int?;
+              });
+            }
           });
         }
       }
@@ -749,9 +762,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                   ),
                   TextFormField(
                     controller: isEditMode
-                        ? TextEditingController(
-                            text: widget.product?.stock.toString() ?? '0',
-                          )
+                        ? _stockDisplayController
                         : _initialQtyController,
                     enabled:
                         !isEditMode, // Locked in Edit mode, stock changes must go through transactions
@@ -764,11 +775,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                     decoration: inputDecorationTheme,
                     validator: (val) {
                       if (!isEditMode) {
-                        if (val == null || val.trim().isEmpty)
+                        if (val == null || val.trim().isEmpty) {
                           return 'Initial stock is required';
+                        }
                         final numVal = double.tryParse(val);
-                        if (numVal == null || numVal < 0)
+                        if (numVal == null || numVal < 0) {
                           return 'Value cannot be negative';
+                        }
                       }
                       return null;
                     },
