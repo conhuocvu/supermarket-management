@@ -137,9 +137,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
       );
 
       if (pickedFile != null) {
