@@ -33,4 +33,5 @@ public class ProductCreateUpdateDTO {
     private String imageUrl;
     private Integer expiryWarningDays; // Default 30
     private BigDecimal initialQuantity; // Starting stock quantity (for creation)
+    private Integer supplierNumber; // Associated supplier number
 }

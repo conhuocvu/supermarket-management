@@ -6,6 +6,7 @@ import com.supermarket.backend.dto.ProductCreateUpdateDTO;
 import com.supermarket.backend.dto.ProductAdjustmentDTO;
 import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
 import com.supermarket.backend.dto.PurchaseRequestCreateDTO;
+import com.supermarket.backend.dto.SupplierDTO;
 import com.supermarket.backend.dto.UnitDTO;
 import com.supermarket.backend.service.InventoryProductService;
 import com.supermarket.backend.service.SupabaseStorageService;
@@ -129,6 +130,18 @@ public class InventoryProductController {
         response.put("success", true);
         response.put("message", "Units loaded successfully.");
         response.put("data", units);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/suppliers")
+    public ResponseEntity<Map<String, Object>> getSuppliers() {
+        List<SupplierDTO> suppliers = inventoryProductService.getActiveSuppliers();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Suppliers loaded successfully.");
+        response.put("data", suppliers);
 
         return ResponseEntity.ok(response);
     }

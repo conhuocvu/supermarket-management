@@ -6,6 +6,7 @@ import com.supermarket.backend.dto.InventoryProductDetailDTO;
 import com.supermarket.backend.dto.ProductCreateUpdateDTO;
 import com.supermarket.backend.dto.ProductAdjustmentDTO;
 import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
+import com.supermarket.backend.dto.SupplierDTO;
 import com.supermarket.backend.dto.UnitDTO;
 import com.supermarket.backend.entity.*;
 import com.supermarket.backend.repository.*;
@@ -263,6 +264,17 @@ public class InventoryProductService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<SupplierDTO> getActiveSuppliers() {
+        return supplierRepository.findAll().stream()
+                .filter(s -> "ACTIVE".equals(s.getStatus()))
+                .map(s -> SupplierDTO.builder()
+                        .supplierNumber(s.getSupplierNumber())
+                        .supplierName(s.getSupplierName())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public Product createProduct(ProductCreateUpdateDTO dto) {
         if (productRepository.existsByBarcode(dto.getBarcode())) {
@@ -293,6 +305,16 @@ public class InventoryProductService {
                 .build();
         inventoryRepository.save(inventory);
 
+        if (dto.getSupplierNumber() != null) {
+            ProductSupplier ps = ProductSupplier.builder()
+                    .productNumber(product.getProductNumber())
+                    .supplierNumber(dto.getSupplierNumber())
+                    .importPrice(product.getSellingPrice() != null ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.7)) : BigDecimal.ZERO)
+                    .minimumOrderQuantity(BigDecimal.valueOf(10))
+                    .build();
+            productSupplierRepository.save(ps);
+        }
+
         return product;
     }
 
@@ -320,6 +342,23 @@ public class InventoryProductService {
         product.setExpiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30);
 
         productRepository.save(product);
+
+        if (dto.getSupplierNumber() != null) {
+            List<ProductSupplier> existing = productSupplierRepository.findByProductNumber(productNumber);
+            if (!existing.isEmpty()) {
+                ProductSupplier ps = existing.get(0);
+                ps.setSupplierNumber(dto.getSupplierNumber());
+                productSupplierRepository.save(ps);
+            } else {
+                ProductSupplier ps = ProductSupplier.builder()
+                        .productNumber(productNumber)
+                        .supplierNumber(dto.getSupplierNumber())
+                        .importPrice(product.getSellingPrice() != null ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.7)) : BigDecimal.ZERO)
+                        .minimumOrderQuantity(BigDecimal.valueOf(10))
+                        .build();
+                productSupplierRepository.save(ps);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -498,12 +537,14 @@ public class InventoryProductService {
         String supplierName = "N/A";
         BigDecimal importPrice = null;
         BigDecimal minOrderQty = null;
+        Integer supplierNumber = null;
 
         List<ProductSupplier> prodSuppliers = productSupplierRepository.findByProductNumber(productNumber);
         if (!prodSuppliers.isEmpty()) {
             ProductSupplier ps = prodSuppliers.get(0);
             importPrice = ps.getImportPrice();
             minOrderQty = ps.getMinimumOrderQuantity();
+            supplierNumber = ps.getSupplierNumber();
 
             Optional<Supplier> sOpt = supplierRepository.findById(ps.getSupplierNumber());
             if (sOpt.isPresent()) {
@@ -550,6 +591,7 @@ public class InventoryProductService {
                 .imageUrl(p.getImageUrl() != null ? p.getImageUrl() : "")
                 .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
                 .expiryDate(expiryDate)
+                .supplierNumber(supplierNumber)
                 .supplierName(supplierName)
                 .importPrice(importPrice)
                 .minimumOrderQuantity(minOrderQty)

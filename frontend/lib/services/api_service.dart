@@ -184,6 +184,31 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchSuppliers() async {
+    try {
+      final response = await _dio.get('/inventory/suppliers');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => Map<String, dynamic>.from(item)).toList();
+        } else {
+          throw Exception(
+            body['message'] ?? 'Failed to load suppliers list.',
+          );
+        }
+      } else {
+        throw Exception(
+          'Failed to load suppliers: HTTP ${response.statusCode}',
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
   Future<String> uploadProductImage(XFile imageFile) async {
     try {
       final bytes = await imageFile.readAsBytes();

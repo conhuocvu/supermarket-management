@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'core/theme/app_theme.dart';
 import 'models/inventory_product.dart';
-import 'screens/add_edit_product_screen.dart';
+import 'screens/product_form_screen.dart';
 import 'screens/inventory_dashboard_screen.dart';
 import 'screens/inventory_product_list_screen.dart';
 import 'screens/inventory_product_detail_screen.dart';
@@ -36,7 +36,7 @@ final GoRouter _router = GoRouter(
             GoRoute(
               path: 'add',
               pageBuilder: (context, state) =>
-                  const NoTransitionPage(child: AddEditProductScreen()),
+                  const NoTransitionPage(child: ProductFormScreen()),
             ),
             GoRoute(
               path: 'edit/:id',
@@ -45,7 +45,7 @@ final GoRouter _router = GoRouter(
                 final id = int.tryParse(idStr) ?? 0;
                 final product = state.extra as InventoryProduct?;
                 return NoTransitionPage(
-                  child: AddEditProductScreen(productId: id, product: product),
+                  child: ProductFormScreen(productId: id, product: product),
                 );
               },
             ),
