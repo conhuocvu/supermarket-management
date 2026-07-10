@@ -6,6 +6,7 @@ import com.supermarket.backend.dto.InventoryProductDetailDTO;
 import com.supermarket.backend.dto.ProductCreateUpdateDTO;
 import com.supermarket.backend.dto.ProductAdjustmentDTO;
 import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
+import com.supermarket.backend.dto.SupplierDTO;
 import com.supermarket.backend.dto.UnitDTO;
 import com.supermarket.backend.entity.*;
 import com.supermarket.backend.repository.*;
@@ -263,10 +264,28 @@ public class InventoryProductService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<SupplierDTO> getActiveSuppliers() {
+        return supplierRepository.findAll().stream()
+                .filter(s -> "ACTIVE".equals(s.getStatus()))
+                .map(s -> SupplierDTO.builder()
+                        .supplierNumber(s.getSupplierNumber())
+                        .supplierName(s.getSupplierName())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public Product createProduct(ProductCreateUpdateDTO dto) {
         if (productRepository.existsByBarcode(dto.getBarcode())) {
             throw new IllegalArgumentException("Mã vạch này đã tồn tại trên hệ thống");
+        }
+
+        String status = dto.getStatus();
+        if (dto.getSellingPrice() == null || dto.getSellingPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            status = "INACTIVE";
+        } else if (status == null) {
+            status = "ACTIVE";
         }
 
         Product product = Product.builder()
@@ -276,7 +295,7 @@ public class InventoryProductService {
                 .inventoryUnitNumber(dto.getInventoryUnitNumber())
                 .sellingPrice(dto.getSellingPrice())
                 .reorderLevel(dto.getReorderLevel())
-                .status(dto.getStatus() != null ? dto.getStatus() : "ACTIVE")
+                .status(status)
                 .description(dto.getDescription())
                 .imageUrl(dto.getImageUrl())
                 .expiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30)
@@ -286,12 +305,21 @@ public class InventoryProductService {
         BigDecimal initialQty = dto.getInitialQuantity() != null ? dto.getInitialQuantity() : BigDecimal.ZERO;
         Inventory inventory = Inventory.builder()
                 .productNumber(product.getProductNumber())
-                .product(product)
                 .totalQuantity(initialQty)
                 .availableQuantity(initialQty)
                 .lastUpdated(LocalDateTime.now())
                 .build();
         inventoryRepository.save(inventory);
+
+        if (dto.getSupplierNumber() != null) {
+            ProductSupplier ps = ProductSupplier.builder()
+                    .productNumber(product.getProductNumber())
+                    .supplierNumber(dto.getSupplierNumber())
+                    .importPrice(BigDecimal.ZERO)
+                    .minimumOrderQuantity(BigDecimal.ZERO)
+                    .build();
+            productSupplierRepository.save(ps);
+        }
 
         return product;
     }
@@ -312,14 +340,37 @@ public class InventoryProductService {
         product.setInventoryUnitNumber(dto.getInventoryUnitNumber());
         product.setSellingPrice(dto.getSellingPrice());
         product.setReorderLevel(dto.getReorderLevel());
-        if (dto.getStatus() != null) {
-            product.setStatus(dto.getStatus());
+        
+        String status = dto.getStatus();
+        if (dto.getSellingPrice() == null || dto.getSellingPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            status = "INACTIVE";
         }
+        if (status != null) {
+            product.setStatus(status);
+        }
+        
         product.setDescription(dto.getDescription());
         product.setImageUrl(dto.getImageUrl());
         product.setExpiryWarningDays(dto.getExpiryWarningDays() != null ? dto.getExpiryWarningDays() : 30);
 
         productRepository.save(product);
+
+        if (dto.getSupplierNumber() != null) {
+            List<ProductSupplier> existing = productSupplierRepository.findByProductNumber(productNumber);
+            if (!existing.isEmpty()) {
+                ProductSupplier ps = existing.get(0);
+                ps.setSupplierNumber(dto.getSupplierNumber());
+                productSupplierRepository.save(ps);
+            } else {
+                ProductSupplier ps = ProductSupplier.builder()
+                        .productNumber(productNumber)
+                        .supplierNumber(dto.getSupplierNumber())
+                        .importPrice(BigDecimal.ZERO)
+                        .minimumOrderQuantity(BigDecimal.ZERO)
+                        .build();
+                productSupplierRepository.save(ps);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -498,12 +549,14 @@ public class InventoryProductService {
         String supplierName = "N/A";
         BigDecimal importPrice = null;
         BigDecimal minOrderQty = null;
+        Integer supplierNumber = null;
 
         List<ProductSupplier> prodSuppliers = productSupplierRepository.findByProductNumber(productNumber);
         if (!prodSuppliers.isEmpty()) {
             ProductSupplier ps = prodSuppliers.get(0);
             importPrice = ps.getImportPrice();
             minOrderQty = ps.getMinimumOrderQuantity();
+            supplierNumber = ps.getSupplierNumber();
 
             Optional<Supplier> sOpt = supplierRepository.findById(ps.getSupplierNumber());
             if (sOpt.isPresent()) {
@@ -550,6 +603,7 @@ public class InventoryProductService {
                 .imageUrl(p.getImageUrl() != null ? p.getImageUrl() : "")
                 .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
                 .expiryDate(expiryDate)
+                .supplierNumber(supplierNumber)
                 .supplierName(supplierName)
                 .importPrice(importPrice)
                 .minimumOrderQuantity(minOrderQty)

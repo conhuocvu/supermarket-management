@@ -14,6 +14,7 @@ class InventoryProductDetail {
   final DateTime? expiryDate;
 
   // Supplier Info
+  final int? supplierNumber;
   final String supplierName;
   final double? importPrice;
   final double? minimumOrderQuantity;
@@ -35,6 +36,7 @@ class InventoryProductDetail {
     required this.imageUrl,
     required this.expiryWarningDays,
     this.expiryDate,
+    this.supplierNumber,
     required this.supplierName,
     this.importPrice,
     this.minimumOrderQuantity,
@@ -64,6 +66,7 @@ class InventoryProductDetail {
       expiryDate: json['expiryDate'] != null
           ? DateTime.tryParse(json['expiryDate'] as String)
           : null,
+      supplierNumber: (json['supplierNumber'] as num?)?.toInt(),
       supplierName: json['supplierName'] ?? 'N/A',
       importPrice: (json['importPrice'] as num?)?.toDouble(),
       minimumOrderQuantity: (json['minimumOrderQuantity'] as num?)?.toDouble(),

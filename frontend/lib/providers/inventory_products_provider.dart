@@ -256,3 +256,8 @@ final unitsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   return apiService.fetchUnits();
 });
+
+final suppliersListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
+  final apiService = ref.watch(apiServiceProvider);
+  return apiService.fetchSuppliers();
+});
