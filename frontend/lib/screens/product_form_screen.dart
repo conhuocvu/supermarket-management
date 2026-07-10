@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/inventory_product.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/inventory_products_provider.dart';
@@ -134,14 +135,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     });
 
     try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
       );
 
-      if (pickedFile != null) {
+      if (result != null && result.files.single.path != null) {
+        final xFile = XFile(result.files.single.path!);
         final apiService = ref.read(apiServiceProvider);
-        final publicUrl = await apiService.uploadProductImage(pickedFile);
+        final publicUrl = await apiService.uploadProductImage(xFile);
 
         setState(() {
           _imageUrl = publicUrl;
