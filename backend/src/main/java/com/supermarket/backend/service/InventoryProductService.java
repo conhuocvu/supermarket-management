@@ -577,7 +577,7 @@ public class InventoryProductService {
     }
 
     @Transactional
-    public Inventory adjustProductQuantity(int productNumber, String adjustmentType, BigDecimal quantity, String reason) {
+    public ProductAdjustmentDTO adjustProductQuantity(int productNumber, String adjustmentType, BigDecimal quantity, String reason) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Adjustment quantity must be greater than zero.");
         }
@@ -623,7 +623,15 @@ public class InventoryProductService {
                 .build();
         inventoryTransactionRepository.save(transaction);
 
-        return savedInventory;
+        String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+
+        return ProductAdjustmentDTO.builder()
+                .productNumber(p.getProductNumber())
+                .productName(p.getProductName())
+                .barcode(p.getBarcode())
+                .unitName(unitName)
+                .availableQuantity(savedInventory.getAvailableQuantity())
+                .build();
     }
 
     private void debugLog(String message, boolean reset) {
