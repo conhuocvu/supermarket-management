@@ -54,25 +54,21 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
               ),
         ),
         actions: [
-          DropdownButton<String>(
-            value: currentRole,
-            underline: const SizedBox(),
-            items: ['ADMIN', 'MANAGER', 'CASHIER']
-                .map((e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) {
-                ref.read(currentUserRoleProvider.notifier).state = val;
-                ref.invalidate(suppliersProvider);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Simulated user role changed to: $val'),
-                  backgroundColor: AppTheme.primary,
-                ));
-              }
-            },
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              currentRole,
+              style: const TextStyle(
+                color: AppTheme.primaryDark,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           const SizedBox(width: 8),
           IconButton(

@@ -84,48 +84,56 @@ void main() async {
   }
 
   try {
-    await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+    await Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabaseAnonKey,
+    );
   } catch (e) {
-    runApp(MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 80, color: Colors.red),
-                const SizedBox(height: 20),
-                const Text(
-                  'Supabase Connection Error',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Không thể khởi tạo hoặc kết nối với Supabase. Vui lòng kiểm tra lại cấu hình hoặc kết nối internet.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black87),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red.shade200),
-                    borderRadius: BorderRadius.circular(8),
+    runApp(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 80, color: Colors.red),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Supabase Connection Error',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  child: Text(
-                    e.toString(),
-                    style: const TextStyle(fontFamily: 'monospace', color: Colors.red),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Không thể khởi tạo hoặc kết nối với Supabase. Vui lòng kiểm tra lại cấu hình hoặc kết nối internet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.black87),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      border: Border.all(color: Colors.red.shade200),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      e.toString(),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     return;
   }
 
@@ -212,7 +220,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Protect routes based on role:
       final path = state.uri.path;
-      final isSharedRoute = path.startsWith('/staff') ||
+      final isSharedRoute =
+          path.startsWith('/staff') ||
           path.startsWith('/promotions') ||
           path.startsWith('/suppliers') ||
           path.startsWith('/profile') ||
@@ -259,7 +268,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),
       GoRoute(
         path: '/manager',
-        builder: (context, state) => const ManagerScreen(),
+        builder: (context, state) => const DashboardScreen(),
       ),
       GoRoute(
         path: '/sales',
@@ -361,7 +370,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/promotions/new',
-        builder: (context, state) => const NewPromotionScreen(promotionId: null),
+        builder: (context, state) =>
+            const NewPromotionScreen(promotionId: null),
       ),
       GoRoute(
         path: '/promotions/edit/:id',
@@ -513,8 +523,8 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
               Text(
                 'Supermarket System - CORS Connection Test',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
@@ -557,7 +567,9 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                 decoration: BoxDecoration(
                   color: _status.contains('Chưa')
                       ? Colors.grey.shade100
-                      : (_isSuccess ? Colors.green.shade50 : Colors.red.shade50),
+                      : (_isSuccess
+                            ? Colors.green.shade50
+                            : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _status.contains('Chưa')
@@ -575,7 +587,9 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                         fontWeight: FontWeight.bold,
                         color: _status.contains('Chưa')
                             ? Colors.black87
-                            : (_isSuccess ? Colors.green.shade800 : Colors.red.shade800),
+                            : (_isSuccess
+                                  ? Colors.green.shade800
+                                  : Colors.red.shade800),
                       ),
                     ),
                     if (_responseDetails.isNotEmpty) ...[

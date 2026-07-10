@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/models/promotion.dart';
 import 'package:frontend/core/errors/app_error.dart';
 import 'package:frontend/providers/employee_provider.dart';
+import 'package:frontend/providers/auth_provider.dart';
 
 // Provide search query state for promotions
 final promotionSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -13,7 +14,10 @@ class PromotionsNotifier extends AsyncNotifier<List<Promotion>> {
   @override
   Future<List<Promotion>> build() async {
     // Wait until the mock JWT token is retrieved
-    await ref.watch(mockTokenProvider.future);
+    final authState = ref.watch(authProvider);
+    if (!authState.isInitialized || authState.session == null) {
+      return [];
+    }
 
     final api = ref.watch(apiServiceProvider);
     final search = ref.watch(promotionSearchQueryProvider);
@@ -113,7 +117,10 @@ final promotionsProvider = AsyncNotifierProvider<PromotionsNotifier, List<Promot
 
 // FutureProvider for single promotion details
 final promotionDetailProvider = FutureProvider.family<Promotion, int>((ref, id) async {
-  await ref.watch(mockTokenProvider.future);
+  final authState = ref.watch(authProvider);
+  if (!authState.isInitialized || authState.session == null) {
+    throw Exception('Not authenticated');
+  }
   final api = ref.watch(apiServiceProvider);
   final result = await api.getPromotion(id);
   return result.dataOrThrow;

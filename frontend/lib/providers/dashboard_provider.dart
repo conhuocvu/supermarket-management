@@ -2,7 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dashboard_data.dart';
 import '../services/api_service.dart';
 
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
+import 'employee_provider.dart';
+export 'employee_provider.dart' show apiServiceProvider;
 
 final dashboardDataProvider =
     StateNotifierProvider<DashboardDataNotifier, AsyncValue<DashboardData>>((

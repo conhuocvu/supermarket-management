@@ -3,29 +3,42 @@ import 'package:frontend/models/employee.dart';
 import 'package:frontend/models/shift.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/core/errors/app_error.dart';
+import 'package:frontend/providers/auth_provider.dart';
+import 'package:frontend/models/profile.dart';
 
 // Provide a vanilla ApiService (no interceptor using token provider to prevent circular reference)
 final vanillaApiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
 });
 
-// Provide current user role simulation state
-final currentUserRoleProvider = StateProvider<String>((ref) => 'MANAGER');
+// Provide current user role state from the logged-in Supabase profile
+final currentUserRoleProvider = Provider<String>((ref) {
+  final authState = ref.watch(authProvider);
+  final roleNum = authState.profile?.roleNumber;
+  if (roleNum == null) return 'STOCK_CONTROLLER';
 
-// FutureProvider that fetches the mock JWT token whenever role changes
-final mockTokenProvider = FutureProvider<String>((ref) async {
-  final role = ref.watch(currentUserRoleProvider);
-  final vanillaApi = ref.read(vanillaApiServiceProvider);
-  final result = await vanillaApi.getMockToken(role);
-  return result.dataOrThrow;
+  switch (roleNum) {
+    case UserRoles.admin:
+      return 'ADMIN';
+    case UserRoles.manager:
+      return 'MANAGER';
+    case UserRoles.stockController:
+      return 'STOCK_CONTROLLER';
+    case UserRoles.salesAssociate:
+      return 'SALES_ASSOCIATE';
+    case UserRoles.cashier:
+      return 'CASHIER';
+    default:
+      return 'STOCK_CONTROLLER';
+  }
 });
 
-// Provide ApiService configured with the mock JWT token
+// Provide ApiService configured with the real Supabase JWT token
 final apiServiceProvider = Provider<ApiService>((ref) {
+  final authState = ref.watch(authProvider);
   return ApiService(
     tokenProvider: () {
-      final tokenAsync = ref.read(mockTokenProvider);
-      return tokenAsync.value ?? '';
+      return authState.session?.accessToken ?? '';
     },
   );
 });
@@ -40,8 +53,10 @@ final employeeStatusFilterProvider = StateProvider<String>((ref) => 'ALL');
 class EmployeesNotifier extends AsyncNotifier<List<Employee>> {
   @override
   Future<List<Employee>> build() async {
-    // Force wait until the mock JWT token is retrieved
-    await ref.watch(mockTokenProvider.future);
+    final authState = ref.watch(authProvider);
+    if (!authState.isInitialized || authState.session == null) {
+      return [];
+    }
 
     final api = ref.watch(apiServiceProvider);
     final search = ref.watch(employeeSearchQueryProvider);
@@ -118,7 +133,10 @@ final employeesProvider = AsyncNotifierProvider<EmployeesNotifier, List<Employee
 
 // FutureProvider for dashboard stats
 final employeeStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  await ref.watch(mockTokenProvider.future);
+  final authState = ref.watch(authProvider);
+  if (!authState.isInitialized || authState.session == null) {
+    return {};
+  }
   final api = ref.watch(apiServiceProvider);
   final result = await api.getStats();
   return result.dataOrThrow;
@@ -126,7 +144,10 @@ final employeeStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 
 // FutureProvider for single employee details (family)
 final employeeDetailProvider = FutureProvider.family<Employee, int>((ref, id) async {
-  await ref.watch(mockTokenProvider.future);
+  final authState = ref.watch(authProvider);
+  if (!authState.isInitialized || authState.session == null) {
+    throw Exception('Not authenticated');
+  }
   final api = ref.watch(apiServiceProvider);
   final result = await api.getEmployee(id);
   return result.dataOrThrow;
