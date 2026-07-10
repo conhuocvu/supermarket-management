@@ -16,7 +16,9 @@ class RecentActivity {
       action: json['action'] ?? '',
       item: json['item'] ?? '',
       quantity: json['quantity'] ?? '',
-      time: json['time'] != null ? DateTime.parse(json['time']) : DateTime.now(),
+      time: json['time'] != null
+          ? DateTime.parse(json['time'])
+          : DateTime.now(),
     );
   }
 
@@ -51,14 +53,16 @@ class DashboardData {
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     var list = json['recentActivities'] as List? ?? [];
-    List<RecentActivity> activitiesList =
-        list.map((i) => RecentActivity.fromJson(i)).toList();
+    List<RecentActivity> activitiesList = list
+        .map((i) => RecentActivity.fromJson(i))
+        .toList();
 
     return DashboardData(
       totalProducts: (json['totalProducts'] as num?)?.toInt() ?? 0,
       lowStockCount: (json['lowStockCount'] as num?)?.toInt() ?? 0,
       nearExpiryCount: (json['nearExpiryCount'] as num?)?.toInt() ?? 0,
-      pendingRequestsCount: (json['pendingRequestsCount'] as num?)?.toInt() ?? 0,
+      pendingRequestsCount:
+          (json['pendingRequestsCount'] as num?)?.toInt() ?? 0,
       capacityUsed: (json['capacityUsed'] as num?)?.toDouble() ?? 0.0,
       recentActivities: activitiesList,
       updatedAt: json['updatedAt'] != null

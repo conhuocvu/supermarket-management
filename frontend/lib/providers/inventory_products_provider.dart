@@ -13,7 +13,7 @@ class InventoryProductsState {
   final int? selectedCategoryNumber;
   final Set<int> selectedProductNumbers;
   final bool isSubmittingAction;
-  final String warningFilter;
+  final String? warningFilter;
 
   InventoryProductsState({
     required this.products,
@@ -45,8 +45,11 @@ class InventoryProductsState {
       totalPages: totalPages ?? this.totalPages,
       totalItems: totalItems ?? this.totalItems,
       searchKeyword: searchKeyword ?? this.searchKeyword,
-      selectedCategoryNumber: clearCategory ? null : (selectedCategoryNumber ?? this.selectedCategoryNumber),
-      selectedProductNumbers: selectedProductNumbers ?? this.selectedProductNumbers,
+      selectedCategoryNumber: clearCategory
+          ? null
+          : (selectedCategoryNumber ?? this.selectedCategoryNumber),
+      selectedProductNumbers:
+          selectedProductNumbers ?? this.selectedProductNumbers,
       isSubmittingAction: isSubmittingAction ?? this.isSubmittingAction,
       warningFilter: warningFilter ?? this.warningFilter,
     );
@@ -57,7 +60,8 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
   final ApiService _apiService;
 
   InventoryProductsNotifier(this._apiService)
-      : super(InventoryProductsState(
+    : super(
+        InventoryProductsState(
           products: const AsyncValue.loading(),
           currentPage: 0,
           totalPages: 0,
@@ -66,15 +70,17 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
           selectedProductNumbers: {},
           isSubmittingAction: false,
           warningFilter: 'NONE',
-        )) {
+        ),
+      ) {
     loadProducts();
   }
 
   Future<void> loadProducts() async {
     state = state.copyWith(products: const AsyncValue.loading());
     try {
-      if (state.warningFilter != 'NONE') {
-        final list = await _apiService.fetchWarningProducts(state.warningFilter);
+      final activeWarning = state.warningFilter ?? 'NONE';
+      if (activeWarning != 'NONE') {
+        final list = await _apiService.fetchWarningProducts(activeWarning);
         state = state.copyWith(
           products: AsyncValue.data(list),
           currentPage: 0,
@@ -111,14 +117,17 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
       if (categoryNumber == null) {
         state = state.copyWith(clearCategory: true, currentPage: 0);
       } else {
-        state = state.copyWith(selectedCategoryNumber: categoryNumber, currentPage: 0);
+        state = state.copyWith(
+          selectedCategoryNumber: categoryNumber,
+          currentPage: 0,
+        );
       }
       loadProducts();
     }
   }
 
   void setWarningFilter(String warningFilter) {
-    if (state.warningFilter != warningFilter) {
+    if ((state.warningFilter ?? 'NONE') != warningFilter) {
       state = state.copyWith(warningFilter: warningFilter, currentPage: 0);
       loadProducts();
     }
@@ -140,11 +149,16 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
 
   void selectAll(List<InventoryProduct> productsOnPage) {
     final updated = Set<int>.from(state.selectedProductNumbers);
-    final allOnPage = productsOnPage.map((p) => p.productNumber).toSet();
-    if (updated.containsAll(allOnPage)) {
-      updated.removeAll(allOnPage);
+    final activeOnPage = productsOnPage
+        .where((p) => p.status == 'ACTIVE')
+        .map((p) => p.productNumber)
+        .toSet();
+    if (activeOnPage.isEmpty) return;
+
+    if (updated.containsAll(activeOnPage)) {
+      updated.removeAll(activeOnPage);
     } else {
-      updated.addAll(allOnPage);
+      updated.addAll(activeOnPage);
     }
     state = state.copyWith(selectedProductNumbers: updated);
   }
@@ -156,7 +170,10 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
     }
   }
 
-  Future<void> toggleProductStatus(int productNumber, String currentStatus) async {
+  Future<void> toggleProductStatus(
+    int productNumber,
+    String currentStatus,
+  ) async {
     final newStatus = currentStatus == 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     state = state.copyWith(isSubmittingAction: true);
     try {
@@ -171,8 +188,20 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
     if (state.selectedProductNumbers.isEmpty) return;
     state = state.copyWith(isSubmittingAction: true);
     try {
-      await _apiService.createPurchaseRequest(state.selectedProductNumbers.toList());
+      await _apiService.createPurchaseRequest(
+        state.selectedProductNumbers.toList(),
+      );
       state = state.copyWith(selectedProductNumbers: {});
+      await loadProducts();
+    } finally {
+      state = state.copyWith(isSubmittingAction: false);
+    }
+  }
+
+  Future<void> submitPurchaseRequestForSingleProduct(int productNumber) async {
+    state = state.copyWith(isSubmittingAction: true);
+    try {
+      await _apiService.createPurchaseRequest([productNumber]);
       await loadProducts();
     } finally {
       state = state.copyWith(isSubmittingAction: false);
@@ -211,10 +240,12 @@ class InventoryProductsNotifier extends StateNotifier<InventoryProductsState> {
 }
 
 final inventoryProductsProvider =
-    StateNotifierProvider<InventoryProductsNotifier, InventoryProductsState>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return InventoryProductsNotifier(apiService);
-});
+    StateNotifierProvider<InventoryProductsNotifier, InventoryProductsState>((
+      ref,
+    ) {
+      final apiService = ref.watch(apiServiceProvider);
+      return InventoryProductsNotifier(apiService);
+    });
 
 final categoriesListProvider = FutureProvider<List<CategoryItem>>((ref) {
   final apiService = ref.watch(apiServiceProvider);
@@ -225,4 +256,3 @@ final unitsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   return apiService.fetchUnits();
 });
-

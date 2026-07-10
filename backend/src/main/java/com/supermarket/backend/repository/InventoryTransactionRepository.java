@@ -12,4 +12,6 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
 
     @Query("SELECT t FROM InventoryTransaction t JOIN FETCH t.product ORDER BY t.createdAt DESC")
     List<InventoryTransaction> findRecentTransactions(Pageable pageable);
+
+    List<InventoryTransaction> findByProductProductNumberOrderByCreatedAtDesc(Integer productNumber);
 }

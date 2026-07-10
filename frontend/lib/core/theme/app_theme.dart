@@ -5,16 +5,16 @@ class AppTheme {
   static const Color primaryColor = Color(0xFF00503E);
   static const Color primaryLightColor = Color(0xFFA8D5C2);
   static const Color primaryDarkColor = Color(0xFF002117);
-  
+
   static const Color secondaryColor = Color(0xFFF4A261);
   static const Color secondaryDarkColor = Color(0xFF8E4E14);
-  
+
   static const Color backgroundColor = Color(0xFFF8F9FF);
   static const Color surfaceColor = Color(0xFFFFFFFF);
-  
+
   static const Color textPrimaryColor = Color(0xFF121C2A);
   static const Color textSecondaryColor = Color(0xFF3F4945);
-  
+
   static const Color errorColor = Color(0xFFBA1A1A);
   static const Color errorContainerColor = Color(0xFFFFDAD6);
   static const Color onErrorContainerColor = Color(0xFF93000A);

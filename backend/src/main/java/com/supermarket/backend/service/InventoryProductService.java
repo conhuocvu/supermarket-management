@@ -2,6 +2,7 @@ package com.supermarket.backend.service;
 
 import com.supermarket.backend.dto.CategoryDTO;
 import com.supermarket.backend.dto.InventoryProductDTO;
+import com.supermarket.backend.dto.InventoryProductDetailDTO;
 import com.supermarket.backend.dto.ProductCreateUpdateDTO;
 import com.supermarket.backend.dto.UnitDTO;
 import com.supermarket.backend.entity.*;
@@ -17,6 +18,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,12 +35,30 @@ public class InventoryProductService {
     private final UnitRepository unitRepository;
     private final InventoryRepository inventoryRepository;
     private final StockInDetailRepository stockInDetailRepository;
+    private final SupplierRepository supplierRepository;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
 
     @Transactional(readOnly = true)
     public Page<InventoryProductDTO> getProducts(String keyword, Integer categoryNumber, Pageable pageable) {
         Page<Product> productsPage = productRepository.findProducts(keyword, categoryNumber, pageable);
+        List<Product> productsList = productsPage.getContent();
+        
+        List<Integer> productNumbers = productsList.stream()
+                .map(Product::getProductNumber)
+                .collect(Collectors.toList());
+                
+        Map<Integer, List<StockInDetail>> detailsMap = new java.util.HashMap<>();
+        if (!productNumbers.isEmpty()) {
+            List<StockInDetail> details = stockInDetailRepository.findActiveStockInDetailsByProductNumbers(productNumbers);
+            detailsMap = details.stream().collect(Collectors.groupingBy(StockInDetail::getProductNumber));
+        }
+        
+        final Map<Integer, List<StockInDetail>> finalDetailsMap = detailsMap;
         
         return productsPage.map(p -> {
+            List<StockInDetail> pDetails = finalDetailsMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
+            LocalDate expiryDate = pDetails.isEmpty() ? null : pDetails.get(0).getExpiryDate();
+            
             BigDecimal stock = BigDecimal.ZERO;
             if (p.getInventory() != null && p.getInventory().getAvailableQuantity() != null) {
                 stock = p.getInventory().getAvailableQuantity();
@@ -58,6 +80,7 @@ public class InventoryProductService {
                     .description(p.getDescription())
                     .imageUrl(p.getImageUrl())
                     .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
+                    .expiryDate(expiryDate)
                     .build();
         });
     }
@@ -99,6 +122,10 @@ public class InventoryProductService {
         for (Integer prodNum : productNumbers) {
             Product product = productRepository.findById(prodNum)
                     .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + prodNum));
+
+            if (!"ACTIVE".equals(product.getStatus())) {
+                throw new IllegalArgumentException("Cannot create purchase request for inactive product: " + product.getProductName());
+            }
 
             // Find mapping in product_suppliers or fallback to creating a default mapping to supplier 1
             List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
@@ -142,6 +169,86 @@ public class InventoryProductService {
             purchaseRequestDetailRepository.save(detail);
         }
     }
+
+    @Transactional
+    public PurchaseRequest addProductsToPurchaseRequest(UUID userId, List<Integer> productNumbers) {
+        if (productNumbers == null || productNumbers.isEmpty()) {
+            throw new IllegalArgumentException("Danh sách sản phẩm không được trống");
+        }
+
+        if (userId == null) {
+            userId = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+        }
+
+        final UUID finalUserId = userId;
+        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "PENDING")
+                .orElseGet(() -> {
+                    PurchaseRequest newPr = PurchaseRequest.builder()
+                            .status("PENDING")
+                            .createdBy(finalUserId)
+                            .createdDate(LocalDateTime.now())
+                            .build();
+                    return purchaseRequestRepository.save(newPr);
+                });
+
+        List<PurchaseRequestDetail> existingDetails = purchaseRequestDetailRepository.findByPurchaseRequestNumber(pr.getPurchaseRequestNumber());
+        java.util.Set<Integer> existingSupplierNumbers = existingDetails.stream()
+                .map(PurchaseRequestDetail::getProductSupplierNumber)
+                .collect(Collectors.toSet());
+
+        for (Integer prodNum : productNumbers) {
+            Product product = productRepository.findById(prodNum)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm có mã: " + prodNum));
+
+            if (!"ACTIVE".equals(product.getStatus())) {
+                throw new IllegalArgumentException("Không thể tạo yêu cầu mua hàng cho sản phẩm đã ngừng hoạt động (Inactive): " + product.getProductName());
+            }
+
+            List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
+            ProductSupplier supplier;
+            if (suppliers.isEmpty()) {
+                BigDecimal importPrice = product.getSellingPrice() != null
+                        ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.75))
+                        : BigDecimal.valueOf(10000);
+                supplier = ProductSupplier.builder()
+                        .productNumber(prodNum)
+                        .supplierNumber(1)
+                        .importPrice(importPrice)
+                        .minimumOrderQuantity(BigDecimal.valueOf(10))
+                        .build();
+                supplier = productSupplierRepository.save(supplier);
+            } else {
+                supplier = suppliers.get(0);
+            }
+
+            if (existingSupplierNumbers.contains(supplier.getProductSupplierNumber())) {
+                continue;
+            }
+
+            BigDecimal stock = BigDecimal.ZERO;
+            if (product.getInventory() != null && product.getInventory().getAvailableQuantity() != null) {
+                stock = product.getInventory().getAvailableQuantity();
+            }
+            BigDecimal reorderLevel = product.getReorderLevel() != null ? product.getReorderLevel() : BigDecimal.ZERO;
+            BigDecimal needed = reorderLevel.subtract(stock);
+
+            BigDecimal requestedQty = needed;
+            BigDecimal minQty = supplier.getMinimumOrderQuantity() != null ? supplier.getMinimumOrderQuantity() : BigDecimal.valueOf(10);
+            if (requestedQty.compareTo(BigDecimal.ZERO) <= 0 || requestedQty.compareTo(minQty) < 0) {
+                requestedQty = minQty;
+            }
+
+            PurchaseRequestDetail detail = PurchaseRequestDetail.builder()
+                    .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                    .productSupplierNumber(supplier.getProductSupplierNumber())
+                    .requestedQuantity(requestedQty)
+                    .build();
+            purchaseRequestDetailRepository.save(detail);
+        }
+
+        return pr;
+    }
+
 
     @Transactional(readOnly = true)
     public List<UnitDTO> getActiveUnits() {
@@ -216,8 +323,24 @@ public class InventoryProductService {
     @Transactional(readOnly = true)
     public Page<InventoryProductDTO> searchInventoryProducts(String keyword, Integer categoryNumber, Pageable pageable) {
         Page<Product> productsPage = productRepository.findInventoryProductsByCriteria(keyword, categoryNumber, pageable);
+        List<Product> productsList = productsPage.getContent();
+        
+        List<Integer> productNumbers = productsList.stream()
+                .map(Product::getProductNumber)
+                .collect(Collectors.toList());
+                
+        Map<Integer, List<StockInDetail>> detailsMap = new java.util.HashMap<>();
+        if (!productNumbers.isEmpty()) {
+            List<StockInDetail> details = stockInDetailRepository.findActiveStockInDetailsByProductNumbers(productNumbers);
+            detailsMap = details.stream().collect(Collectors.groupingBy(StockInDetail::getProductNumber));
+        }
+        
+        final Map<Integer, List<StockInDetail>> finalDetailsMap = detailsMap;
         
         return productsPage.map(p -> {
+            List<StockInDetail> pDetails = finalDetailsMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
+            LocalDate expiryDate = pDetails.isEmpty() ? null : pDetails.get(0).getExpiryDate();
+            
             BigDecimal stock = BigDecimal.ZERO;
             if (p.getInventory() != null && p.getInventory().getAvailableQuantity() != null) {
                 stock = p.getInventory().getAvailableQuantity();
@@ -239,6 +362,7 @@ public class InventoryProductService {
                     .description(p.getDescription())
                     .imageUrl(p.getImageUrl())
                     .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
+                    .expiryDate(expiryDate)
                     .build();
         });
     }
@@ -253,26 +377,47 @@ public class InventoryProductService {
 
     @Transactional(readOnly = true)
     public List<InventoryProductDTO> getProductsByWarning(String warningType) {
-        List<Product> products = productRepository.findAll();
+        debugLog("getProductsByWarning (OPTIMIZED) called with: " + warningType, true);
+        
+        Page<Product> productsPage = productRepository.findProducts("", null, Pageable.unpaged());
+        List<Product> products = productsPage.getContent();
+        debugLog("findAll returned products: " + products.size(), false);
+
+        List<StockInDetail> allActiveDetails = stockInDetailRepository.findAllActiveStockInDetails();
+        debugLog("Fetch active stock-in details query finished. Size: " + allActiveDetails.size(), false);
+
+        Map<Integer, List<StockInDetail>> detailsMap = allActiveDetails.stream()
+                .collect(Collectors.groupingBy(
+                        StockInDetail::getProductNumber,
+                        java.util.LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
         List<InventoryProductDTO> result = new ArrayList<>();
         LocalDate now = LocalDate.now();
 
         for (Product p : products) {
+            debugLog("Processing product ID: " + p.getProductNumber() + " (" + p.getProductName() + ")", false);
             if ("DELETED".equals(p.getStatus())) {
+                debugLog("  Deleted status, skipping", false);
                 continue;
             }
 
             Inventory inv = p.getInventory();
+            debugLog("  Fetched inventory: " + (inv != null), false);
             BigDecimal stock = BigDecimal.ZERO;
             if (inv != null && inv.getAvailableQuantity() != null) {
                 stock = inv.getAvailableQuantity();
             }
+            debugLog("  Stock: " + stock, false);
 
-            List<StockInDetail> details = stockInDetailRepository.findLatestStockInDetails(p.getProductNumber());
+            List<StockInDetail> details = detailsMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
+            debugLog("  Fetched details: " + details.size(), false);
             LocalDate expiryDate = null;
             if (!details.isEmpty()) {
                 expiryDate = details.get(0).getExpiryDate();
             }
+            debugLog("  Expiry date: " + expiryDate, false);
 
             boolean isLowStock = false;
             if (p.getReorderLevel() != null && stock.compareTo(p.getReorderLevel()) <= 0) {
@@ -291,6 +436,7 @@ public class InventoryProductService {
                     }
                 }
             }
+            debugLog("  isLowStock: " + isLowStock + ", isNearExpiry: " + isNearExpiry + ", isExpired: " + isExpired, false);
 
             boolean match = false;
             if ("ALL".equalsIgnoreCase(warningType)) {
@@ -302,6 +448,7 @@ public class InventoryProductService {
             } else if ("EXPIRED".equalsIgnoreCase(warningType)) {
                 match = isExpired;
             }
+            debugLog("  Match result: " + match, false);
 
             if (match) {
                 String catName = p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized";
@@ -320,10 +467,110 @@ public class InventoryProductService {
                         .description(p.getDescription())
                         .imageUrl(p.getImageUrl())
                         .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
+                        .expiryDate(expiryDate)
                         .build());
+                debugLog("  Added DTO to result", false);
             }
         }
+        debugLog("getProductsByWarning finished. Returning result size: " + result.size(), false);
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public InventoryProductDetailDTO getProductDetails(int productNumber) {
+        Product p = productRepository.findById(productNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productNumber));
+
+        List<StockInDetail> pDetails = stockInDetailRepository.findActiveStockInDetailsByProductNumbers(
+                java.util.Collections.singletonList(productNumber));
+        LocalDate expiryDate = pDetails.isEmpty() ? null : pDetails.get(0).getExpiryDate();
+
+        BigDecimal stock = BigDecimal.ZERO;
+        if (p.getInventory() != null && p.getInventory().getAvailableQuantity() != null) {
+            stock = p.getInventory().getAvailableQuantity();
+        }
+
+        String catName = p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized";
+        String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+
+        String supplierName = "N/A";
+        BigDecimal importPrice = null;
+        BigDecimal minOrderQty = null;
+
+        List<ProductSupplier> prodSuppliers = productSupplierRepository.findByProductNumber(productNumber);
+        if (!prodSuppliers.isEmpty()) {
+            ProductSupplier ps = prodSuppliers.get(0);
+            importPrice = ps.getImportPrice();
+            minOrderQty = ps.getMinimumOrderQuantity();
+
+            Optional<Supplier> sOpt = supplierRepository.findById(ps.getSupplierNumber());
+            if (sOpt.isPresent()) {
+                supplierName = sOpt.get().getSupplierName();
+            }
+        }
+
+        List<InventoryTransaction> transactions = inventoryTransactionRepository.findByProductProductNumberOrderByCreatedAtDesc(productNumber);
+        List<InventoryProductDetailDTO.StockHistoryDTO> stockHistory = new ArrayList<>();
+        for (InventoryTransaction t : transactions) {
+            String actionName = "Adjustment";
+            if ("IN".equals(t.getType())) {
+                actionName = "Inbound Restock";
+            } else if ("OUT".equals(t.getType())) {
+                actionName = t.getReferenceType() != null ? t.getReferenceType() : "Stock Out";
+                if ("SALE".equals(actionName) && t.getReferenceId() != null) {
+                    actionName = "Order #" + t.getReferenceId();
+                }
+            }
+
+            BigDecimal qty = t.getQuantity();
+            if ("OUT".equals(t.getType())) {
+                qty = qty.negate();
+            }
+
+            stockHistory.add(InventoryProductDetailDTO.StockHistoryDTO.builder()
+                    .date(t.getCreatedAt().toLocalDate().toString())
+                    .action(actionName)
+                    .quantity(qty)
+                    .build());
+        }
+
+        return InventoryProductDetailDTO.builder()
+                .productNumber(p.getProductNumber())
+                .productName(p.getProductName())
+                .barcode(p.getBarcode())
+                .categoryName(catName)
+                .unitName(unitName)
+                .stock(stock)
+                .sellingPrice(p.getSellingPrice())
+                .reorderLevel(p.getReorderLevel())
+                .status(p.getStatus())
+                .description(p.getDescription() != null ? p.getDescription() : "")
+                .imageUrl(p.getImageUrl() != null ? p.getImageUrl() : "")
+                .expiryWarningDays(p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30)
+                .expiryDate(expiryDate)
+                .supplierName(supplierName)
+                .importPrice(importPrice)
+                .minimumOrderQuantity(minOrderQty)
+                .stockHistory(stockHistory)
+                .build();
+    }
+
+    private void debugLog(String message, boolean reset) {
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get("d:/Ki 8/PRM393/supermarket-management-system/backend/debug.log");
+            java.nio.file.StandardOpenOption option = reset ? java.nio.file.StandardOpenOption.TRUNCATE_EXISTING : java.nio.file.StandardOpenOption.APPEND;
+            if (reset && !java.nio.file.Files.exists(path)) {
+                java.nio.file.Files.createFile(path);
+            }
+            java.nio.file.Files.write(
+                path,
+                (message + "\n").getBytes(),
+                java.nio.file.StandardOpenOption.WRITE,
+                option
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
 

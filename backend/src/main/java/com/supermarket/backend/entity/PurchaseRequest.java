@@ -3,6 +3,7 @@ package com.supermarket.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "purchase_requests")
@@ -18,6 +19,12 @@ public class PurchaseRequest {
     @Column(name = "purchase_request_number")
     private Integer purchaseRequestNumber;
 
+    @Column(name = "created_by")
+    private UUID createdBy;
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
     @Column(name = "status")
     private String status;
 
@@ -27,3 +34,4 @@ public class PurchaseRequest {
     @Column(name = "approved_date")
     private LocalDateTime approvedDate;
 }
+

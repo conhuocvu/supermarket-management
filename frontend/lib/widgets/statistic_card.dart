@@ -19,7 +19,7 @@ class StatisticCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.04),
@@ -35,7 +35,9 @@ class StatisticCard extends StatelessWidget {
             Text(
               title,
               style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.7,
+                ),
               ),
             ),
             const SizedBox(height: 8),

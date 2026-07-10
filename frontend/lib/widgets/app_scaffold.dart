@@ -8,31 +8,57 @@ class AppScaffold extends ConsumerWidget {
   final String? title;
   final List<Widget>? actions;
 
-  const AppScaffold({
-    super.key,
-    required this.body,
-    this.title,
-    this.actions,
-  });
+  const AppScaffold({super.key, required this.body, this.title, this.actions});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final currentPath = GoRouter.of(
+      context,
+    ).routeInformationProvider.value.uri.path;
 
     final shellState = ref.watch(shellLayoutProvider);
     final displayTitle = title ?? shellState.title;
     final displayActions = actions ?? shellState.actions;
 
     final List<Map<String, dynamic>> menuItems = [
-      {'title': 'Dashboard', 'icon': Icons.dashboard_outlined, 'active': displayTitle == 'Inventory Dashboard'},
-      {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'active': displayTitle == 'Product Management'},
+      {
+        'title': 'Dashboard',
+        'icon': Icons.dashboard_outlined,
+        'active': currentPath == '/',
+      },
+      {
+        'title': 'Products',
+        'icon': Icons.inventory_2_outlined,
+        'active': currentPath.startsWith('/products'),
+      },
       {'title': 'Categories', 'icon': Icons.category_outlined, 'active': false},
-      {'title': 'Transactions', 'icon': Icons.swap_horiz_outlined, 'active': false},
-      {'title': 'Low Stock', 'icon': Icons.priority_high_outlined, 'active': false},
-      {'title': 'Purchase Requests', 'icon': Icons.shopping_cart_outlined, 'active': false},
-      {'title': 'Expiring Products', 'icon': Icons.event_busy_outlined, 'active': false},
-      {'title': 'Product Reports', 'icon': Icons.assessment_outlined, 'active': false},
+      {
+        'title': 'Transactions',
+        'icon': Icons.swap_horiz_outlined,
+        'active': false,
+      },
+      {
+        'title': 'Low Stock',
+        'icon': Icons.priority_high_outlined,
+        'active': false,
+      },
+      {
+        'title': 'Purchase Requests',
+        'icon': Icons.shopping_cart_outlined,
+        'active': false,
+      },
+      {
+        'title': 'Expiring Products',
+        'icon': Icons.event_busy_outlined,
+        'active': false,
+      },
+      {
+        'title': 'Product Reports',
+        'icon': Icons.assessment_outlined,
+        'active': false,
+      },
     ];
 
     Widget buildSidebarContent() {
@@ -85,9 +111,14 @@ class AppScaffold extends ConsumerWidget {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
-                          color: isActive ? theme.colorScheme.primary : Colors.transparent,
+                          color: isActive
+                              ? theme.colorScheme.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -95,14 +126,20 @@ class AppScaffold extends ConsumerWidget {
                             Icon(
                               item['icon'] as IconData,
                               size: 20,
-                              color: isActive ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                              color: isActive
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 12),
                             Text(
                               item['title'] as String,
                               style: theme.textTheme.labelLarge?.copyWith(
-                                color: isActive ? Colors.white : theme.colorScheme.onSurfaceVariant,
-                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                color: isActive
+                                    ? Colors.white
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: isActive
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                           ],
@@ -122,13 +159,13 @@ class AppScaffold extends ConsumerWidget {
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.logout,
-                        color: theme.colorScheme.error,
-                      ),
+                      Icon(Icons.logout, color: theme.colorScheme.error),
                       const SizedBox(width: 12),
                       Text(
                         'Logout',
@@ -172,25 +209,90 @@ class AppScaffold extends ConsumerWidget {
               child: Column(
                 children: [
                   Container(
-                    height: 80,
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       border: Border(
                         bottom: BorderSide(color: Color(0xFFBFC9C3), width: 1),
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          displayTitle,
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            fontSize: 28,
-                            color: theme.colorScheme.onSurface,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              displayTitle,
+                              style: theme.textTheme.headlineLarge?.copyWith(
+                                fontSize: 28,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            Row(children: displayActions),
+                          ],
                         ),
-                        Row(children: displayActions),
+                        if (shellState.breadcrumbs.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: shellState.breadcrumbs
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                                  final idx = entry.key;
+                                  final label = entry.value;
+                                  final isLast =
+                                      idx == shellState.breadcrumbs.length - 1;
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                          if (label == 'Inventory') {
+                                            context.go('/');
+                                          } else if (label == 'Products') {
+                                            context.go('/products');
+                                          }
+                                        },
+                                        child: Text(
+                                          label,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: isLast
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: isLast
+                                                ? theme.colorScheme.onSurface
+                                                : theme
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                      if (!isLast)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          child: Icon(
+                                            Icons.chevron_right,
+                                            size: 14,
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                })
+                                .toList(),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -216,12 +318,77 @@ class AppScaffold extends ConsumerWidget {
           actions: displayActions,
           iconTheme: IconThemeData(color: theme.colorScheme.primary),
         ),
-        drawer: Drawer(
-          child: buildSidebarContent(),
-        ),
-        body: Material(
-          color: const Color(0xFFF8F9FF),
-          child: body,
+        drawer: Drawer(child: buildSidebarContent()),
+        body: Column(
+          children: [
+            if (shellState.breadcrumbs.isNotEmpty)
+              Container(
+                color: Colors.white,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFBFC9C3), width: 0.5),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: shellState.breadcrumbs.asMap().entries.map((
+                      entry,
+                    ) {
+                      final idx = entry.key;
+                      final label = entry.value;
+                      final isLast = idx == shellState.breadcrumbs.length - 1;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              if (label == 'Inventory') {
+                                context.go('/');
+                              } else if (label == 'Products') {
+                                context.go('/products');
+                              }
+                            },
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isLast
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isLast
+                                    ? theme.colorScheme.onSurface
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          if (!isLast)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: Icon(
+                                Icons.chevron_right,
+                                size: 12,
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Material(color: const Color(0xFFF8F9FF), child: body),
+            ),
+          ],
         ),
       );
     }

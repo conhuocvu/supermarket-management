@@ -8,14 +8,11 @@ import 'models/inventory_product.dart';
 import 'screens/add_edit_product_screen.dart';
 import 'screens/inventory_dashboard_screen.dart';
 import 'screens/inventory_product_list_screen.dart';
+import 'screens/inventory_product_detail_screen.dart';
 import 'widgets/app_scaffold.dart';
 
 void main() {
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 final GoRouter _router = GoRouter(
@@ -28,21 +25,18 @@ final GoRouter _router = GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: InventoryDashboardScreen(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: InventoryDashboardScreen()),
         ),
         GoRoute(
           path: '/products',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: InventoryProductListScreen(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: InventoryProductListScreen()),
           routes: [
             GoRoute(
               path: 'add',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: AddEditProductScreen(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: AddEditProductScreen()),
             ),
             GoRoute(
               path: 'edit/:id',
@@ -52,6 +46,16 @@ final GoRouter _router = GoRouter(
                 final product = state.extra as InventoryProduct?;
                 return NoTransitionPage(
                   child: AddEditProductScreen(productId: id, product: product),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'detail/:id',
+              pageBuilder: (context, state) {
+                final idStr = state.pathParameters['id'] ?? '';
+                final id = int.tryParse(idStr) ?? 0;
+                return NoTransitionPage(
+                  child: InventoryProductDetailScreen(productNumber: id),
                 );
               },
             ),
@@ -65,8 +69,6 @@ final GoRouter _router = GoRouter(
     ),
   ],
 );
-
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -95,8 +97,10 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
   bool _isLoading = false;
   bool _isSuccess = false;
 
-  static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL',
-      defaultValue: 'http://localhost:8080/api');
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8080/api',
+  );
 
   Future<void> _testBackendConnection() async {
     setState(() {
@@ -161,8 +165,8 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
               Text(
                 'Supermarket System - CORS Connection Test',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
@@ -178,7 +182,9 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                   backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 14),
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                 ),
                 icon: _isLoading
                     ? const SizedBox(
@@ -203,12 +209,14 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                 decoration: BoxDecoration(
                   color: _status.contains('Chưa')
                       ? Colors.grey.shade100
-                      : (_isSuccess ? Colors.green.shade50 : Colors.red.shade50),
+                      : (_isSuccess
+                            ? Colors.green.shade50
+                            : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _status.contains('Chưa')
-                      ? Colors.grey.shade300
-                      : (_isSuccess ? Colors.green : Colors.red),
+                        ? Colors.grey.shade300
+                        : (_isSuccess ? Colors.green : Colors.red),
                   ),
                 ),
                 child: Column(
@@ -222,8 +230,8 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                         color: _status.contains('Chưa')
                             ? Colors.black87
                             : (_isSuccess
-                                ? Colors.green.shade800
-                                : Colors.red.shade800),
+                                  ? Colors.green.shade800
+                                  : Colors.red.shade800),
                       ),
                     ),
                     if (_responseDetails.isNotEmpty) ...[

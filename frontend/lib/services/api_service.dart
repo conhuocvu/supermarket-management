@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/dashboard_data.dart';
 import '../models/category_item.dart';
 import '../models/inventory_product.dart';
+import '../models/inventory_product_detail.dart';
 
 class ApiService {
   final Dio _dio;
@@ -13,11 +14,13 @@ class ApiService {
   );
 
   ApiService()
-      : _dio = Dio(BaseOptions(
+    : _dio = Dio(
+        BaseOptions(
           baseUrl: baseUrl,
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
-        ));
+        ),
+      );
 
   Future<DashboardData> fetchDashboardData() async {
     try {
@@ -27,10 +30,14 @@ class ApiService {
         if (body['success'] == true) {
           return DashboardData.fromJson(body['data']);
         } else {
-          throw Exception(body['message'] ?? 'Không thể tải dữ liệu bảng điều khiển.');
+          throw Exception(
+            body['message'] ?? 'Không thể tải dữ liệu bảng điều khiển.',
+          );
         }
       } else {
-        throw Exception('Không thể tải dữ liệu bảng điều khiển: HTTP ${response.statusCode}');
+        throw Exception(
+          'Không thể tải dữ liệu bảng điều khiển: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -46,10 +53,7 @@ class ApiService {
     int size = 10,
   }) async {
     try {
-      final Map<String, dynamic> queryParams = {
-        'page': page,
-        'size': size,
-      };
+      final Map<String, dynamic> queryParams = {'page': page, 'size': size};
       if (keyword != null && keyword.isNotEmpty) {
         queryParams['keyword'] = keyword;
       }
@@ -57,7 +61,10 @@ class ApiService {
         queryParams['categoryNumber'] = categoryNumber;
       }
 
-      final response = await _dio.get('/inventory/products/search', queryParameters: queryParams);
+      final response = await _dio.get(
+        '/inventory/products/search',
+        queryParameters: queryParams,
+      );
       if (response.statusCode == 200) {
         final body = response.data;
         if (body['success'] == true) {
@@ -73,10 +80,14 @@ class ApiService {
             'totalPages': data['totalPages'] ?? 0,
           };
         } else {
-          throw Exception(body['message'] ?? 'Không thể tải danh sách sản phẩm.');
+          throw Exception(
+            body['message'] ?? 'Không thể tải danh sách sản phẩm.',
+          );
         }
       } else {
-        throw Exception('Không thể tải danh sách sản phẩm: HTTP ${response.statusCode}');
+        throw Exception(
+          'Không thể tải danh sách sản phẩm: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -113,7 +124,9 @@ class ApiService {
         queryParameters: {'status': status},
       );
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Không thể cập nhật trạng thái.');
+        throw Exception(
+          response.data['message'] ?? 'Không thể cập nhật trạng thái.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -125,16 +138,23 @@ class ApiService {
   Future<void> createPurchaseRequest(List<int> productNumbers) async {
     try {
       final response = await _dio.post(
-        '/inventory/purchase-requests',
-        data: {'productNumbers': productNumbers},
+        '/purchase-requests/items',
+        data: {
+          'userId':
+              'e3b3ec4a-da0b-40f5-9747-29361993892b', // Default Stock Controller UUID from database
+          'productNumbers': productNumbers,
+        },
       );
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Không thể tạo yêu cầu mua hàng.');
+        throw Exception(
+          response.data['message'] ??
+              'Failed to add products to purchase request.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Đã xảy ra lỗi không mong muốn: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -147,10 +167,14 @@ class ApiService {
           final data = body['data'] as List? ?? [];
           return data.map((item) => Map<String, dynamic>.from(item)).toList();
         } else {
-          throw Exception(body['message'] ?? 'Không thể tải danh sách đơn vị tính.');
+          throw Exception(
+            body['message'] ?? 'Không thể tải danh sách đơn vị tính.',
+          );
         }
       } else {
-        throw Exception('Không thể tải danh sách đơn vị tính: HTTP ${response.statusCode}');
+        throw Exception(
+          'Không thể tải danh sách đơn vị tính: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -163,13 +187,13 @@ class ApiService {
     try {
       final bytes = await imageFile.readAsBytes();
       final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          bytes,
-          filename: imageFile.name,
-        ),
+        'file': MultipartFile.fromBytes(bytes, filename: imageFile.name),
       });
 
-      final response = await _dio.post('/inventory/products/upload', data: formData);
+      final response = await _dio.post(
+        '/inventory/products/upload',
+        data: formData,
+      );
       if (response.statusCode == 200) {
         final body = response.data;
         if (body['success'] == true) {
@@ -204,7 +228,9 @@ class ApiService {
     try {
       final response = await _dio.put('/inventory/products/$id', data: data);
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Không thể cập nhật sản phẩm.');
+        throw Exception(
+          response.data['message'] ?? 'Không thể cập nhật sản phẩm.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -217,7 +243,9 @@ class ApiService {
     try {
       final response = await _dio.delete('/inventory/products/$productNumber');
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Failed to delete product.');
+        throw Exception(
+          response.data['message'] ?? 'Failed to delete product.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -226,7 +254,9 @@ class ApiService {
     }
   }
 
-  Future<List<InventoryProduct>> fetchWarningProducts(String warningType) async {
+  Future<List<InventoryProduct>> fetchWarningProducts(
+    String warningType,
+  ) async {
     try {
       final response = await _dio.get(
         '/inventory/products/warnings',
@@ -237,7 +267,10 @@ class ApiService {
         if (body['success'] == true) {
           final itemsList = body['data']['items'] as List<dynamic>;
           return itemsList
-              .map((item) => InventoryProduct.fromJson(item as Map<String, dynamic>))
+              .map(
+                (item) =>
+                    InventoryProduct.fromJson(item as Map<String, dynamic>),
+              )
               .toList();
         }
       }
@@ -249,9 +282,28 @@ class ApiService {
     }
   }
 
+  Future<InventoryProductDetail> fetchProductDetails(int productNumber) async {
+    try {
+      final response = await _dio.get('/inventory/products/$productNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return InventoryProductDetail.fromJson(
+            body['data'] as Map<String, dynamic>,
+          );
+        }
+      }
+      throw Exception('Failed to load product details.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
   String _handleDioError(DioException e) {
     String message = 'Server connection error.';
-    if (e.type == DioExceptionType.connectionTimeout || 
+    if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.connectionError) {
       message = 'Connection timeout or server unreachable. Please try again.';
@@ -261,4 +313,3 @@ class ApiService {
     return message;
   }
 }
-

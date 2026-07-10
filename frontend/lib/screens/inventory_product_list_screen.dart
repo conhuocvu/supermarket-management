@@ -25,6 +25,25 @@ class _InventoryProductListScreenState
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _setProductListHeader();
+    });
+  }
+
+  void _setProductListHeader() {
+    ref
+        .read(shellLayoutProvider.notifier)
+        .update(
+          title: 'Product Management',
+          actions: [],
+          breadcrumbs: ['Inventory', 'Products'],
+        );
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     _horizontalScrollController.dispose();
@@ -36,12 +55,6 @@ class _InventoryProductListScreenState
     final theme = Theme.of(context);
     final state = ref.watch(inventoryProductsProvider);
     final categoriesState = ref.watch(categoriesListProvider);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(shellLayoutProvider.notifier)
-          .update(title: 'Product Management', actions: []);
-    });
 
     return Stack(
       children: [
@@ -84,14 +97,22 @@ class _InventoryProductListScreenState
                     ),
                     data: (items) {
                       if (items.isEmpty) {
-                        final isWarningFilterActive = state.warningFilter != 'NONE';
+                        final isWarningFilterActive =
+                            state.warningFilter != null &&
+                            state.warningFilter != 'NONE';
                         return EmptyView(
-                          icon: isWarningFilterActive ? Icons.warning_amber_rounded : Icons.search_off,
-                          title: isWarningFilterActive ? 'No warning products found' : 'No products found',
+                          icon: isWarningFilterActive
+                              ? Icons.warning_amber_rounded
+                              : Icons.search_off,
+                          title: isWarningFilterActive
+                              ? 'No warning products found'
+                              : 'No products found',
                           description: isWarningFilterActive
                               ? 'No products require attention under the selected warning filter.'
                               : 'No products match your search or filter criteria. Try clearing filters.',
-                          actionLabel: isWarningFilterActive ? 'Clear Warning Filter' : 'Reset Filters',
+                          actionLabel: isWarningFilterActive
+                              ? 'Clear Warning Filter'
+                              : 'Reset Filters',
                           onActionPressed: () {
                             if (isWarningFilterActive) {
                               ref
@@ -112,7 +133,7 @@ class _InventoryProductListScreenState
                       return Column(
                         children: [
                           Expanded(child: _buildTable(context, items, state)),
-                          if (state.warningFilter == 'NONE') ...[
+                          if ((state.warningFilter ?? 'NONE') == 'NONE') ...[
                             const Divider(height: 1),
                             _buildPagination(context, state),
                           ],
@@ -164,9 +185,7 @@ class _InventoryProductListScreenState
                   : null,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 0,
@@ -245,13 +264,11 @@ class _InventoryProductListScreenState
         Widget warningDropdown = SizedBox(
           height: 48,
           child: DropdownButtonFormField<String>(
-            value: state.warningFilter,
+            value: state.warningFilter ?? 'NONE',
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -259,26 +276,14 @@ class _InventoryProductListScreenState
               ),
             ),
             items: const [
-              DropdownMenuItem(
-                value: 'NONE',
-                child: Text('No Warning Filter'),
-              ),
-              DropdownMenuItem(
-                value: 'ALL',
-                child: Text('All Warnings'),
-              ),
-              DropdownMenuItem(
-                value: 'LOW_STOCK',
-                child: Text('Low Stock'),
-              ),
+              DropdownMenuItem(value: 'NONE', child: Text('No Warning Filter')),
+              DropdownMenuItem(value: 'ALL', child: Text('All Warnings')),
+              DropdownMenuItem(value: 'LOW_STOCK', child: Text('Low Stock')),
               DropdownMenuItem(
                 value: 'NEAR_EXPIRY',
                 child: Text('Near Expiry'),
               ),
-              DropdownMenuItem(
-                value: 'EXPIRED',
-                child: Text('Expired'),
-              ),
+              DropdownMenuItem(value: 'EXPIRED', child: Text('Expired')),
             ],
             onChanged: (val) {
               if (val != null) {
@@ -292,7 +297,14 @@ class _InventoryProductListScreenState
 
         final List<Widget> actionButtons = [
           IconButton.filled(
-            onPressed: () => context.go('/products/add'),
+            onPressed: () async {
+              final hasChanged = await context.push<bool>('/products/add');
+              if (!context.mounted) return;
+              _setProductListHeader();
+              if (hasChanged == true) {
+                ref.read(inventoryProductsProvider.notifier).loadProducts();
+              }
+            },
             icon: const Icon(Icons.add),
             tooltip: 'Add New Product',
             style: IconButton.styleFrom(
@@ -307,20 +319,11 @@ class _InventoryProductListScreenState
         if (isWide) {
           return Row(
             children: [
-              Expanded(
-                flex: 2,
-                child: searchField,
-              ),
+              Expanded(flex: 2, child: searchField),
               const SizedBox(width: 16),
-              Expanded(
-                flex: 1,
-                child: categoryDropdown,
-              ),
+              Expanded(flex: 1, child: categoryDropdown),
               const SizedBox(width: 16),
-              Expanded(
-                flex: 1,
-                child: warningDropdown,
-              ),
+              Expanded(flex: 1, child: warningDropdown),
               const SizedBox(width: 16),
               ...actionButtons,
             ],
@@ -382,6 +385,19 @@ class _InventoryProductListScreenState
           const SizedBox(width: 12),
           FilledButton.icon(
             onPressed: () async {
+              final selectedProds = ref
+                  .read(inventoryProductsProvider)
+                  .selectedProductNumbers;
+              if (selectedProds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Please select at least one product.'),
+                    backgroundColor: theme.colorScheme.error,
+                  ),
+                );
+                return;
+              }
+
               try {
                 await ref
                     .read(inventoryProductsProvider.notifier)
@@ -389,7 +405,9 @@ class _InventoryProductListScreenState
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Purchase request created successfully.'),
+                      content: Text(
+                        'Products have been added to the purchase request.',
+                      ),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -417,16 +435,125 @@ class _InventoryProductListScreenState
     );
   }
 
+  Widget _buildWarningBadges(
+    BuildContext context,
+    InventoryProduct item,
+    bool isLowStock,
+    bool isNearExpiry,
+    bool isExpired,
+  ) {
+    final theme = Theme.of(context);
+    final badges = <Widget>[];
+
+    if (isExpired) {
+      final dateStr = item.expiryDate != null
+          ? DateFormat('yyyy-MM-dd').format(item.expiryDate!)
+          : 'Unknown';
+      badges.add(
+        _buildSmallBadge(
+          context: context,
+          icon: Icons.cancel_outlined,
+          label: 'Expired ($dateStr)',
+          backgroundColor: theme.colorScheme.errorContainer.withValues(
+            alpha: 0.8,
+          ),
+          textColor: theme.colorScheme.onErrorContainer,
+        ),
+      );
+    } else if (isNearExpiry) {
+      final dateStr = item.expiryDate != null
+          ? DateFormat('yyyy-MM-dd').format(item.expiryDate!)
+          : 'Unknown';
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final expiry = DateTime(
+        item.expiryDate!.year,
+        item.expiryDate!.month,
+        item.expiryDate!.day,
+      );
+      final daysRemaining = expiry.difference(today).inDays;
+      final labelStr = daysRemaining == 0
+          ? 'Expiring today'
+          : 'Expiring in $daysRemaining d ($dateStr)';
+
+      badges.add(
+        _buildSmallBadge(
+          context: context,
+          icon: Icons.warning_amber_rounded,
+          label: labelStr,
+          backgroundColor: Colors.amber.shade100,
+          textColor: Colors.amber.shade900,
+        ),
+      );
+    }
+
+    if (isLowStock) {
+      badges.add(
+        _buildSmallBadge(
+          context: context,
+          icon: Icons.unfold_more_double_rounded,
+          label:
+              'Low Stock (${item.stock.toStringAsFixed(0)} < ${item.reorderLevel.toStringAsFixed(0)})',
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(
+            alpha: 0.8,
+          ),
+          textColor: theme.colorScheme.onPrimaryContainer,
+        ),
+      );
+    }
+
+    if (badges.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4.0),
+      child: Wrap(spacing: 4, runSpacing: 4, children: badges),
+    );
+  }
+
+  Widget _buildSmallBadge({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: textColor),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTable(
     BuildContext context,
     List<InventoryProduct> items,
     InventoryProductsState state,
   ) {
     final theme = Theme.of(context);
-    final allOnPage = items.map((e) => e.productNumber).toSet();
-    final isAllSelectedOnPage = state.selectedProductNumbers.containsAll(
-      allOnPage,
-    );
+    final activeOnPage = items
+        .where((e) => e.status == 'ACTIVE')
+        .map((e) => e.productNumber)
+        .toSet();
+    final isAllSelectedOnPage =
+        activeOnPage.isNotEmpty &&
+        state.selectedProductNumbers.containsAll(activeOnPage);
 
     return Scrollbar(
       controller: _horizontalScrollController,
@@ -441,182 +568,305 @@ class _InventoryProductListScreenState
               minWidth: MediaQuery.of(context).size.width - 320,
             ),
             child: DataTable(
-            showCheckboxColumn: false,
-            columns: [
-              DataColumn(
-                label: SizedBox(
-                  width: 24,
-                  child: Checkbox(
-                    value: isAllSelectedOnPage,
-                    onChanged: (val) {
-                      ref
-                          .read(inventoryProductsProvider.notifier)
-                          .selectAll(items);
-                    },
+              showCheckboxColumn: false,
+              dataRowMinHeight: 56,
+              dataRowMaxHeight: 88,
+              columns: [
+                DataColumn(
+                  label: SizedBox(
+                    width: 24,
+                    child: Checkbox(
+                      value: isAllSelectedOnPage,
+                      onChanged: activeOnPage.isNotEmpty
+                          ? (val) {
+                              ref
+                                  .read(inventoryProductsProvider.notifier)
+                                  .selectAll(items);
+                            }
+                          : null,
+                    ),
                   ),
                 ),
-              ),
-              const DataColumn(label: Text('Product Name')),
-              const DataColumn(label: Text('Category')),
-              const DataColumn(label: Text('Stock')),
-              const DataColumn(label: Text('Price')),
-              const DataColumn(label: Text('Status')),
-              const DataColumn(label: Text('Actions')),
-            ],
-            rows: items.map((item) {
-              final isSelected = state.selectedProductNumbers.contains(
-                item.productNumber,
-              );
-              final isLowStock = item.stock <= item.reorderLevel;
+                const DataColumn(label: Text('Product Name')),
+                const DataColumn(label: Text('Category')),
+                const DataColumn(label: Text('Stock')),
+                const DataColumn(label: Text('Price')),
+                const DataColumn(label: Text('Status')),
+                const DataColumn(label: Text('Actions')),
+              ],
+              rows: items.map((item) {
+                final isSelected = state.selectedProductNumbers.contains(
+                  item.productNumber,
+                );
+                final isLowStock = item.stock <= item.reorderLevel;
 
-              return DataRow(
-                selected: isSelected,
-                onSelectChanged: (val) {
-                  ref
-                      .read(inventoryProductsProvider.notifier)
-                      .toggleProductSelection(item.productNumber);
-                },
-                cells: [
-                  DataCell(
-                    SizedBox(
-                      width: 24,
-                      child: Checkbox(
-                        value: isSelected,
-                        onChanged: (val) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                final isExpired =
+                    item.expiryDate != null &&
+                    DateTime(
+                      item.expiryDate!.year,
+                      item.expiryDate!.month,
+                      item.expiryDate!.day,
+                    ).isBefore(today);
+                final isNearExpiry =
+                    item.expiryDate != null &&
+                    !isExpired &&
+                    !DateTime(
+                      item.expiryDate!.year,
+                      item.expiryDate!.month,
+                      item.expiryDate!.day,
+                    ).isAfter(
+                      today.add(Duration(days: item.expiryWarningDays)),
+                    );
+
+                final isInactive = item.status != 'ACTIVE';
+
+                return DataRow(
+                  selected: isSelected,
+                  onSelectChanged: isInactive
+                      ? null
+                      : (val) {
                           ref
                               .read(inventoryProductsProvider.notifier)
                               .toggleProductSelection(item.productNumber);
                         },
+                  cells: [
+                    DataCell(
+                      SizedBox(
+                        width: 24,
+                        child: Checkbox(
+                          value: isSelected,
+                          onChanged: isInactive
+                              ? null
+                              : (val) {
+                                  ref
+                                      .read(inventoryProductsProvider.notifier)
+                                      .toggleProductSelection(
+                                        item.productNumber,
+                                      );
+                                },
+                        ),
                       ),
                     ),
-                  ),
-                  DataCell(
-                    Row(
-                      children: [
-                        if (item.imageUrl.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Image.network(
-                              item.imageUrl,
-                              width: 32,
-                              height: 32,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.image,
-                                    size: 32,
-                                    color: Colors.grey,
+                    DataCell(
+                      Opacity(
+                        opacity: isInactive ? 0.5 : 1.0,
+                        child: Row(
+                          children: [
+                            if (item.imageUrl.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Image.network(
+                                  item.imageUrl,
+                                  width: 32,
+                                  height: 32,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                        Icons.image,
+                                        size: 32,
+                                        color: Colors.grey,
+                                      ),
+                                ),
+                              )
+                            else
+                              const Padding(
+                                padding: EdgeInsets.only(right: 8.0),
+                                child: Icon(
+                                  Icons.image_outlined,
+                                  size: 32,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  item.productName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
                                   ),
+                                ),
+                                Text(
+                                  item.barcode,
+                                  style: theme.textTheme.labelSmall,
+                                ),
+                                _buildWarningBadges(
+                                  context,
+                                  item,
+                                  isLowStock,
+                                  isNearExpiry,
+                                  isExpired,
+                                ),
+                              ],
                             ),
-                          )
-                        else
-                          const Padding(
-                            padding: EdgeInsets.only(right: 8.0),
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 32,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        Column(
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    DataCell(
+                      Opacity(
+                        opacity: isInactive ? 0.5 : 1.0,
+                        child: Text(item.categoryName),
+                      ),
+                    ),
+                    DataCell(
+                      Opacity(
+                        opacity: isInactive ? 0.5 : 1.0,
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              item.productName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                              '${item.stock} ${item.unitName}',
+                              style: TextStyle(
+                                color: isLowStock
+                                    ? theme.colorScheme.error
+                                    : theme.colorScheme.onSurface,
+                                fontWeight: isLowStock
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
-                            Text(
-                              item.barcode,
-                              style: theme.textTheme.labelSmall,
-                            ),
+                            if (isLowStock)
+                              Text(
+                                'Low stock (< ${item.reorderLevel})',
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                  fontSize: 10,
+                                ),
+                              ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  DataCell(Text(item.categoryName)),
-                  DataCell(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${item.stock} ${item.unitName}',
-                          style: TextStyle(
-                            color: isLowStock
-                                ? theme.colorScheme.error
-                                : theme.colorScheme.onSurface,
-                            fontWeight: isLowStock
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
+                    DataCell(
+                      Opacity(
+                        opacity: isInactive ? 0.5 : 1.0,
+                        child: Text(currencyFormat.format(item.sellingPrice)),
+                      ),
+                    ),
+                    DataCell(
+                      Opacity(
+                        opacity: isInactive ? 0.5 : 1.0,
+                        child: StatusChip(
+                          label: item.status == 'ACTIVE'
+                              ? 'Active'
+                              : 'Inactive',
+                          type: item.status == 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
                         ),
-                        if (isLowStock)
-                          Text(
-                            'Low stock (< ${item.reorderLevel})',
-                            style: TextStyle(
-                              color: theme.colorScheme.error,
-                              fontSize: 10,
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.visibility_outlined),
+                            tooltip: 'View details',
+                            onPressed: () async {
+                              final hasChanged = await context.push<bool>(
+                                '/products/detail/${item.productNumber}',
+                              );
+                              if (!context.mounted) return;
+                              _setProductListHeader();
+                              if (hasChanged == true) {
+                                await ref
+                                    .read(inventoryProductsProvider.notifier)
+                                    .loadProducts();
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: 'Edit product',
+                            onPressed: () async {
+                              final hasChanged = await context.push<bool>(
+                                '/products/edit/${item.productNumber}',
+                                extra: item,
+                              );
+                              if (!context.mounted) return;
+                              _setProductListHeader();
+                              if (hasChanged == true) {
+                                await ref
+                                    .read(inventoryProductsProvider.notifier)
+                                    .loadProducts();
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_shopping_cart_outlined),
+                            tooltip: 'Add to purchase request',
+                            onPressed: isInactive
+                                ? null
+                                : () async {
+                                    try {
+                                      await ref
+                                          .read(
+                                            inventoryProductsProvider.notifier,
+                                          )
+                                          .submitPurchaseRequestForSingleProduct(
+                                            item.productNumber,
+                                          );
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Products have been added to the purchase request.',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Purchase request failed: $e',
+                                            ),
+                                            backgroundColor:
+                                                theme.colorScheme.error,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              item.status == 'ACTIVE'
+                                  ? Icons.toggle_on
+                                  : Icons.toggle_off,
+                              color: item.status == 'ACTIVE'
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                              size: 28,
                             ),
+                            tooltip: item.status == 'ACTIVE'
+                                ? 'Deactivate product'
+                                : 'Activate product',
+                            onPressed: () =>
+                                _showStatusToggleConfirmation(context, item),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  DataCell(Text(currencyFormat.format(item.sellingPrice))),
-                  DataCell(
-                    StatusChip(
-                      label: item.status == 'ACTIVE' ? 'Active' : 'Inactive',
-                      type: item.status == 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
-                    ),
-                  ),
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.visibility_outlined),
-                          tooltip: 'View details',
-                          onPressed: () => _showProductDetails(context, item),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: 'Edit product',
-                          onPressed: () {
-                            context.go(
-                              '/products/edit/${item.productNumber}',
-                              extra: item,
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            item.status == 'ACTIVE'
-                                ? Icons.toggle_on
-                                : Icons.toggle_off,
-                            color: item.status == 'ACTIVE'
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                            size: 28,
-                          ),
-                          tooltip: item.status == 'ACTIVE'
-                              ? 'Deactivate product'
-                              : 'Activate product',
-                          onPressed: () => _showStatusToggleConfirmation(context, item),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildPagination(BuildContext context, InventoryProductsState state) {
     final theme = Theme.of(context);
@@ -700,119 +950,10 @@ class _InventoryProductListScreenState
     );
   }
 
-  void _showProductDetails(BuildContext context, InventoryProduct product) {
-    final theme = Theme.of(context);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.inventory, color: Colors.teal),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.productName,
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    Text(
-                      'Barcode: ${product.barcode}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (product.imageUrl.isNotEmpty)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            product.imageUrl,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const Divider(),
-                  _buildDetailRow('Category', product.categoryName),
-                  _buildDetailRow('Unit', product.unitName),
-                  _buildDetailRow(
-                    'Price',
-                    currencyFormat.format(product.sellingPrice),
-                  ),
-                  _buildDetailRow(
-                    'Current Stock',
-                    '${product.stock} ${product.unitName}',
-                  ),
-                  _buildDetailRow(
-                    'Reorder Warning Level',
-                    '${product.reorderLevel} ${product.unitName}',
-                  ),
-                  _buildDetailRow(
-                    'Expiry Warning Days',
-                    '${product.expiryWarningDays} days',
-                  ),
-                  _buildDetailRow(
-                    'Status',
-                    product.status == 'ACTIVE' ? 'Active' : 'Inactive',
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Description',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    product.description.isNotEmpty
-                        ? product.description
-                        : 'No description provided.',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(value),
-        ],
-      ),
-    );
-  }
-
-  void _showStatusToggleConfirmation(BuildContext context, InventoryProduct product) {
+  void _showStatusToggleConfirmation(
+    BuildContext context,
+    InventoryProduct product,
+  ) {
     final theme = Theme.of(context);
     final isActivating = product.status != 'ACTIVE';
     final actionText = isActivating ? 'activate' : 'deactivate';
@@ -825,14 +966,18 @@ class _InventoryProductListScreenState
           title: Row(
             children: [
               Icon(
-                isActivating ? Icons.check_circle_outline : Icons.power_settings_new_rounded,
+                isActivating
+                    ? Icons.check_circle_outline
+                    : Icons.power_settings_new_rounded,
                 color: isActivating ? Colors.green : theme.colorScheme.error,
               ),
               const SizedBox(width: 12),
               Text('Confirm $actionTitle'),
             ],
           ),
-          content: Text('Are you sure you want to $actionText product "${product.productName}"?'),
+          content: Text(
+            'Are you sure you want to $actionText product "${product.productName}"?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -840,7 +985,9 @@ class _InventoryProductListScreenState
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: isActivating ? Colors.green : theme.colorScheme.error,
+                backgroundColor: isActivating
+                    ? Colors.green
+                    : theme.colorScheme.error,
                 foregroundColor: Colors.white,
               ),
               onPressed: () async {
@@ -848,7 +995,10 @@ class _InventoryProductListScreenState
                 try {
                   await ref
                       .read(inventoryProductsProvider.notifier)
-                      .toggleProductStatus(product.productNumber, product.status);
+                      .toggleProductStatus(
+                        product.productNumber,
+                        product.status,
+                      );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

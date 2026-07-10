@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -266,6 +267,28 @@ public class InventoryProductController {
         response.put("data", data);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/products/{productNumber}")
+    public ResponseEntity<Map<String, Object>> getProductDetails(@PathVariable int productNumber) {
+        try {
+            com.supermarket.backend.dto.InventoryProductDetailDTO dto = inventoryProductService.getProductDetails(productNumber);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Product details loaded successfully.");
+            response.put("data", dto);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to load product details: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 }
 

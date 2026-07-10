@@ -4,10 +4,13 @@ import '../services/api_service.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
-final dashboardDataProvider = StateNotifierProvider<DashboardDataNotifier, AsyncValue<DashboardData>>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return DashboardDataNotifier(apiService);
-});
+final dashboardDataProvider =
+    StateNotifierProvider<DashboardDataNotifier, AsyncValue<DashboardData>>((
+      ref,
+    ) {
+      final apiService = ref.watch(apiServiceProvider);
+      return DashboardDataNotifier(apiService);
+    });
 
 class DashboardDataNotifier extends StateNotifier<AsyncValue<DashboardData>> {
   final ApiService _apiService;

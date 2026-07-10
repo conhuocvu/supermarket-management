@@ -1,4 +1,4 @@
-class InventoryProduct {
+class InventoryProductDetail {
   final int productNumber;
   final String productName;
   final String barcode;
@@ -13,7 +13,15 @@ class InventoryProduct {
   final int expiryWarningDays;
   final DateTime? expiryDate;
 
-  InventoryProduct({
+  // Supplier Info
+  final String supplierName;
+  final double? importPrice;
+  final double? minimumOrderQuantity;
+
+  // Stock History
+  final List<StockHistoryItem> stockHistory;
+
+  InventoryProductDetail({
     required this.productNumber,
     required this.productName,
     required this.barcode,
@@ -27,10 +35,20 @@ class InventoryProduct {
     required this.imageUrl,
     required this.expiryWarningDays,
     this.expiryDate,
+    required this.supplierName,
+    this.importPrice,
+    this.minimumOrderQuantity,
+    required this.stockHistory,
   });
 
-  factory InventoryProduct.fromJson(Map<String, dynamic> json) {
-    return InventoryProduct(
+  factory InventoryProductDetail.fromJson(Map<String, dynamic> json) {
+    var historyList =
+        (json['stockHistory'] as List?)
+            ?.map((e) => StockHistoryItem.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    return InventoryProductDetail(
       productNumber: (json['productNumber'] as num?)?.toInt() ?? 0,
       productName: json['productName'] ?? '',
       barcode: json['barcode'] ?? '',
@@ -46,24 +64,30 @@ class InventoryProduct {
       expiryDate: json['expiryDate'] != null
           ? DateTime.tryParse(json['expiryDate'] as String)
           : null,
+      supplierName: json['supplierName'] ?? 'N/A',
+      importPrice: (json['importPrice'] as num?)?.toDouble(),
+      minimumOrderQuantity: (json['minimumOrderQuantity'] as num?)?.toDouble(),
+      stockHistory: historyList,
     );
   }
+}
 
-  Map<String, dynamic> toJson() {
-    return {
-      'productNumber': productNumber,
-      'productName': productName,
-      'barcode': barcode,
-      'categoryName': categoryName,
-      'unitName': unitName,
-      'stock': stock,
-      'sellingPrice': sellingPrice,
-      'reorderLevel': reorderLevel,
-      'status': status,
-      'description': description,
-      'imageUrl': imageUrl,
-      'expiryWarningDays': expiryWarningDays,
-      'expiryDate': expiryDate?.toIso8601String(),
-    };
+class StockHistoryItem {
+  final String date;
+  final String action;
+  final double quantity;
+
+  StockHistoryItem({
+    required this.date,
+    required this.action,
+    required this.quantity,
+  });
+
+  factory StockHistoryItem.fromJson(Map<String, dynamic> json) {
+    return StockHistoryItem(
+      date: json['date'] ?? '',
+      action: json['action'] ?? '',
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
+    );
   }
 }

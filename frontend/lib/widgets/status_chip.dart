@@ -4,16 +4,12 @@ class StatusChip extends StatelessWidget {
   final String label;
   final String type;
 
-  const StatusChip({
-    super.key,
-    required this.label,
-    required this.type,
-  });
+  const StatusChip({super.key, required this.label, required this.type});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     Color backgroundColor;
     Color textColor;
     IconData icon;

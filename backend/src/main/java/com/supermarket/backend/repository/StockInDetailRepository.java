@@ -16,4 +16,11 @@ public interface StockInDetailRepository extends JpaRepository<StockInDetail, In
 
     @Query("SELECT s FROM StockInDetail s WHERE s.productNumber = :productNumber AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC")
     List<StockInDetail> findLatestStockInDetails(@Param("productNumber") Integer productNumber);
+
+    @Query("SELECT s FROM StockInDetail s WHERE s.remainingQuantity > 0 ORDER BY s.expiryDate ASC")
+    List<StockInDetail> findAllActiveStockInDetails();
+
+    @Query("SELECT s FROM StockInDetail s WHERE s.productNumber IN :productNumbers AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC")
+    List<StockInDetail> findActiveStockInDetailsByProductNumbers(@Param("productNumbers") List<Integer> productNumbers);
 }
+
