@@ -509,7 +509,7 @@ class _InventoryProductDetailScreenState
                               child: OutlinedButton.icon(
                                 onPressed: () async {
                                   final result = await context.push<bool>(
-                                    '/products/edit/${product.productNumber}',
+                                    '/stock/products/edit/${product.productNumber}',
                                     extra: product,
                                   );
                                   if (!context.mounted) return;
