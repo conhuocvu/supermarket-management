@@ -28,6 +28,44 @@ public class CategoryService {
         return categories.map(this::mapToDTO);
     }
 
+    public CategoryDTO getCategoryById(Integer categoryNumber) {
+        Category category = categoryRepository.findById(categoryNumber)
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+        return mapToDTO(category);
+    }
+
+    @Transactional
+    public CategoryDTO createCategory(CategoryDTO categoryDTO) {
+        Category category = Category.builder()
+                .categoryName(categoryDTO.getCategoryName())
+                .parentCategoryNumber(categoryDTO.getParentCategoryNumber())
+                .status(categoryDTO.getStatus() != null ? categoryDTO.getStatus() : "ACTIVE")
+                .description(categoryDTO.getDescription())
+                .internalNotes(categoryDTO.getInternalNotes())
+                .build();
+        
+        category = categoryRepository.save(category);
+        return mapToDTO(category);
+    }
+
+    @Transactional
+    public CategoryDTO updateCategory(Integer categoryNumber, CategoryDTO categoryDTO) {
+        Category category = categoryRepository.findById(categoryNumber)
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+        
+        category.setCategoryName(categoryDTO.getCategoryName());
+        category.setParentCategoryNumber(categoryDTO.getParentCategoryNumber());
+        category.setDescription(categoryDTO.getDescription());
+        category.setInternalNotes(categoryDTO.getInternalNotes());
+        
+        if (categoryDTO.getStatus() != null && !categoryDTO.getStatus().equals(category.getStatus())) {
+            updateStatusRecursive(category, categoryDTO.getStatus());
+        }
+        
+        category = categoryRepository.save(category);
+        return mapToDTO(category);
+    }
+
     @Transactional
     public CategoryDTO updateCategoryStatus(Integer categoryNumber, String newStatus) {
         Category category = categoryRepository.findById(categoryNumber)
@@ -63,6 +101,7 @@ public class CategoryService {
                 .categoryName(category.getCategoryName())
                 .status(category.getStatus())
                 .description(category.getDescription())
+                .internalNotes(category.getInternalNotes())
                 .build();
     }
 }

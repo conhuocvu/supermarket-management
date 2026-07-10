@@ -28,4 +28,7 @@ public class Category {
 
     @Column(name = "description")
     private String description;
+
+    @Column(name = "internal_notes")
+    private String internalNotes;
 }

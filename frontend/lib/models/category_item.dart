@@ -5,6 +5,7 @@ class CategoryItem {
   final String categoryName;
   final String status;
   final String? description;
+  final String? internalNotes;
 
   CategoryItem({
     required this.categoryNumber,
@@ -13,6 +14,7 @@ class CategoryItem {
     required this.categoryName,
     required this.status,
     this.description,
+    this.internalNotes,
   });
 
   factory CategoryItem.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class CategoryItem {
       categoryName: json['categoryName'] ?? '',
       status: json['status'] ?? 'ACTIVE',
       description: json['description'],
+      internalNotes: json['internalNotes'],
     );
   }
 
@@ -34,6 +37,7 @@ class CategoryItem {
       'categoryName': categoryName,
       'status': status,
       'description': description,
+      'internalNotes': internalNotes,
     };
   }
 }

@@ -44,3 +44,6 @@ ON CONFLICT (product_supplier_number) DO NOTHING;
 
 -- 7. Add description to categories table
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- 8. Add internal notes to categories table
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS internal_notes TEXT;

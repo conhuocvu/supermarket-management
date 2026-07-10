@@ -424,4 +424,47 @@ class ApiService {
       throw Exception('Failed to update category status: $e');
     }
   }
+
+  Future<Map<String, dynamic>> getCategoryById(int categoryNumber) async {
+    try {
+      final response = await _dio.get('/categories/$categoryNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return body['data'] as Map<String, dynamic>;
+        }
+      }
+      throw Exception('Failed to load category.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> createCategory(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/categories', data: data);
+      if (response.statusCode != 201 && response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to create category.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> updateCategory(int categoryNumber, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('/categories/$categoryNumber', data: data);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to update category.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
 }

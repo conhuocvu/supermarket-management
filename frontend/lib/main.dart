@@ -16,6 +16,7 @@ import 'screens/inventory_dashboard_screen.dart';
 import 'screens/inventory_product_list_screen.dart';
 import 'screens/inventory_product_detail_screen.dart';
 import 'screens/category_list_screen.dart';
+import 'screens/category_form_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -226,6 +227,23 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'categories',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: CategoryListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    pageBuilder: (context, state) =>
+                        const NoTransitionPage(child: CategoryFormScreen()),
+                  ),
+                  GoRoute(
+                    path: 'edit/:id',
+                    pageBuilder: (context, state) {
+                      final idStr = state.pathParameters['id'] ?? '';
+                      final id = int.tryParse(idStr);
+                      return NoTransitionPage(
+                        child: CategoryFormScreen(categoryNumber: id),
+                      );
+                    },
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'products',

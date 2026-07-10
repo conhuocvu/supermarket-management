@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 import '../models/category_item.dart';
 import '../providers/category_provider.dart';
+import '../providers/shell_layout_provider.dart';
 import '../widgets/empty_view.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_view.dart';
@@ -18,6 +20,20 @@ class CategoryListScreen extends ConsumerStatefulWidget {
 class _CategoryListScreenState
     extends ConsumerState<CategoryListScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(shellLayoutProvider.notifier)
+          .update(
+            title: 'Category Management',
+            actions: [],
+            breadcrumbs: ['Inventory', 'Categories'],
+          );
+    });
+  }
 
   @override
   void dispose() {
@@ -37,14 +53,6 @@ class _CategoryListScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Category List',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 24),
               _buildFilterHeader(context, state),
               const SizedBox(height: 24),
               Expanded(
@@ -141,10 +149,11 @@ class _CategoryListScreenState
         Widget addBtn = SizedBox(
           height: 48,
           child: FilledButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Add Category not implemented yet')),
-              );
+            onPressed: () async {
+              final result = await context.push('/stock/categories/add');
+              if (result == true && context.mounted) {
+                ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true);
+              }
             },
             icon: const Icon(Icons.add, size: 20),
             label: const Text('Add Category'),
@@ -274,6 +283,16 @@ class _CategoryListScreenState
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        IconButton(
+          icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
+          tooltip: 'Edit Category',
+          onPressed: () async {
+            final result = await context.push('/stock/categories/edit/${item.categoryNumber}');
+            if (result == true && context.mounted) {
+              ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true);
+            }
+          },
+        ),
         IconButton(
           icon: Icon(
             isActive ? Icons.toggle_on : Icons.toggle_off,

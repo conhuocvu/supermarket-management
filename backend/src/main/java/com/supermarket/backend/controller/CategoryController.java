@@ -43,6 +43,59 @@ public class CategoryController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{categoryNumber}")
+    public ResponseEntity<Map<String, Object>> getCategory(@PathVariable Integer categoryNumber) {
+        try {
+            CategoryDTO category = categoryService.getCategoryById(categoryNumber);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category retrieved successfully.");
+            response.put("data", category);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    @PostMapping
+    public ResponseEntity<Map<String, Object>> createCategory(@RequestBody CategoryDTO categoryDTO) {
+        try {
+            CategoryDTO newCategory = categoryService.createCategory(categoryDTO);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category has been saved successfully.");
+            response.put("data", newCategory);
+            return ResponseEntity.status(201).body(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Category cannot be saved. " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    @PutMapping("/{categoryNumber}")
+    public ResponseEntity<Map<String, Object>> updateCategory(
+            @PathVariable Integer categoryNumber,
+            @RequestBody CategoryDTO categoryDTO) {
+        try {
+            CategoryDTO updatedCategory = categoryService.updateCategory(categoryNumber, categoryDTO);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category has been updated successfully.");
+            response.put("data", updatedCategory);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Category cannot be updated. " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
     @PatchMapping("/{categoryNumber}/status")
     public ResponseEntity<Map<String, Object>> updateCategoryStatus(
             @PathVariable Integer categoryNumber,

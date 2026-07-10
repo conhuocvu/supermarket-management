@@ -336,13 +336,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         ),
                         onPressed: () => context.pop(false),
                       ),
-                      const SizedBox(width: 16),
-                      Text(
-                        isEditMode ? 'Edit Product Details' : 'Register New Product',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
