@@ -79,7 +79,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   final routerNotifier = RouterNotifier();
 
   final authSub = ref.listen(authProvider, (previous, next) {
-    routerNotifier.notify();
+    final sessionChanged =
+        previous?.session?.accessToken != next.session?.accessToken;
+    final userChanged = previous?.user?.id != next.user?.id;
+    final roleChanged =
+        previous?.profile?.roleNumber != next.profile?.roleNumber;
+    final initChanged = previous?.isInitialized != next.isInitialized;
+
+    if (sessionChanged || userChanged || roleChanged || initChanged) {
+      routerNotifier.notify();
+    }
   });
   final splashSub = ref.listen(splashFinishedProvider, (previous, next) {
     routerNotifier.notify();

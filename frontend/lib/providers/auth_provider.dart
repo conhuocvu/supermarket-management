@@ -6,10 +6,12 @@ import '../models/profile.dart';
 import '../models/supabase_auth_state.dart';
 
 class AuthNotifier extends StateNotifier<SupabaseAuthState> {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
   StreamSubscription<AuthState>? _subscription;
 
-  AuthNotifier() : super(SupabaseAuthState()) {
+  AuthNotifier({SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client,
+      super(SupabaseAuthState()) {
     _init();
   }
 
