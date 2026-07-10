@@ -37,3 +37,10 @@ Thumbs.db
 **/generated_plugins.cmake
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
+**/generated_plugin_registrant.cc
+**/GeneratedPluginRegistrant.swift
+**/GeneratedPluginRegistrant.h
+**/generated_plugin_registrant.h
+**/GeneratedPluginRegistrant.m
+**/GeneratedPluginRegistrant.java
+

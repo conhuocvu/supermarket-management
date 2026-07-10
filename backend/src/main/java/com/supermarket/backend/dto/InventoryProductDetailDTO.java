@@ -25,6 +25,7 @@ public class InventoryProductDetailDTO {
     private LocalDate expiryDate;
 
     // Supplier Info
+    private Integer supplierNumber;
     private String supplierName;
     private BigDecimal importPrice;
     private BigDecimal minimumOrderQuantity;
