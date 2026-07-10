@@ -3,6 +3,8 @@ package com.supermarket.backend.controller;
 import com.supermarket.backend.dto.CategoryDTO;
 import com.supermarket.backend.dto.InventoryProductDTO;
 import com.supermarket.backend.dto.ProductCreateUpdateDTO;
+import com.supermarket.backend.dto.ProductAdjustmentDTO;
+import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
 import com.supermarket.backend.dto.PurchaseRequestCreateDTO;
 import com.supermarket.backend.dto.UnitDTO;
 import com.supermarket.backend.service.InventoryProductService;
@@ -287,6 +289,57 @@ public class InventoryProductController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Failed to load product details: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/products/{productNumber}/adjustment")
+    public ResponseEntity<Map<String, Object>> getProductForAdjustment(@PathVariable int productNumber) {
+        try {
+            ProductAdjustmentDTO dto = inventoryProductService.getProductForAdjustment(productNumber);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Product adjustment data loaded successfully.");
+            response.put("data", dto);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to load product adjustment data: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PostMapping("/products/{productNumber}/adjustments")
+    public ResponseEntity<Map<String, Object>> adjustProductQuantity(
+            @PathVariable int productNumber,
+            @RequestBody ProductAdjustmentRequestDTO request) {
+        try {
+            com.supermarket.backend.entity.Inventory updatedInventory = inventoryProductService.adjustProductQuantity(
+                    productNumber,
+                    request.getAdjustmentType(),
+                    request.getQuantity(),
+                    request.getReason()
+            );
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Product quantity adjusted successfully.");
+            response.put("data", updatedInventory);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to adjust product quantity: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
     }

@@ -4,6 +4,7 @@ import '../models/dashboard_data.dart';
 import '../models/category_item.dart';
 import '../models/inventory_product.dart';
 import '../models/inventory_product_detail.dart';
+import '../models/product_adjustment.dart';
 
 class ApiService {
   final Dio _dio;
@@ -294,6 +295,52 @@ class ApiService {
         }
       }
       throw Exception('Failed to load product details.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<ProductAdjustmentData> fetchProductAdjustmentData(
+    int productNumber,
+  ) async {
+    try {
+      final response = await _dio.get(
+        '/inventory/products/$productNumber/adjustment',
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return ProductAdjustmentData.fromJson(
+            body['data'] as Map<String, dynamic>,
+          );
+        }
+      }
+      throw Exception('Failed to load product adjustment data.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<bool> adjustProductQuantity({
+    required int productNumber,
+    required String adjustmentType,
+    required double quantity,
+    required String reason,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/inventory/products/$productNumber/adjustments',
+        data: {
+          'adjustmentType': adjustmentType,
+          'quantity': quantity,
+          'reason': reason,
+        },
+      );
+      return response.statusCode == 200 && response.data['success'] == true;
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {

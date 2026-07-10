@@ -9,6 +9,7 @@ import '../providers/shell_layout_provider.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/error_view.dart';
 import '../widgets/status_chip.dart';
+import '../widgets/adjust_quantity_dialog.dart';
 
 final productDetailsProvider =
     StateNotifierProvider.family<
@@ -545,14 +546,33 @@ class _InventoryProductDetailScreenState
                                   : double.infinity,
                               height: 48,
                               child: FilledButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Stock Adjustment feature is coming soon!',
-                                      ),
+                                onPressed: () async {
+                                  final result = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AdjustQuantityDialog(
+                                      productNumber: product.productNumber,
                                     ),
                                   );
+                                  if (result == true && context.mounted) {
+                                    setState(() {
+                                      _hasAnyChange = true;
+                                    });
+                                    ref
+                                        .read(
+                                          productDetailsProvider(
+                                            widget.productNumber,
+                                          ).notifier,
+                                        )
+                                        .loadDetails();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Stock adjusted successfully!',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
                                 },
                                 icon: const Icon(Icons.sync_alt),
                                 label: const Text('Stock Adj.'),

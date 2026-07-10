@@ -38,6 +38,9 @@ public class InventoryTransaction {
     @Column(name = "reference_id")
     private Integer referenceId;
 
+    @Column(name = "reason")
+    private String reason;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 }

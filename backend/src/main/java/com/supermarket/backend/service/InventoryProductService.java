@@ -4,6 +4,8 @@ import com.supermarket.backend.dto.CategoryDTO;
 import com.supermarket.backend.dto.InventoryProductDTO;
 import com.supermarket.backend.dto.InventoryProductDetailDTO;
 import com.supermarket.backend.dto.ProductCreateUpdateDTO;
+import com.supermarket.backend.dto.ProductAdjustmentDTO;
+import com.supermarket.backend.dto.ProductAdjustmentRequestDTO;
 import com.supermarket.backend.dto.UnitDTO;
 import com.supermarket.backend.entity.*;
 import com.supermarket.backend.repository.*;
@@ -553,6 +555,75 @@ public class InventoryProductService {
                 .minimumOrderQuantity(minOrderQty)
                 .stockHistory(stockHistory)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ProductAdjustmentDTO getProductForAdjustment(int productNumber) {
+        Product p = productRepository.findById(productNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productNumber));
+
+        Inventory inv = inventoryRepository.findById(productNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Inventory record not found for product: " + productNumber));
+
+        String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+
+        return ProductAdjustmentDTO.builder()
+                .productNumber(p.getProductNumber())
+                .productName(p.getProductName())
+                .barcode(p.getBarcode())
+                .unitName(unitName)
+                .availableQuantity(inv.getAvailableQuantity())
+                .build();
+    }
+
+    @Transactional
+    public Inventory adjustProductQuantity(int productNumber, String adjustmentType, BigDecimal quantity, String reason) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Adjustment quantity must be greater than zero.");
+        }
+
+        Product p = productRepository.findById(productNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productNumber));
+
+        Inventory inv = inventoryRepository.findById(productNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Inventory record not found for product: " + productNumber));
+
+        BigDecimal currentAvailable = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+        BigDecimal currentTotal = inv.getTotalQuantity() != null ? inv.getTotalQuantity() : BigDecimal.ZERO;
+
+        BigDecimal newAvailable;
+        BigDecimal newTotal;
+
+        if ("INCREASE".equalsIgnoreCase(adjustmentType)) {
+            newAvailable = currentAvailable.add(quantity);
+            newTotal = currentTotal.add(quantity);
+        } else if ("DECREASE".equalsIgnoreCase(adjustmentType)) {
+            if (currentAvailable.compareTo(quantity) < 0) {
+                throw new IllegalArgumentException("Inventory quantity cannot be negative.");
+            }
+            newAvailable = currentAvailable.subtract(quantity);
+            newTotal = currentTotal.subtract(quantity);
+        } else {
+            throw new IllegalArgumentException("Invalid adjustment type. Must be INCREASE or DECREASE.");
+        }
+
+        inv.setAvailableQuantity(newAvailable);
+        inv.setTotalQuantity(newTotal);
+        inv.setLastUpdated(LocalDateTime.now());
+        Inventory savedInventory = inventoryRepository.save(inv);
+
+        // Record transaction history
+        InventoryTransaction transaction = InventoryTransaction.builder()
+                .product(p)
+                .type("INCREASE".equalsIgnoreCase(adjustmentType) ? "IN" : "OUT")
+                .quantity(quantity)
+                .referenceType("ADJUSTMENT")
+                .reason(reason)
+                .createdAt(LocalDateTime.now())
+                .build();
+        inventoryTransactionRepository.save(transaction);
+
+        return savedInventory;
     }
 
     private void debugLog(String message, boolean reset) {
