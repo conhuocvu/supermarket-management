@@ -592,6 +592,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                     error: (err, stack) =>
                         const Text('Error loading categories'),
                     data: (categories) => DropdownButtonFormField<int?>(
+                      key: ValueKey('category_$_selectedCategoryNumber'),
                       value: _selectedCategoryNumber,
                       decoration: inputDecorationTheme.copyWith(
                         hintText: 'Select category',
@@ -621,6 +622,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                         const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => const Text('Error loading units'),
                     data: (units) => DropdownButtonFormField<int?>(
+                      key: ValueKey('unit_$_selectedUnitNumber'),
                       value: _selectedUnitNumber,
                       decoration: inputDecorationTheme.copyWith(
                         hintText: 'Select unit',
