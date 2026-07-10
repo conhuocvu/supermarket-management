@@ -43,4 +43,4 @@ Thumbs.db
 **/generated_plugin_registrant.h
 **/GeneratedPluginRegistrant.m
 **/GeneratedPluginRegistrant.java
-
+*.patch
