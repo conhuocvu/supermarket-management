@@ -5,6 +5,8 @@ import '../models/category_item.dart';
 import '../models/inventory_product.dart';
 import '../models/inventory_product_detail.dart';
 import '../models/product_adjustment.dart';
+import '../models/inventory_transaction.dart';
+import '../models/pending_task.dart';
 
 class ApiService {
   final Dio _dio;
@@ -39,6 +41,47 @@ class ApiService {
         throw Exception(
           'Failed to load dashboard data: HTTP ${response.statusCode}',
         );
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<InventoryTransaction>> fetchInventoryTransactions() async {
+    try {
+      final response = await _dio.get('/inventory/transactions');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => InventoryTransaction.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load transactions.');
+        }
+      } else {
+        throw Exception('Failed to load transactions: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<PendingTasks> fetchPendingTasks() async {
+    try {
+      final response = await _dio.get('/inventory/pending-tasks');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PendingTasks.fromJson(body['data'] ?? {});
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load pending tasks.');
+        }
+      } else {
+        throw Exception('Failed to load pending tasks: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));

@@ -164,9 +164,8 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isEdit = widget.categoryNumber != null;
 
-    final inputDecorationTheme = InputDecoration(
+    final customInputDecoration = InputDecoration(
       filled: true,
       fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -215,11 +214,11 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -238,7 +237,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                           label: 'Category Name',
                           child: TextFormField(
                             controller: _nameController,
-                            decoration: inputDecorationTheme.copyWith(
+                            decoration: customInputDecoration.copyWith(
                               hintText: 'Enter Category Name',
                             ),
                             validator: (value) {
@@ -258,13 +257,13 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                             initialSelection: _selectedParentCategory,
                             expandedInsets: EdgeInsets.zero,
                             inputDecorationTheme: InputDecorationTheme(
-                              filled: inputDecorationTheme.filled,
-                              fillColor: inputDecorationTheme.fillColor,
-                              contentPadding: inputDecorationTheme.contentPadding,
-                              border: inputDecorationTheme.border,
-                              focusedBorder: inputDecorationTheme.focusedBorder,
-                              errorBorder: inputDecorationTheme.errorBorder,
-                              focusedErrorBorder: inputDecorationTheme.focusedErrorBorder,
+                              filled: customInputDecoration.filled,
+                              fillColor: customInputDecoration.fillColor,
+                              contentPadding: customInputDecoration.contentPadding,
+                              border: customInputDecoration.border,
+                              focusedBorder: customInputDecoration.focusedBorder,
+                              errorBorder: customInputDecoration.errorBorder,
+                              focusedErrorBorder: customInputDecoration.focusedErrorBorder,
                             ),
                             hintText: 'Select Parent Category',
                             enableFilter: true,
@@ -297,7 +296,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                     child: TextFormField(
                       controller: _descriptionController,
                       maxLines: 4,
-                      decoration: inputDecorationTheme.copyWith(
+                      decoration: customInputDecoration.copyWith(
                         hintText: 'Provide a brief overview of the category purposes',
                       ),
                     ),
@@ -308,7 +307,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                     child: TextFormField(
                       controller: _internalNotesController,
                       maxLines: 3,
-                      decoration: inputDecorationTheme.copyWith(
+                      decoration: customInputDecoration.copyWith(
                         hintText: 'Enter any confidential or administrative notes here',
                       ),
                     ),

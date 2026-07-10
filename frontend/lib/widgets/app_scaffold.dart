@@ -49,7 +49,7 @@ class AppScaffold extends ConsumerWidget {
       {
         'title': 'Transactions',
         'icon': Icons.swap_horiz_outlined,
-        'active': false,
+        'active': currentPath.startsWith('/stock/transactions'),
       },
       {
         'title': 'Low Stock',
@@ -80,31 +80,36 @@ class AppScaffold extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 36, 24, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fullName,
-                    style: theme.textTheme.headlineMedium?.copyWith(
+                    'SMS',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
                       color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: fullName.contains('@') ? 16 : 20,
+                      letterSpacing: -1.5,
+                      height: 1,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    roleName,
+                    'Supermarket Management',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: const Color(0xFF3F4945).withValues(alpha: 0.7),
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ],
               ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Divider(),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -127,6 +132,8 @@ class AppScaffold extends ConsumerWidget {
                           context.go('/stock/products');
                         } else if (item['title'] == 'Categories') {
                           context.go('/stock/categories');
+                        } else if (item['title'] == 'Transactions') {
+                          context.go('/stock/transactions');
                         }
                       },
                       borderRadius: BorderRadius.circular(12),
@@ -172,31 +179,50 @@ class AppScaffold extends ConsumerWidget {
             ),
             const Divider(color: Color(0xFFBFC9C3), height: 1),
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: InkWell(
-                onTap: () {
-                  ref.read(authProvider.notifier).signOut();
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    child: Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, color: theme.colorScheme.error),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Logout',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.error,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          roleName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  IconButton(
+                    tooltip: 'Logout',
+                    icon: Icon(Icons.logout_outlined, color: theme.colorScheme.error, size: 20),
+                    onPressed: () => ref.read(authProvider.notifier).signOut(),
+                  ),
+                ],
               ),
             ),
           ],
