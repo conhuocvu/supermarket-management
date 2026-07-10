@@ -313,65 +313,9 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-<<<<<<< HEAD
-final GoRouter _router = GoRouter(
-  initialLocation: '/',
-  routes: [
-    ShellRoute(
-      builder: (context, state, child) {
-        return AppScaffold(body: child);
-      },
-      routes: [
-        GoRoute(
-          path: '/',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: InventoryDashboardScreen()),
-        ),
-        GoRoute(
-          path: '/products',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: InventoryProductListScreen()),
-          routes: [
-            GoRoute(
-              path: 'add',
-              pageBuilder: (context, state) =>
-                  const NoTransitionPage(child: ProductFormScreen()),
-            ),
-            GoRoute(
-              path: 'edit/:id',
-              pageBuilder: (context, state) {
-                final idStr = state.pathParameters['id'] ?? '';
-                final id = int.tryParse(idStr) ?? 0;
-                final product = state.extra as InventoryProduct?;
-                return NoTransitionPage(
-                  child: ProductFormScreen(productId: id, product: product),
-                );
-              },
-            ),
-            GoRoute(
-              path: 'detail/:id',
-              pageBuilder: (context, state) {
-                final idStr = state.pathParameters['id'] ?? '';
-                final id = int.tryParse(idStr) ?? 0;
-                return NoTransitionPage(
-                  child: InventoryProductDetailScreen(productNumber: id),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/test-cors',
-      builder: (context, state) => const CorsTestHomePage(),
-    ),
-  ],
-);
-=======
+
 final routerProvider = Provider<GoRouter>((ref) {
   final routerNotifier = RouterNotifier();
->>>>>>> origin/main
 
   final authSub = ref.listen(authProvider, (previous, next) {
     final sessionChanged =
@@ -509,7 +453,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'add',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: AddEditProductScreen()),
+                    const NoTransitionPage(child: ProductFormScreen()),
               ),
               GoRoute(
                 path: 'edit/:id',
@@ -518,7 +462,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final id = int.tryParse(idStr) ?? 0;
                   final product = state.extra as InventoryProduct?;
                   return NoTransitionPage(
-                    child: AddEditProductScreen(
+                    child: ProductFormScreen(
                       productId: id,
                       product: product,
                     ),

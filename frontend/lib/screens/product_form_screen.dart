@@ -655,14 +655,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => const Text('Error loading categories'),
                     data: (categories) => DropdownButtonFormField<int?>(
-<<<<<<< HEAD:frontend/lib/screens/product_form_screen.dart
                       initialValue: _selectedCategoryNumber,
                       decoration: inputDecoration.copyWith(
-=======
-                      key: ValueKey('category_$_selectedCategoryNumber'),
-                      value: _selectedCategoryNumber,
-                      decoration: inputDecorationTheme.copyWith(
->>>>>>> origin/main:frontend/lib/screens/add_edit_product_screen.dart
                         hintText: 'Select category',
                       ),
                       items: categories.map((c) {
@@ -687,14 +681,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => const Text('Error loading units'),
                     data: (units) => DropdownButtonFormField<int?>(
-<<<<<<< HEAD:frontend/lib/screens/product_form_screen.dart
                       initialValue: _selectedUnitNumber,
                       decoration: inputDecoration.copyWith(
-=======
-                      key: ValueKey('unit_$_selectedUnitNumber'),
-                      value: _selectedUnitNumber,
-                      decoration: inputDecorationTheme.copyWith(
->>>>>>> origin/main:frontend/lib/screens/add_edit_product_screen.dart
                         hintText: 'Select unit',
                       ),
                       items: units.map((u) {
@@ -871,19 +859,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     decoration: inputDecoration,
                     validator: (val) {
                       if (!isEditMode) {
-<<<<<<< HEAD:frontend/lib/screens/product_form_screen.dart
                         if (val == null || val.trim().isEmpty) return 'Initial stock is required';
                         final numVal = double.tryParse(val);
                         if (numVal == null || numVal < 0) return 'Value cannot be negative';
-=======
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Initial stock is required';
-                        }
-                        final numVal = double.tryParse(val);
-                        if (numVal == null || numVal < 0) {
-                          return 'Value cannot be negative';
-                        }
->>>>>>> origin/main:frontend/lib/screens/add_edit_product_screen.dart
                       }
                       return null;
                     },
