@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../providers/employee_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -40,12 +41,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         phone: _phoneController.text.trim(),
       );
 
-      if (response.session == null) {
-        if (mounted) {
-          setState(() {
-            _showConfirmationPrompt = true;
-          });
+      if (!mounted) return;
+
+      if (response.session != null) {
+        // Registered and logged in immediately — find the employee record
+        // by email so we can navigate directly to ManageRoleScreen.
+        final email = _emailController.text.trim();
+        final api = ref.read(vanillaApiServiceProvider);
+        final result = await api.getEmployees(search: email);
+
+        if (!mounted) return;
+
+        final employees = result.data;
+        final matched = employees?.where((e) => e.email == email).toList();
+
+        if (matched != null && matched.isNotEmpty) {
+          context.go('/role/${matched.first.id}');
+        } else {
+          // Employee record not found — go to staff dashboard so an admin
+          // can locate and assign the role later.
+          context.go('/staff');
         }
+      } else {
+        // Email confirmation required — show the prompt.
+        setState(() {
+          _showConfirmationPrompt = true;
+        });
       }
     } catch (_) {
       // Errors are handled in the authProvider state
