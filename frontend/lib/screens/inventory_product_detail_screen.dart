@@ -628,22 +628,50 @@ class _InventoryProductDetailScreenState
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1200),
-                child: isDesktop
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 5, child: buildLeftColumn()),
-                          const SizedBox(width: 24),
-                          Expanded(flex: 7, child: buildRightColumn()),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          buildLeftColumn(),
-                          const SizedBox(height: 24),
-                          buildRightColumn(),
-                        ],
-                      ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Header back button
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          style: IconButton.styleFrom(
+                            backgroundColor: theme.colorScheme.surfaceVariant,
+                          ),
+                          onPressed: () => context.pop(_hasAnyChange),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            product.productName,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    isDesktop
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 5, child: buildLeftColumn()),
+                              const SizedBox(width: 24),
+                              Expanded(flex: 7, child: buildRightColumn()),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              buildLeftColumn(),
+                              const SizedBox(height: 24),
+                              buildRightColumn(),
+                            ],
+                          ),
+                  ],
+                ),
               ),
             ),
           );

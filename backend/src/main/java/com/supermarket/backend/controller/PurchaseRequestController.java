@@ -14,7 +14,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/purchase-requests")
 @RequiredArgsConstructor
-@CrossOrigin
 public class PurchaseRequestController {
 
     private final InventoryProductService inventoryProductService;

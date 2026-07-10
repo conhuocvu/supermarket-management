@@ -53,6 +53,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _expiryController = TextEditingController(text: '30');
   final _initialQtyController = TextEditingController(text: '0');
   final _descriptionController = TextEditingController();
+  late final TextEditingController _stockDisplayController;
 
   int? _selectedCategoryNumber;
   int? _selectedUnitNumber;
@@ -69,6 +70,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   @override
   void initState() {
     super.initState();
+    _stockDisplayController = TextEditingController(
+      text: widget.product?.stock.toString() ?? '0',
+    );
     if (isEditMode && widget.product != null) {
       final p = widget.product!;
       _nameController.text = p.productName;
@@ -119,6 +123,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _expiryController.dispose();
     _initialQtyController.dispose();
     _descriptionController.dispose();
+    _stockDisplayController.dispose();
     super.dispose();
   }
 
@@ -257,8 +262,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           (c) => c.categoryName == widget.product!.categoryName,
         );
         if (matches.isNotEmpty) {
-          setState(() {
-            _selectedCategoryNumber = matches.first.categoryNumber;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedCategoryNumber = matches.first.categoryNumber;
+              });
+            }
           });
         }
       }
@@ -270,8 +279,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           (u) => u['unitName'] == widget.product!.unitName,
         );
         if (matches.isNotEmpty) {
-          setState(() {
-            _selectedUnitNumber = matches.first['unitNumber'] as int?;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedUnitNumber = matches.first['unitNumber'] as int?;
+              });
+            }
           });
         }
       }
@@ -642,8 +655,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => const Text('Error loading categories'),
                     data: (categories) => DropdownButtonFormField<int?>(
+<<<<<<< HEAD:frontend/lib/screens/product_form_screen.dart
                       initialValue: _selectedCategoryNumber,
                       decoration: inputDecoration.copyWith(
+=======
+                      key: ValueKey('category_$_selectedCategoryNumber'),
+                      value: _selectedCategoryNumber,
+                      decoration: inputDecorationTheme.copyWith(
+>>>>>>> origin/main:frontend/lib/screens/add_edit_product_screen.dart
                         hintText: 'Select category',
                       ),
                       items: categories.map((c) {
@@ -668,8 +687,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => const Text('Error loading units'),
                     data: (units) => DropdownButtonFormField<int?>(
+<<<<<<< HEAD:frontend/lib/screens/product_form_screen.dart
                       initialValue: _selectedUnitNumber,
                       decoration: inputDecoration.copyWith(
+=======
+                      key: ValueKey('unit_$_selectedUnitNumber'),
+                      value: _selectedUnitNumber,
+                      decoration: inputDecorationTheme.copyWith(
+>>>>>>> origin/main:frontend/lib/screens/add_edit_product_screen.dart
                         hintText: 'Select unit',
                       ),
                       items: units.map((u) {
@@ -836,9 +861,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   TextFormField(
                     controller: isEditMode
-                        ? TextEditingController(
-                            text: widget.product?.stock.toString() ?? '0',
-                          )
+                        ? _stockDisplayController
                         : _initialQtyController,
                     enabled: !isEditMode,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -848,9 +871,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     decoration: inputDecoration,
                     validator: (val) {
                       if (!isEditMode) {
+<<<<<<< HEAD:frontend/lib/screens/product_form_screen.dart
                         if (val == null || val.trim().isEmpty) return 'Initial stock is required';
                         final numVal = double.tryParse(val);
                         if (numVal == null || numVal < 0) return 'Value cannot be negative';
+=======
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Initial stock is required';
+                        }
+                        final numVal = double.tryParse(val);
+                        if (numVal == null || numVal < 0) {
+                          return 'Value cannot be negative';
+                        }
+>>>>>>> origin/main:frontend/lib/screens/add_edit_product_screen.dart
                       }
                       return null;
                     },
