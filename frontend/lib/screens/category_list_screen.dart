@@ -46,6 +46,17 @@ class _CategoryListScreenState
     final theme = Theme.of(context);
     final state = ref.watch(categoryListProvider);
 
+    ref.listen<CategoryListState>(categoryListProvider, (previous, next) {
+      if (next.pageError != null && next.pageError != previous?.pageError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.pageError!.replaceAll('Exception: ', '')),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    });
+
     return Stack(
       children: [
         Padding(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/inventory_product_detail.dart';
+import '../models/inventory_product.dart';
 import '../services/api_service.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/shell_layout_provider.dart';
@@ -510,7 +511,21 @@ class _InventoryProductDetailScreenState
                                 onPressed: () async {
                                   final result = await context.push<bool>(
                                     '/stock/products/edit/${product.productNumber}',
-                                    extra: product,
+                                    extra: InventoryProduct(
+                                      productNumber: product.productNumber,
+                                      productName: product.productName,
+                                      barcode: product.barcode,
+                                      categoryName: product.categoryName,
+                                      unitName: product.unitName,
+                                      stock: product.stock,
+                                      sellingPrice: product.sellingPrice,
+                                      reorderLevel: product.reorderLevel,
+                                      status: product.status,
+                                      description: product.description,
+                                      imageUrl: product.imageUrl,
+                                      expiryWarningDays: product.expiryWarningDays,
+                                      expiryDate: product.expiryDate,
+                                    ),
                                   );
                                   if (!context.mounted) return;
                                   _setProductDetailHeader(product.productName);

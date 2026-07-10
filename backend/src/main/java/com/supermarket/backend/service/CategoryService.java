@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 @Service
 @RequiredArgsConstructor
@@ -54,7 +56,12 @@ public class CategoryService {
                 .orElseThrow(() -> new RuntimeException("Category not found"));
         
         category.setCategoryName(categoryDTO.getCategoryName());
+        
+        if (categoryDTO.getParentCategoryNumber() != null) {
+            validateParentCategory(categoryNumber, categoryDTO.getParentCategoryNumber());
+        }
         category.setParentCategoryNumber(categoryDTO.getParentCategoryNumber());
+        
         category.setDescription(categoryDTO.getDescription());
         category.setInternalNotes(categoryDTO.getInternalNotes());
         
@@ -83,6 +90,29 @@ public class CategoryService {
         List<Category> children = categoryRepository.findByParentCategoryNumber(category.getCategoryNumber());
         for (Category child : children) {
             updateStatusRecursive(child, newStatus);
+        }
+    }
+
+    private void validateParentCategory(Integer currentCategoryId, Integer parentCategoryId) {
+        if (parentCategoryId == null) {
+            return;
+        }
+        if (parentCategoryId.equals(currentCategoryId)) {
+            throw new IllegalArgumentException("A category cannot be its own parent.");
+        }
+
+        Set<Integer> visited = new HashSet<>();
+        visited.add(currentCategoryId);
+
+        Integer currentParent = parentCategoryId;
+        while (currentParent != null) {
+            if (visited.contains(currentParent)) {
+                throw new IllegalArgumentException("Cyclic parent assignment detected.");
+            }
+            visited.add(currentParent);
+            currentParent = categoryRepository.findById(currentParent)
+                    .map(Category::getParentCategoryNumber)
+                    .orElse(null);
         }
     }
 

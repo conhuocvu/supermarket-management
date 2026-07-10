@@ -9,6 +9,7 @@ class CategoryListState {
   final bool isLoading;
   final bool isLoadingMore;
   final String? error;
+  final String? pageError;
   final int currentPage;
   final int totalPages;
   final int totalItems;
@@ -19,6 +20,7 @@ class CategoryListState {
     this.isLoading = false,
     this.isLoadingMore = false,
     this.error,
+    this.pageError,
     this.currentPage = 0,
     this.totalPages = 1,
     this.totalItems = 0,
@@ -30,6 +32,9 @@ class CategoryListState {
     bool? isLoading,
     bool? isLoadingMore,
     String? error,
+    bool clearError = false,
+    String? pageError,
+    bool clearPageError = false,
     int? currentPage,
     int? totalPages,
     int? totalItems,
@@ -39,7 +44,8 @@ class CategoryListState {
       categories: categories ?? this.categories,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      error: error, // Can be set to null
+      error: clearError ? null : (error ?? this.error),
+      pageError: clearPageError ? null : (pageError ?? this.pageError),
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
       totalItems: totalItems ?? this.totalItems,
@@ -64,7 +70,11 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
     } else if (isRefresh) {
       state = state.copyWith(currentPage: 0, categories: [], isLoading: true);
     } else {
-      state = state.copyWith(isLoading: true);
+      state = state.copyWith(
+      isLoading: true, 
+      clearError: true,
+      clearPageError: true
+    );
     }
 
     try {
@@ -86,7 +96,7 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
         totalPages: data['totalPages'] ?? 1,
         totalItems: data['totalItems'] ?? 0,
         isLoading: false,
-        error: null,
+        clearError: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -99,7 +109,7 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
   Future<void> loadNextPage() async {
     if (state.isLoadingMore || state.currentPage >= state.totalPages - 1) return;
 
-    state = state.copyWith(isLoadingMore: true);
+    state = state.copyWith(isLoadingMore: true, clearPageError: true);
 
     try {
       final nextPage = state.currentPage + 1;
@@ -121,12 +131,12 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
         totalPages: data['totalPages'] ?? state.totalPages,
         totalItems: data['totalItems'] ?? state.totalItems,
         isLoadingMore: false,
-        error: null,
+        clearPageError: true,
       );
     } catch (e) {
       state = state.copyWith(
         isLoadingMore: false,
-        error: e.toString(),
+        pageError: e.toString(),
       );
     }
   }
@@ -134,7 +144,7 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
   Future<void> loadPreviousPage() async {
     if (state.isLoadingMore || state.currentPage <= 0) return;
     
-    state = state.copyWith(isLoadingMore: true);
+    state = state.copyWith(isLoadingMore: true, clearPageError: true);
     try {
       final prevPage = state.currentPage - 1;
       final response = await _apiService.getCategories(
@@ -155,12 +165,12 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
         totalPages: data['totalPages'] ?? state.totalPages,
         totalItems: data['totalItems'] ?? state.totalItems,
         isLoadingMore: false,
-        error: null,
+        clearPageError: true,
       );
     } catch (e) {
       state = state.copyWith(
         isLoadingMore: false,
-        error: e.toString(),
+        pageError: e.toString(),
       );
     }
   }
@@ -168,7 +178,7 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
   Future<void> goToPage(int pageIndex) async {
     if (state.isLoadingMore || pageIndex < 0 || pageIndex >= state.totalPages) return;
     
-    state = state.copyWith(isLoadingMore: true);
+    state = state.copyWith(isLoadingMore: true, clearPageError: true);
     try {
       final response = await _apiService.getCategories(
         keyword: state.searchQuery,
@@ -188,12 +198,12 @@ class CategoryListNotifier extends StateNotifier<CategoryListState> {
         totalPages: data['totalPages'] ?? state.totalPages,
         totalItems: data['totalItems'] ?? state.totalItems,
         isLoadingMore: false,
-        error: null,
+        clearPageError: true,
       );
     } catch (e) {
       state = state.copyWith(
         isLoadingMore: false,
-        error: e.toString(),
+        pageError: e.toString(),
       );
     }
   }

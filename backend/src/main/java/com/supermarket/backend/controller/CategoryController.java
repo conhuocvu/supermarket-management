@@ -109,6 +109,14 @@ public class CategoryController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
 
+        newStatus = newStatus.trim().toUpperCase();
+        if (!newStatus.equals("ACTIVE") && !newStatus.equals("INACTIVE")) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Invalid status value. Allowed values are ACTIVE or INACTIVE.");
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
         try {
             CategoryDTO updatedCategory = categoryService.updateCategoryStatus(categoryNumber, newStatus);
             
