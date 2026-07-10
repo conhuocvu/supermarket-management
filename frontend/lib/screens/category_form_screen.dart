@@ -257,7 +257,15 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                           child: DropdownMenu<int?>(
                             initialSelection: _selectedParentCategory,
                             expandedInsets: EdgeInsets.zero,
-                            inputDecorationTheme: inputDecorationTheme,
+                            inputDecorationTheme: InputDecorationTheme(
+                              filled: inputDecorationTheme.filled,
+                              fillColor: inputDecorationTheme.fillColor,
+                              contentPadding: inputDecorationTheme.contentPadding,
+                              border: inputDecorationTheme.border,
+                              focusedBorder: inputDecorationTheme.focusedBorder,
+                              errorBorder: inputDecorationTheme.errorBorder,
+                              focusedErrorBorder: inputDecorationTheme.focusedErrorBorder,
+                            ),
                             hintText: 'Select Parent Category',
                             enableFilter: true,
                             enableSearch: true,
