@@ -8,6 +8,31 @@ import '../providers/dashboard_provider.dart';
 import '../providers/inventory_products_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
+/// Formats integers with dots as thousand separators (Vietnamese style: 100.000).
+class _ThousandsSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Strip all non-digit characters
+    final digits = newValue.text.replaceAll('.', '');
+    if (digits.isEmpty) return newValue.copyWith(text: '');
+
+    // Insert dot every 3 digits from the right
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+    return newValue.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 class ProductFormScreen extends ConsumerStatefulWidget {
   final int? productId;
   final InventoryProduct? product;
@@ -48,7 +73,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final p = widget.product!;
       _nameController.text = p.productName;
       _barcodeController.text = p.barcode;
-      _priceController.text = p.sellingPrice.toString();
+      _priceController.text = _formatPrice(p.sellingPrice);
       _reorderController.text = p.reorderLevel.toString();
       _expiryController.text = p.expiryWarningDays.toString();
       _descriptionController.text = p.description;
@@ -58,6 +83,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       // Load supplier mapping
       _loadProductSupplierDetails();
     }
+  }
+
+  /// Formats a double to Vietnamese dot-separated integer string (e.g. 100000.0 → "100.000")
+  String _formatPrice(double price) {
+    final intVal = price.toInt().toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < intVal.length; i++) {
+      if (i > 0 && (intVal.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(intVal[i]);
+    }
+    return buffer.toString();
   }
 
   Future<void> _loadProductSupplierDetails() async {
@@ -146,7 +182,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       'categoryNumber': _selectedCategoryNumber,
       'inventoryUnitNumber': _selectedUnitNumber,
       'supplierNumber': _selectedSupplierNumber,
-      'sellingPrice': double.parse(_priceController.text),
+      'sellingPrice': double.parse(_priceController.text.replaceAll('.', '')),
       'reorderLevel': double.parse(_reorderController.text),
       'status': _status,
       'description': _descriptionController.text.trim(),
@@ -718,16 +754,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   _buildLabel('Selling Price (VND) *', theme),
                   TextFormField(
                     controller: _priceController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
-                    ],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [_ThousandsSeparatorFormatter()],
                     decoration: inputDecoration.copyWith(
-                      hintText: 'e.g. 15000',
+                      hintText: 'e.g. 100.000',
+                      suffixText: 'VND',
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) return 'Price is required';
-                      final numVal = double.tryParse(val);
+                      final numVal = double.tryParse(val.replaceAll('.', ''));
                       if (numVal == null || numVal <= 0) return 'Price must be greater than 0';
                       return null;
                     },

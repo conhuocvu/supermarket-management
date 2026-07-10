@@ -298,7 +298,6 @@ public class InventoryProductService {
         BigDecimal initialQty = dto.getInitialQuantity() != null ? dto.getInitialQuantity() : BigDecimal.ZERO;
         Inventory inventory = Inventory.builder()
                 .productNumber(product.getProductNumber())
-                .product(product)
                 .totalQuantity(initialQty)
                 .availableQuantity(initialQty)
                 .lastUpdated(LocalDateTime.now())
