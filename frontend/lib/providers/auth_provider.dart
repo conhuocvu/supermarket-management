@@ -65,19 +65,23 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
   }
 
   Future<Profile?> _fetchProfileData(String userId) async {
-    try {
-      final data = await _client
-          .from('profiles')
-          .select()
-          .eq('user_id', userId)
-          .maybeSingle();
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final data = await _client
+            .from('profiles')
+            .select()
+            .eq('user_id', userId)
+            .maybeSingle();
 
-      if (data != null) {
-        return Profile.fromJson(data);
+        if (data != null) {
+          return Profile.fromJson(data);
+        }
+      } catch (e) {
+        debugPrint('Error fetching profile (attempt $attempt): $e');
       }
-    } catch (e) {
-      // Don't crash auth state, just log and return null
-      debugPrint('Error fetching profile: $e');
+      if (attempt < 3) {
+        await Future.delayed(Duration(milliseconds: 200 * attempt));
+      }
     }
     return null;
   }

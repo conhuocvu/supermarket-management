@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'models/inventory_product.dart';
+import 'models/profile.dart';
 import 'providers/auth_provider.dart';
 import 'providers/splash_finished_provider.dart';
 import 'providers/router_notifier.dart';
@@ -75,7 +76,19 @@ void main() async {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final routerNotifier = RouterNotifier(ref);
+  final routerNotifier = RouterNotifier();
+
+  final authSub = ref.listen(authProvider, (previous, next) {
+    routerNotifier.notify();
+  });
+  final splashSub = ref.listen(splashFinishedProvider, (previous, next) {
+    routerNotifier.notify();
+  });
+
+  ref.onDispose(() {
+    authSub.close();
+    splashSub.close();
+  });
 
   return GoRouter(
     initialLocation: '/splash',
@@ -102,22 +115,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // 3. If logged in:
-      final role = auth.profile?.roleNumber ?? 3;
+      final role = auth.profile?.roleNumber ?? UserRoles.stockController;
       String landingPage = '/';
       switch (role) {
-        case 1:
+        case UserRoles.admin:
           landingPage = '/admin';
           break;
-        case 2:
+        case UserRoles.manager:
           landingPage = '/manager';
           break;
-        case 3:
+        case UserRoles.stockController:
           landingPage = '/';
           break;
-        case 4:
+        case UserRoles.salesAssociate:
           landingPage = '/sales';
           break;
-        case 5:
+        case UserRoles.cashier:
           landingPage = '/cashier';
           break;
       }
@@ -128,19 +141,19 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Protect routes based on role:
       final path = state.uri.path;
-      if (role == 1 && !path.startsWith('/admin')) {
+      if (role == UserRoles.admin && !path.startsWith('/admin')) {
         return '/admin';
       }
-      if (role == 2 && !path.startsWith('/manager')) {
+      if (role == UserRoles.manager && !path.startsWith('/manager')) {
         return '/manager';
       }
-      if (role == 4 && !path.startsWith('/sales')) {
+      if (role == UserRoles.salesAssociate && !path.startsWith('/sales')) {
         return '/sales';
       }
-      if (role == 5 && !path.startsWith('/cashier')) {
+      if (role == UserRoles.cashier && !path.startsWith('/cashier')) {
         return '/cashier';
       }
-      if (role == 3) {
+      if (role == UserRoles.stockController) {
         if (path.startsWith('/admin') ||
             path.startsWith('/manager') ||
             path.startsWith('/sales') ||

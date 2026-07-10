@@ -41,14 +41,26 @@ class Profile {
 
   String get roleName {
     switch (roleNumber) {
-      case 1:
+      case UserRoles.admin:
         return 'Admin';
-      case 2:
+      case UserRoles.manager:
         return 'Manager';
-      case 3:
+      case UserRoles.stockController:
         return 'Stock Controller';
+      case UserRoles.salesAssociate:
+        return 'Sales Associate';
+      case UserRoles.cashier:
+        return 'Cashier';
       default:
         return 'Unknown';
     }
   }
+}
+
+class UserRoles {
+  static const int admin = 1;
+  static const int manager = 2;
+  static const int stockController = 3;
+  static const int salesAssociate = 4;
+  static const int cashier = 5;
 }
