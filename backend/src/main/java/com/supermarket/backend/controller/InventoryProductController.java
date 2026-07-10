@@ -26,7 +26,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/inventory")
 @RequiredArgsConstructor
-@CrossOrigin
 public class InventoryProductController {
 
     private final InventoryProductService inventoryProductService;
@@ -320,7 +319,7 @@ public class InventoryProductController {
             @PathVariable int productNumber,
             @RequestBody ProductAdjustmentRequestDTO request) {
         try {
-            com.supermarket.backend.entity.Inventory updatedInventory = inventoryProductService.adjustProductQuantity(
+            ProductAdjustmentDTO updatedAdjustment = inventoryProductService.adjustProductQuantity(
                     productNumber,
                     request.getAdjustmentType(),
                     request.getQuantity(),
@@ -329,7 +328,7 @@ public class InventoryProductController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Product quantity adjusted successfully.");
-            response.put("data", updatedInventory);
+            response.put("data", updatedAdjustment);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             Map<String, Object> response = new HashMap<>();

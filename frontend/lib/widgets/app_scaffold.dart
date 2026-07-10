@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
 class AppScaffold extends ConsumerWidget {
@@ -21,6 +22,13 @@ class AppScaffold extends ConsumerWidget {
     final shellState = ref.watch(shellLayoutProvider);
     final displayTitle = title ?? shellState.title;
     final displayActions = actions ?? shellState.actions;
+
+    final authState = ref.watch(authProvider);
+    final fullName =
+        authState.profile?.fullName ??
+        authState.user?.email ??
+        'Inventory Staff';
+    final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
     final List<Map<String, dynamic>> menuItems = [
       {
@@ -73,15 +81,18 @@ class AppScaffold extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Inventory Staff',
+                    fullName,
                     style: theme.textTheme.headlineMedium?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.bold,
+                      fontSize: fullName.contains('@') ? 16 : 20,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Warehouse v1.0',
+                    roleName,
                     style: TextStyle(
                       fontSize: 12,
                       color: const Color(0xFF3F4945).withValues(alpha: 0.7),
@@ -103,6 +114,9 @@ class AppScaffold extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: InkWell(
                       onTap: () {
+                        if (!isDesktop) {
+                          Navigator.pop(context);
+                        }
                         if (item['title'] == 'Dashboard') {
                           context.go('/');
                         } else if (item['title'] == 'Products') {
@@ -155,7 +169,7 @@ class AppScaffold extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               child: InkWell(
                 onTap: () {
-                  // Logout behavior can be wired here
+                  ref.read(authProvider.notifier).signOut();
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -250,27 +264,18 @@ class AppScaffold extends ConsumerWidget {
                                   return Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      GestureDetector(
-                                        onTap: () {
-                                          if (label == 'Inventory') {
-                                            context.go('/');
-                                          } else if (label == 'Products') {
-                                            context.go('/products');
-                                          }
-                                        },
-                                        child: Text(
-                                          label,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: isLast
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: isLast
-                                                ? theme.colorScheme.onSurface
-                                                : theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                          ),
+                                      Text(
+                                        label,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: isLast
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isLast
+                                              ? theme.colorScheme.onSurface
+                                              : theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                         ),
                                       ),
                                       if (!isLast)
@@ -346,25 +351,16 @@ class AppScaffold extends ConsumerWidget {
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          GestureDetector(
-                            onTap: () {
-                              if (label == 'Inventory') {
-                                context.go('/');
-                              } else if (label == 'Products') {
-                                context.go('/products');
-                              }
-                            },
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isLast
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isLast
-                                    ? theme.colorScheme.onSurface
-                                    : theme.colorScheme.onSurfaceVariant,
-                              ),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isLast
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isLast
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                           if (!isLast)
