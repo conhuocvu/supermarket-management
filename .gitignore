@@ -32,3 +32,8 @@ Thumbs.db
 **/.pub/
 **/build/
 **/coverage/
+
+# Generated plugin files
+**/generated_plugins.cmake
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
