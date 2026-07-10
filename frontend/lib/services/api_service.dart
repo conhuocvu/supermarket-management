@@ -36,8 +36,9 @@ class ApiService {
         _tokenProvider = tokenProvider {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (_tokenProvider != null) {
-          final token = _tokenProvider!();
+        final provider = _tokenProvider;
+        if (provider != null) {
+          final token = provider();
           if (token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
