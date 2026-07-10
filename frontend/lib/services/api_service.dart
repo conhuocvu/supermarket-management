@@ -384,4 +384,44 @@ class ApiService {
     }
     return message;
   }
+
+  // ==========================================
+  // Category Methods
+  // ==========================================
+
+  Future<Map<String, dynamic>> getCategories({
+    String? keyword,
+    int page = 0,
+    int size = 10,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'size': size,
+      };
+
+      if (keyword != null && keyword.isNotEmpty) {
+        queryParams['keyword'] = keyword;
+      }
+
+      final response = await _dio.get(
+        '/categories',
+        queryParameters: queryParams,
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to get categories: $e');
+    }
+  }
+
+  Future<void> updateCategoryStatus(int categoryNumber, String status) async {
+    try {
+      await _dio.patch(
+        '/categories/$categoryNumber/status',
+        data: {'status': status},
+      );
+    } catch (e) {
+      throw Exception('Failed to update category status: $e');
+    }
+  }
 }

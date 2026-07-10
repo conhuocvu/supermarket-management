@@ -8,6 +8,9 @@ import lombok.*;
 @AllArgsConstructor
 public class CategoryDTO {
     private Integer categoryNumber;
+    private Integer parentCategoryNumber;
+    private String parentCategoryName;
     private String categoryName;
     private String status;
+    private String description;
 }

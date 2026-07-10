@@ -41,3 +41,6 @@ VALUES
 (4, 4, 1, 30000, 15),
 (5, 5, 1, 38000, 8)
 ON CONFLICT (product_supplier_number) DO NOTHING;
+
+-- 7. Add description to categories table
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;

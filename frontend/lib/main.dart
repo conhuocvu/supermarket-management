@@ -15,6 +15,7 @@ import 'screens/product_form_screen.dart';
 import 'screens/inventory_dashboard_screen.dart';
 import 'screens/inventory_product_list_screen.dart';
 import 'screens/inventory_product_detail_screen.dart';
+import 'screens/category_list_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -221,6 +222,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: InventoryDashboardScreen()),
             routes: [
+              GoRoute(
+                path: 'categories',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: CategoryListScreen()),
+              ),
               GoRoute(
                 path: 'products',
                 pageBuilder: (context, state) =>

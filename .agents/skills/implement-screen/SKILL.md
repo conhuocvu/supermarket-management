@@ -39,6 +39,7 @@ The generated screen should include:
 - Proper navigation
 - Theme support
 - Shared components only
+- **Database Alignment**: Always check Supabase/PostgreSQL schema (`update_schema.sql` or DB directly) for missing columns or tables needed by the screen. If missing, add them to the entity and append the `ALTER TABLE` to `database/update_schema.sql`.
 
 ## Follow
 
