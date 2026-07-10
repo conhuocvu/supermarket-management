@@ -48,3 +48,12 @@ Dự án phát triển trên nền ElectronJS nhưng người dùng có thể th
 * **Thông báo trên giao diện:**
   - Sử dụng modal/alert có màu sắc tương ứng (`bg-error/10 border-error/20 text-error`) để thông báo lỗi đăng nhập hoặc lỗi kết nối.
   - Các lỗi chạy nền của Agent phải được ghi nhận vào cơ sở dữ liệu `agent_logs` (Level: `'ERROR'`) để vẽ đồ thị cảnh báo và chuyển đổi trạng thái Agent sang `'ERROR'`.
+
+---
+
+## 🌐 4. Quy tắc Ngôn ngữ Giao diện (UI Language Rule)
+
+* **Ngôn ngữ hiển thị bắt buộc:** 
+  - Toàn bộ giao diện người dùng (UI), bao gồm nhãn (labels), nút (buttons), thông báo lỗi (validation/error messages), hộp thoại xác nhận (dialogs) và thông báo góc màn hình (SnackBars) phải được viết hoàn toàn bằng **Tiếng Anh (English)**.
+  - Không sử dụng Tiếng Việt hoặc các ngôn ngữ khác trên giao diện người dùng của ứng dụng.
+
