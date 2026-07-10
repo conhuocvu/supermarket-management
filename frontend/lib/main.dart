@@ -83,7 +83,51 @@ void main() async {
     );
   }
 
-  await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+  try {
+    await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+  } catch (e) {
+    runApp(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 80, color: Colors.red),
+                const SizedBox(height: 20),
+                const Text(
+                  'Supabase Connection Error',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Không thể khởi tạo hoặc kết nối với Supabase. Vui lòng kiểm tra lại cấu hình hoặc kết nối internet.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.black87),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    e.toString(),
+                    style: const TextStyle(fontFamily: 'monospace', color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+    return;
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -128,7 +172,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isSplashRoute ? null : '/splash';
       }
 
-      // 2. If initialized but not logged in:
+      // 2. If logged in but profile is still loading, stay on splash to wait for it
+      if (auth.session != null && auth.profile == null) {
+        return isSplashRoute ? null : '/splash';
+      }
+
+      // 3. If initialized but not logged in:
       if (auth.session == null) {
         if (isLoginRoute || isRegisterRoute) {
           return null;
