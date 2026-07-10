@@ -35,6 +35,43 @@ Thumbs.db
 
 # Generated plugin files
 **/generated_plugins.cmake
+# Environment Variables & Secrets (CRITICAL)
+.env
+*.env
+.env.*
+!.env.example
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# System Files & Logs
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# Java / Maven Build Artifacts (Backend)
+**/target/
+**/.mvn/
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Flutter / Dart Build Artifacts (Frontend)
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/build/
+**/coverage/
+
+# Generated plugin files
+**/generated_plugins.cmake
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
 **/generated_plugin_registrant.cc
@@ -43,4 +80,4 @@ Thumbs.db
 **/generated_plugin_registrant.h
 **/GeneratedPluginRegistrant.m
 **/GeneratedPluginRegistrant.java
-
+*.patch
