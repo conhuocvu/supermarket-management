@@ -2,7 +2,7 @@ package com.supermarket.backend.service;
 
 import com.supermarket.backend.dto.ProductDto;
 import com.supermarket.backend.model.Product;
-import com.supermarket.backend.repository.ProductRepository;
+import com.supermarket.backend.repository.SupplierFeatureProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,10 +13,10 @@ import java.util.stream.Collectors;
 @Service
 public class ProductService {
 
-    private final ProductRepository productRepository;
+    private final SupplierFeatureProductRepository productRepository;
 
     @Autowired
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(SupplierFeatureProductRepository productRepository) {
         this.productRepository = productRepository;
     }
 

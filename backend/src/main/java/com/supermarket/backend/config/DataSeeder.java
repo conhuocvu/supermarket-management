@@ -17,8 +17,8 @@ public class DataSeeder implements CommandLineRunner {
     private final ShiftRepository shiftRepository;
     private final CertificationRepository certificationRepository;
     private final PromotionRepository promotionRepository;
-    private final ProductRepository productRepository;
-    private final SupplierRepository supplierRepository;
+    private final SupplierFeatureProductRepository productRepository;
+    private final SupplierFeatureSupplierRepository supplierRepository;
     private final SupplierProductRepository supplierProductRepository;
 
     @Autowired
@@ -26,8 +26,8 @@ public class DataSeeder implements CommandLineRunner {
                       ShiftRepository shiftRepository,
                       CertificationRepository certificationRepository,
                       PromotionRepository promotionRepository,
-                      ProductRepository productRepository,
-                      SupplierRepository supplierRepository,
+                      SupplierFeatureProductRepository productRepository,
+                      SupplierFeatureSupplierRepository supplierRepository,
                       SupplierProductRepository supplierProductRepository) {
         this.employeeRepository = employeeRepository;
         this.shiftRepository = shiftRepository;

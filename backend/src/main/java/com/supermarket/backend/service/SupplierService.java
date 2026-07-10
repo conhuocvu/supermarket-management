@@ -13,13 +13,13 @@ import java.util.stream.Collectors;
 @Service
 public class SupplierService {
 
-    private final SupplierRepository supplierRepository;
-    private final ProductRepository productRepository;
+    private final SupplierFeatureSupplierRepository supplierRepository;
+    private final SupplierFeatureProductRepository productRepository;
     private final SupplierProductRepository supplierProductRepository;
 
     @Autowired
-    public SupplierService(SupplierRepository supplierRepository,
-                           ProductRepository productRepository,
+    public SupplierService(SupplierFeatureSupplierRepository supplierRepository,
+                           SupplierFeatureProductRepository productRepository,
                            SupplierProductRepository supplierProductRepository) {
         this.supplierRepository = supplierRepository;
         this.productRepository = productRepository;

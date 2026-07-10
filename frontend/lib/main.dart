@@ -1,135 +1,388 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:frontend/core/theme/app_theme.dart';
-import 'package:frontend/screens/dashboard_screen.dart';
-import 'package:frontend/screens/profile_screen.dart';
-import 'package:frontend/screens/manage_role_screen.dart';
-import 'package:frontend/screens/schedule_shift_screen.dart';
-import 'package:frontend/screens/promotion_list_screen.dart';
-import 'package:frontend/screens/promotion_detail_screen.dart';
-import 'package:frontend/screens/new_promotion_screen.dart';
-import 'package:frontend/screens/supplier_list_screen.dart';
-import 'package:frontend/screens/supplier_detail_screen.dart';
-import 'package:frontend/screens/new_supplier_screen.dart';
-import 'package:frontend/screens/assign_products_screen.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/theme/app_theme.dart';
+import 'models/inventory_product.dart';
+import 'models/profile.dart';
+import 'providers/auth_provider.dart';
+import 'providers/splash_finished_provider.dart';
+import 'providers/router_notifier.dart';
+import 'screens/add_edit_product_screen.dart';
+import 'screens/inventory_dashboard_screen.dart';
+import 'screens/inventory_product_list_screen.dart';
+import 'screens/inventory_product_detail_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/role_screens.dart';
+import 'widgets/app_scaffold.dart';
 
-final GoRouter _router = GoRouter(
-  initialLocation: '/',
-  routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const DashboardScreen(),
-    ),
-    GoRoute(
-      path: '/profile/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return ProfileScreen(employeeId: id);
-      },
-    ),
-    GoRoute(
-      path: '/role/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return ManageRoleScreen(employeeId: id);
-      },
-    ),
-    GoRoute(
-      path: '/schedule/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return ScheduleShiftScreen(employeeId: id);
-      },
-    ),
-    GoRoute(
-      path: '/cors-test',
-      builder: (context, state) => const CorsTestHomePage(),
-    ),
-    GoRoute(
-      path: '/promotions',
-      builder: (context, state) => const PromotionListScreen(),
-    ),
-    GoRoute(
-      path: '/promotions/new',
-      builder: (context, state) => const NewPromotionScreen(promotionId: null),
-    ),
-    GoRoute(
-      path: '/promotions/edit/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return NewPromotionScreen(promotionId: id);
-      },
-    ),
-    GoRoute(
-      path: '/promotions/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return PromotionDetailScreen(promotionId: id);
-      },
-    ),
-    // ── Supplier routes (static before dynamic) ──
-    GoRoute(
-      path: '/suppliers',
-      builder: (context, state) => const SupplierListScreen(),
-    ),
-    GoRoute(
-      path: '/suppliers/new',
-      builder: (context, state) => const NewSupplierScreen(supplierId: null),
-    ),
-    GoRoute(
-      path: '/suppliers/edit/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return NewSupplierScreen(supplierId: id);
-      },
-    ),
-    GoRoute(
-      path: '/suppliers/:id/assign',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return AssignProductsScreen(supplierId: id);
-      },
-    ),
-    GoRoute(
-      path: '/suppliers/:id',
-      builder: (context, state) {
-        final idStr = state.pathParameters['id'];
-        final id = int.tryParse(idStr ?? '') ?? 0;
-        return SupplierDetailScreen(supplierId: id);
-      },
-    ),
-  ],
-);
+// Screens from the supplier/promotion/staff feature branch
+import 'screens/dashboard_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/manage_role_screen.dart';
+import 'screens/schedule_shift_screen.dart';
+import 'screens/promotion_list_screen.dart';
+import 'screens/promotion_detail_screen.dart';
+import 'screens/new_promotion_screen.dart';
+import 'screens/supplier_list_screen.dart';
+import 'screens/supplier_detail_screen.dart';
+import 'screens/new_supplier_screen.dart';
+import 'screens/assign_products_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  var supabaseUrl = const String.fromEnvironment('SUPABASE_URL');
+  var supabaseAnonKey = const String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+  );
+  if (supabaseAnonKey.isEmpty) {
+    supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY');
+  }
+
+  // Local filesystem fallback (useful for desktop runs like 'flutter run' on Windows)
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    try {
+      final envFile = File('.env');
+      if (envFile.existsSync()) {
+        final lines = envFile.readAsLinesSync();
+        for (var line in lines) {
+          line = line.trim();
+          if (line.isEmpty || line.startsWith('#')) continue;
+          final parts = line.split('=');
+          if (parts.length >= 2) {
+            final key = parts[0].trim();
+            final value = parts.sublist(1).join('=').trim();
+            if (key == 'SUPABASE_URL') {
+              supabaseUrl = value;
+            } else if (key == 'SUPABASE_PUBLISHABLE_KEY' ||
+                key == 'SUPABASE_ANON_KEY') {
+              if (supabaseAnonKey.isEmpty ||
+                  key == 'SUPABASE_PUBLISHABLE_KEY') {
+                supabaseAnonKey = value;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // Safe to ignore in production environments where File access is restricted
+    }
+  }
+
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    throw AssertionError(
+      'Missing Supabase configuration. Please run the app with '
+      '--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=... '
+      'or ensure a valid .env file exists in the frontend directory.',
+    );
+  }
+
+  await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+final routerProvider = Provider<GoRouter>((ref) {
+  final routerNotifier = RouterNotifier();
+
+  final authSub = ref.listen(authProvider, (previous, next) {
+    final sessionChanged =
+        previous?.session?.accessToken != next.session?.accessToken;
+    final userChanged = previous?.user?.id != next.user?.id;
+    final roleChanged =
+        previous?.profile?.roleNumber != next.profile?.roleNumber;
+    final initChanged = previous?.isInitialized != next.isInitialized;
+
+    if (sessionChanged || userChanged || roleChanged || initChanged) {
+      routerNotifier.notify();
+    }
+  });
+  final splashSub = ref.listen(splashFinishedProvider, (previous, next) {
+    routerNotifier.notify();
+  });
+
+  ref.onDispose(() {
+    authSub.close();
+    splashSub.close();
+  });
+
+  return GoRouter(
+    initialLocation: '/splash',
+    refreshListenable: routerNotifier,
+    redirect: (context, state) {
+      final auth = ref.read(authProvider);
+      final splashFinished = ref.read(splashFinishedProvider);
+
+      final isSplashRoute = state.uri.path == '/splash';
+      final isLoginRoute = state.uri.path == '/login';
+      final isRegisterRoute = state.uri.path == '/register';
+
+      // 1. If splash is not finished or auth is not initialized, stay on splash
+      if (!splashFinished || !auth.isInitialized) {
+        return isSplashRoute ? null : '/splash';
+      }
+
+      // 2. If initialized but not logged in:
+      if (auth.session == null) {
+        if (isLoginRoute || isRegisterRoute) {
+          return null;
+        }
+        return '/login';
+      }
+
+      // 3. If logged in:
+      final role = auth.profile?.roleNumber ?? UserRoles.stockController;
+      String landingPage = '/';
+      switch (role) {
+        case UserRoles.admin:
+          landingPage = '/admin';
+          break;
+        case UserRoles.manager:
+          landingPage = '/manager';
+          break;
+        case UserRoles.stockController:
+          landingPage = '/';
+          break;
+        case UserRoles.salesAssociate:
+          landingPage = '/sales';
+          break;
+        case UserRoles.cashier:
+          landingPage = '/cashier';
+          break;
+      }
+
+      if (isSplashRoute || isLoginRoute || isRegisterRoute) {
+        return landingPage;
+      }
+
+      // Protect routes based on role:
+      final path = state.uri.path;
+      final isSharedRoute = path.startsWith('/staff') ||
+          path.startsWith('/promotions') ||
+          path.startsWith('/suppliers') ||
+          path.startsWith('/profile') ||
+          path.startsWith('/role') ||
+          path.startsWith('/schedule') ||
+          path.startsWith('/test-cors') ||
+          path.startsWith('/cors-test');
+
+      if (!isSharedRoute) {
+        if (role == UserRoles.admin && !path.startsWith('/admin')) {
+          return '/admin';
+        }
+        if (role == UserRoles.manager && !path.startsWith('/manager')) {
+          return '/manager';
+        }
+        if (role == UserRoles.salesAssociate && !path.startsWith('/sales')) {
+          return '/sales';
+        }
+        if (role == UserRoles.cashier && !path.startsWith('/cashier')) {
+          return '/cashier';
+        }
+        if (role == UserRoles.stockController) {
+          if (path.startsWith('/admin') ||
+              path.startsWith('/manager') ||
+              path.startsWith('/sales') ||
+              path.startsWith('/cashier')) {
+            return '/';
+          }
+        }
+      }
+
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),
+      GoRoute(
+        path: '/manager',
+        builder: (context, state) => const ManagerScreen(),
+      ),
+      GoRoute(
+        path: '/sales',
+        builder: (context, state) => const SalesAssociateScreen(),
+      ),
+      GoRoute(
+        path: '/cashier',
+        builder: (context, state) => const CashierScreen(),
+      ),
+      ShellRoute(
+        builder: (context, state, child) {
+          return AppScaffold(body: child);
+        },
+        routes: [
+          GoRoute(
+            path: '/',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: InventoryDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/products',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: InventoryProductListScreen()),
+            routes: [
+              GoRoute(
+                path: 'add',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: AddEditProductScreen()),
+              ),
+              GoRoute(
+                path: 'edit/:id',
+                pageBuilder: (context, state) {
+                  final idStr = state.pathParameters['id'] ?? '';
+                  final id = int.tryParse(idStr) ?? 0;
+                  final product = state.extra as InventoryProduct?;
+                  return NoTransitionPage(
+                    child: AddEditProductScreen(
+                      productId: id,
+                      product: product,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'detail/:id',
+                pageBuilder: (context, state) {
+                  final idStr = state.pathParameters['id'] ?? '';
+                  final id = int.tryParse(idStr) ?? 0;
+                  return NoTransitionPage(
+                    child: InventoryProductDetailScreen(productNumber: id),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/test-cors',
+        builder: (context, state) => const CorsTestHomePage(),
+      ),
+      GoRoute(
+        path: '/cors-test',
+        builder: (context, state) => const CorsTestHomePage(),
+      ),
+
+      // Routes from the supplier/promotion/staff feature branch
+      GoRoute(
+        path: '/staff',
+        builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: '/profile/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return ProfileScreen(employeeId: id);
+        },
+      ),
+      GoRoute(
+        path: '/role/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return ManageRoleScreen(employeeId: id);
+        },
+      ),
+      GoRoute(
+        path: '/schedule/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return ScheduleShiftScreen(employeeId: id);
+        },
+      ),
+      GoRoute(
+        path: '/promotions',
+        builder: (context, state) => const PromotionListScreen(),
+      ),
+      GoRoute(
+        path: '/promotions/new',
+        builder: (context, state) => const NewPromotionScreen(promotionId: null),
+      ),
+      GoRoute(
+        path: '/promotions/edit/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return NewPromotionScreen(promotionId: id);
+        },
+      ),
+      GoRoute(
+        path: '/promotions/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return PromotionDetailScreen(promotionId: id);
+        },
+      ),
+      GoRoute(
+        path: '/suppliers',
+        builder: (context, state) => const SupplierListScreen(),
+      ),
+      GoRoute(
+        path: '/suppliers/new',
+        builder: (context, state) => const NewSupplierScreen(supplierId: null),
+      ),
+      GoRoute(
+        path: '/suppliers/edit/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return NewSupplierScreen(supplierId: id);
+        },
+      ),
+      GoRoute(
+        path: '/suppliers/:id/assign',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return AssignProductsScreen(supplierId: id);
+        },
+      ),
+      GoRoute(
+        path: '/suppliers/:id',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'];
+          final id = int.tryParse(idStr ?? '') ?? 0;
+          return SupplierDetailScreen(supplierId: id);
+        },
+      ),
+    ],
+  );
+});
+
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
     return MaterialApp.router(
       title: 'Supermarket Management System',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      routerConfig: _router,
+      routerConfig: router,
     );
   }
 }
 
-//CorsTestHomePage
+// CorsTestHomePage
 class CorsTestHomePage extends StatefulWidget {
   const CorsTestHomePage({super.key});
 
@@ -211,8 +464,8 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
               Text(
                 'Supermarket System - CORS Connection Test',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
@@ -255,9 +508,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                 decoration: BoxDecoration(
                   color: _status.contains('Chưa')
                       ? Colors.grey.shade100
-                      : (_isSuccess
-                            ? Colors.green.shade50
-                            : Colors.red.shade50),
+                      : (_isSuccess ? Colors.green.shade50 : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _status.contains('Chưa')
@@ -275,9 +526,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                         fontWeight: FontWeight.bold,
                         color: _status.contains('Chưa')
                             ? Colors.black87
-                            : (_isSuccess
-                                  ? Colors.green.shade800
-                                  : Colors.red.shade800),
+                            : (_isSuccess ? Colors.green.shade800 : Colors.red.shade800),
                       ),
                     ),
                     if (_responseDetails.isNotEmpty) ...[
