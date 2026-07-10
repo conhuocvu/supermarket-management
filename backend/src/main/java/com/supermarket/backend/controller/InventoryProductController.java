@@ -26,7 +26,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/inventory")
 @RequiredArgsConstructor
-@CrossOrigin
 public class InventoryProductController {
 
     private final InventoryProductService inventoryProductService;

@@ -585,7 +585,7 @@ public class InventoryProductService {
         Product p = productRepository.findById(productNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productNumber));
 
-        Inventory inv = inventoryRepository.findById(productNumber)
+        Inventory inv = inventoryRepository.findByIdForUpdate(productNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Inventory record not found for product: " + productNumber));
 
         BigDecimal currentAvailable = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
