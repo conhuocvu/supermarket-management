@@ -4,9 +4,7 @@ import com.supermarket.backend.dto.DashboardDataDTO;
 import com.supermarket.backend.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,5 +47,26 @@ public class InventoryController {
         response.put("data", pendingTasks);
         
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/delivery-issues")
+    public ResponseEntity<Map<String, Object>> saveDeliveryIssue(@RequestBody com.supermarket.backend.dto.DeliveryIssueRequestDTO request) {
+        try {
+            inventoryService.validateAndSaveDeliveryIssue(request);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Delivery issue has been reported successfully.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Delivery issue cannot be saved.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 }

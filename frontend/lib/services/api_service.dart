@@ -416,6 +416,105 @@ class ApiService {
     }
   }
 
+  // ==========================================
+  // Stock-In Methods
+  // ==========================================
+
+  Future<Map<String, dynamic>> fetchStockInFormData(int prNumber) async {
+    try {
+      final response = await _dio.get(
+        '/stock-ins/form-data',
+        queryParameters: {'purchaseRequestNumber': prNumber},
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return body['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load stock-in form data.');
+        }
+      } else {
+        throw Exception('Failed to load stock-in form data: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> compareStockInQuantities(
+    int prNumber,
+    Map<int, double> deliveredQuantities,
+  ) async {
+    try {
+      // Convert map keys to string as JSON map keys must be strings
+      final stringKeysMap = deliveredQuantities.map((k, v) => MapEntry(k.toString(), v));
+      final response = await _dio.post(
+        '/stock-ins/compare-quantities',
+        data: {
+          'purchaseRequestNumber': prNumber,
+          'deliveredQuantities': stringKeysMap,
+        },
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return body['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception(body['message'] ?? 'Failed to compare quantities.');
+        }
+      } else {
+        throw Exception('Failed to compare quantities: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<bool> saveDeliveryIssue({
+    required int purchaseRequestNumber,
+    required int productNumber,
+    required String issueType,
+    required double quantity,
+    required String description,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/inventory/delivery-issues',
+        data: {
+          'purchaseRequestNumber': purchaseRequestNumber,
+          'productNumber': productNumber,
+          'reportedBy': 'e3b3ec4a-da0b-40f5-9747-29361993892b', // Default Stock Controller UUID from database
+          'issueType': issueType,
+          'quantity': quantity,
+          'description': description,
+        },
+      );
+      return response.statusCode == 201 && response.data['success'] == true;
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<bool> submitStockIn(Map<String, dynamic> stockInPayload) async {
+    try {
+      final response = await _dio.post(
+        '/stock-ins',
+        data: stockInPayload,
+      );
+      return response.statusCode == 201 && response.data['success'] == true;
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
   String _handleDioError(DioException e) {
     String message = 'Server connection error.';
     if (e.type == DioExceptionType.connectionTimeout ||

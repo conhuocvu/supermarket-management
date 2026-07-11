@@ -18,6 +18,7 @@ import 'screens/inventory_product_detail_screen.dart';
 import 'screens/category_list_screen.dart';
 import 'screens/category_form_screen.dart';
 import 'screens/inventory_transaction_list_screen.dart';
+import 'screens/stock_in_form_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -286,6 +287,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'transactions',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: InventoryTransactionListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'record-stock-in/:prNumber',
+                    pageBuilder: (context, state) {
+                      final prNumberStr = state.pathParameters['prNumber'] ?? '';
+                      final prNumber = int.tryParse(prNumberStr) ?? 0;
+                      return NoTransitionPage(
+                        child: StockInFormScreen(purchaseRequestNumber: prNumber),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

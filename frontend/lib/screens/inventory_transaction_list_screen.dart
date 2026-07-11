@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/inventory_transaction.dart';
 import '../models/pending_task.dart';
 import '../providers/inventory_transaction_provider.dart';
@@ -228,7 +229,9 @@ class _InventoryTransactionListScreenState
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minWidth: MediaQuery.of(context).size.width - 96,
+            minWidth: MediaQuery.of(context).size.width >= 1000
+                ? MediaQuery.of(context).size.width - 256 - 96
+                : MediaQuery.of(context).size.width - 96,
           ),
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(
@@ -309,12 +312,13 @@ class _InventoryTransactionListScreenState
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: FilledButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Record Stock-In for #SI-${item.purchaseRequestNumber}'),
-                            ),
+                        onPressed: () async {
+                          final result = await context.push<bool>(
+                            '/stock/transactions/record-stock-in/${item.purchaseRequestNumber}',
                           );
+                          if (result == true) {
+                            ref.invalidate(pendingTasksProvider);
+                          }
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor: theme.colorScheme.primary,
@@ -350,7 +354,9 @@ class _InventoryTransactionListScreenState
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minWidth: MediaQuery.of(context).size.width - 96,
+            minWidth: MediaQuery.of(context).size.width >= 1000
+                ? MediaQuery.of(context).size.width - 256 - 96
+                : MediaQuery.of(context).size.width - 96,
           ),
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(
@@ -679,7 +685,9 @@ class _InventoryTransactionListScreenState
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minWidth: MediaQuery.of(context).size.width - 96,
+          minWidth: MediaQuery.of(context).size.width >= 1000
+              ? MediaQuery.of(context).size.width - 256 - 96
+              : MediaQuery.of(context).size.width - 96,
         ),
         child: SingleChildScrollView(
           child: DataTable(

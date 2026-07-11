@@ -1,7 +1,7 @@
 package com.supermarket.backend.service;
 
 import com.supermarket.backend.dto.*;
-import com.supermarket.backend.entity.InventoryTransaction;
+import com.supermarket.backend.entity.*;
 import com.supermarket.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -14,6 +14,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +30,12 @@ public class InventoryService {
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final JdbcTemplate jdbcTemplate;
+
+    private final StockInRepository stockInRepository;
+    private final PurchaseRequestDetailRepository purchaseRequestDetailRepository;
+    private final ProductReportRepository productReportRepository;
+    private final ProductSupplierRepository productSupplierRepository;
+    private final SupplierRepository supplierRepository;
 
     @Transactional(readOnly = true)
     public DashboardDataDTO getDashboardData() {
@@ -166,5 +176,291 @@ public class InventoryService {
                 .pendingStockIns(pendingStockIns)
                 .pendingStockOuts(pendingStockOuts)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public StockInFormDataDTO getPurchaseRequestDetail(Integer prNumber) {
+        PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
+
+        List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+        if (details.isEmpty()) {
+            throw new IllegalArgumentException("No items found for purchase request: " + prNumber);
+        }
+
+        Integer supplierNumber = null;
+        String supplierName = "Unknown";
+
+        // Resolve supplier from the first detail
+        Integer psNum = details.get(0).getProductSupplierNumber();
+        Optional<ProductSupplier> psOpt = productSupplierRepository.findById(psNum);
+        if (psOpt.isPresent()) {
+            supplierNumber = psOpt.get().getSupplierNumber();
+            supplierName = supplierRepository.findById(supplierNumber)
+                    .map(Supplier::getSupplierName)
+                    .orElse("Unknown");
+        }
+
+        List<StockInItemDTO> items = details.stream().map(d -> {
+            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
+                    .orElseThrow(() -> new IllegalArgumentException("Product supplier mapping not found: " + d.getProductSupplierNumber()));
+            
+            Product p = productRepository.findById(prodSupplier.getProductNumber())
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + prodSupplier.getProductNumber()));
+
+            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+
+            BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                "FROM stock_in_details sid " +
+                "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                BigDecimal.class,
+                prNumber,
+                p.getProductNumber()
+            );
+
+            BigDecimal requestedQty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : BigDecimal.ZERO;
+            BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
+            if (remainingQty.compareTo(BigDecimal.ZERO) < 0) {
+                remainingQty = BigDecimal.ZERO;
+            }
+
+            return StockInItemDTO.builder()
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .sku(p.getBarcode())
+                    .requestedQuantity(remainingQty)
+                    .importPrice(prodSupplier.getImportPrice())
+                    .unitName(unitName)
+                    .build();
+        }).collect(Collectors.toList());
+
+        return StockInFormDataDTO.builder()
+                .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                .supplierName(supplierName)
+                .supplierNumber(supplierNumber)
+                .createdDate(pr.getCreatedDate())
+                .status(pr.getStatus())
+                .items(items)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public CompareQuantitiesResultDTO compareQuantities(CompareQuantitiesRequestDTO request) {
+        Integer prNumber = request.getPurchaseRequestNumber();
+        Map<Integer, BigDecimal> delivered = request.getDeliveredQuantities();
+
+        List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+        Map<Integer, BigDecimal> differences = new HashMap<>();
+        boolean hasDiscrepancy = false;
+
+        for (PurchaseRequestDetail d : details) {
+            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
+                    .orElseThrow(() -> new IllegalArgumentException("Product supplier mapping not found: " + d.getProductSupplierNumber()));
+            
+            Integer prodNum = prodSupplier.getProductNumber();
+            BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                "FROM stock_in_details sid " +
+                "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                BigDecimal.class,
+                prNumber,
+                prodNum
+            );
+
+            BigDecimal requestedQty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : BigDecimal.ZERO;
+            BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
+            if (remainingQty.compareTo(BigDecimal.ZERO) < 0) {
+                remainingQty = BigDecimal.ZERO;
+            }
+
+            BigDecimal delQty = delivered != null && delivered.containsKey(prodNum) ? delivered.get(prodNum) : BigDecimal.ZERO;
+
+            BigDecimal diff = remainingQty.subtract(delQty);
+            differences.put(prodNum, diff);
+
+            if (diff.compareTo(BigDecimal.ZERO) != 0) {
+                hasDiscrepancy = true;
+            }
+        }
+
+        return CompareQuantitiesResultDTO.builder()
+                .hasDiscrepancy(hasDiscrepancy)
+                .differences(differences)
+                .matched(!hasDiscrepancy)
+                .build();
+    }
+
+    @Transactional
+    public void validateAndSaveDeliveryIssue(DeliveryIssueRequestDTO request) {
+        if (request.getProductNumber() == null) {
+            throw new IllegalArgumentException("Product number is required.");
+        }
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Discrepancy quantity is required.");
+        }
+        if (request.getIssueType() == null || request.getIssueType().trim().isEmpty()) {
+            throw new IllegalArgumentException("Issue type is required.");
+        }
+        if (request.getDescription() == null || request.getDescription().trim().isEmpty()) {
+            throw new IllegalArgumentException("Description is required.");
+        }
+
+        UUID reportedBy = null;
+        if (request.getReportedBy() != null && !request.getReportedBy().trim().isEmpty()) {
+            reportedBy = UUID.fromString(request.getReportedBy());
+        } else {
+            reportedBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+        }
+
+        ProductReport report = ProductReport.builder()
+                .reportedBy(reportedBy)
+                .productNumber(request.getProductNumber())
+                .reportType("DELIVERY_DISCREPANCY")
+                .issueType(request.getIssueType().toUpperCase())
+                .quantity(request.getQuantity().abs())
+                .description(request.getDescription())
+                .status("PENDING")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        productReportRepository.save(report);
+    }
+
+    @Transactional
+    public void recordStockIn(StockInRequestDTO request) {
+        if (request.getPurchaseRequestNumber() == null) {
+            throw new IllegalArgumentException("Purchase request number is required.");
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Stock-in items list cannot be empty.");
+        }
+
+        for (StockInDetailRequestDTO item : request.getItems()) {
+            if (item.getProductNumber() == null) {
+                throw new IllegalArgumentException("Product number is required for all items.");
+            }
+            if (item.getDeliveredQuantity() == null || item.getDeliveredQuantity().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Delivered quantity must be 0 or positive.");
+            }
+            if (item.getManufacturingDate() != null && item.getExpiryDate() != null) {
+                if (item.getExpiryDate().isBefore(item.getManufacturingDate())) {
+                    throw new IllegalArgumentException("Expiry date cannot be before manufacturing date.");
+                }
+            }
+        }
+
+        UUID createdBy = null;
+        if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
+            createdBy = UUID.fromString(request.getCreatedBy());
+        } else {
+            createdBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+        }
+
+        StockIn stockIn = StockIn.builder()
+                .purchaseRequestNumber(request.getPurchaseRequestNumber())
+                .supplierNumber(request.getSupplierNumber())
+                .createdBy(createdBy)
+                .stockInDate(LocalDateTime.now())
+                .status("APPROVED")
+                .build();
+        stockIn = stockInRepository.save(stockIn);
+        Integer stockInNumber = stockIn.getStockInNumber();
+
+        for (StockInDetailRequestDTO item : request.getItems()) {
+            String batchNumber = "BATCH-" + request.getPurchaseRequestNumber() + "-" + item.getProductNumber() + "-" + (System.currentTimeMillis() % 100000);
+
+            StockInDetail detail = StockInDetail.builder()
+                    .stockInNumber(stockInNumber)
+                    .productNumber(item.getProductNumber())
+                    .batchNumber(batchNumber)
+                    .quantity(item.getDeliveredQuantity())
+                    .remainingQuantity(item.getDeliveredQuantity())
+                    .importPrice(item.getImportPrice() != null ? item.getImportPrice() : BigDecimal.ZERO)
+                    .manufacturingDate(item.getManufacturingDate())
+                    .expiryDate(item.getExpiryDate())
+                    .build();
+            detail = stockInDetailRepository.save(detail);
+
+            Inventory inv = inventoryRepository.findByIdForUpdate(item.getProductNumber())
+                    .orElseGet(() -> {
+                        Inventory newInv = Inventory.builder()
+                                .productNumber(item.getProductNumber())
+                                .availableQuantity(BigDecimal.ZERO)
+                                .totalQuantity(BigDecimal.ZERO)
+                                .build();
+                        return inventoryRepository.save(newInv);
+                    });
+
+            BigDecimal currentAvailable = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal currentTotal = inv.getTotalQuantity() != null ? inv.getTotalQuantity() : BigDecimal.ZERO;
+
+            inv.setAvailableQuantity(currentAvailable.add(item.getDeliveredQuantity()));
+            inv.setTotalQuantity(currentTotal.add(item.getDeliveredQuantity()));
+            inv.setLastUpdated(LocalDateTime.now());
+            inventoryRepository.save(inv);
+
+            InventoryTransaction tx = InventoryTransaction.builder()
+                    .product(productRepository.findById(item.getProductNumber()).orElse(null))
+                    .stockInDetailNumber(detail.getStockInDetailNumber())
+                    .type("IN")
+                    .quantity(item.getDeliveredQuantity())
+                    .referenceType("STOCK_IN")
+                    .referenceId(stockInNumber)
+                    .reason(item.getNotes() != null && !item.getNotes().trim().isEmpty() ? item.getNotes() : "Stock-in from purchase request #" + request.getPurchaseRequestNumber())
+                    .createdBy(createdBy)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            inventoryTransactionRepository.save(tx);
+
+            final Integer currentProductNumber = item.getProductNumber();
+            final Integer currentDetailNumber = detail.getStockInDetailNumber();
+            List<ProductReport> reports = productReportRepository.findAll().stream()
+                    .filter(r -> "DELIVERY_DISCREPANCY".equals(r.getReportType()) && 
+                                 r.getProductNumber().equals(currentProductNumber) && 
+                                 r.getStockInDetailNumber() == null)
+                    .collect(Collectors.toList());
+            
+            for (ProductReport report : reports) {
+                report.setStockInDetailNumber(currentDetailNumber);
+                productReportRepository.save(report);
+            }
+        }
+
+        boolean allPrItemsCompleted = true;
+        List<PurchaseRequestDetail> prDetails = purchaseRequestDetailRepository.findByPurchaseRequestNumber(request.getPurchaseRequestNumber());
+        for (PurchaseRequestDetail prd : prDetails) {
+            ProductSupplier prodSupplier = productSupplierRepository.findById(prd.getProductSupplierNumber()).orElse(null);
+            if (prodSupplier != null) {
+                Integer prodNum = prodSupplier.getProductNumber();
+                BigDecimal reqQty = prd.getRequestedQuantity() != null ? prd.getRequestedQuantity() : BigDecimal.ZERO;
+
+                BigDecimal totalDelivered = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                    "FROM stock_in_details sid " +
+                    "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                    "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                    BigDecimal.class,
+                    request.getPurchaseRequestNumber(),
+                    prodNum
+                );
+
+                if (totalDelivered.compareTo(reqQty) < 0) {
+                    allPrItemsCompleted = false;
+                }
+            }
+        }
+
+        PurchaseRequest pr = purchaseRequestRepository.findById(request.getPurchaseRequestNumber()).orElse(null);
+        if (pr != null) {
+            if (allPrItemsCompleted) {
+                pr.setStatus("COMPLETED");
+            } else {
+                pr.setStatus("PARTIALLY_RECEIVED");
+            }
+            purchaseRequestRepository.save(pr);
+        }
     }
 }
