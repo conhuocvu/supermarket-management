@@ -426,12 +426,13 @@ class _InventoryTransactionListScreenState
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: FilledButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Record Stock-Out for #SO-${item.reportNumber}'),
-                            ),
+                        onPressed: () async {
+                          final result = await context.push<bool>(
+                            '/stock/transactions/record-stock-out/${item.reportNumber}',
                           );
+                          if (result == true) {
+                            ref.invalidate(pendingTasksProvider);
+                          }
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor: theme.colorScheme.primary,

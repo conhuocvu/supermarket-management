@@ -19,6 +19,8 @@ import 'screens/category_list_screen.dart';
 import 'screens/category_form_screen.dart';
 import 'screens/inventory_transaction_list_screen.dart';
 import 'screens/stock_in_form_screen.dart';
+import 'screens/stock_out_form_screen.dart';
+import 'screens/purchase_request_list_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -298,7 +300,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                       );
                     },
                   ),
+                  GoRoute(
+                    path: 'record-stock-out/:reportNumber',
+                    pageBuilder: (context, state) {
+                      final reportNumberStr = state.pathParameters['reportNumber'] ?? '';
+                      final reportNumber = int.tryParse(reportNumberStr) ?? 0;
+                      return NoTransitionPage(
+                        child: StockOutFormScreen(reportNumber: reportNumber),
+                      );
+                    },
+                  ),
                 ],
+              ),
+              GoRoute(
+                path: 'purchase-requests',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: PurchaseRequestListScreen()),
               ),
             ],
           ),

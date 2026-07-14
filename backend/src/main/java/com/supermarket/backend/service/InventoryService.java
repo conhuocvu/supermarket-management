@@ -36,6 +36,8 @@ public class InventoryService {
     private final ProductReportRepository productReportRepository;
     private final ProductSupplierRepository productSupplierRepository;
     private final SupplierRepository supplierRepository;
+    private final StockOutRepository stockOutRepository;
+    private final StockOutDetailRepository stockOutDetailRepository;
 
     @Transactional(readOnly = true)
     public DashboardDataDTO getDashboardData() {
@@ -159,7 +161,7 @@ public class InventoryService {
                 "FROM product_reports pr " +
                 "JOIN products p ON pr.product_number = p.product_number " +
                 "JOIN units u ON p.inventory_unit_number = u.unit_number " +
-                "WHERE pr.status = 'APPROVED' AND pr.report_type IN ('DAMAGED', 'NEAR_EXPIRY')";
+                "WHERE pr.status = 'APPROVED' AND pr.resolved_at IS NULL AND pr.report_type IN ('DAMAGED', 'NEAR_EXPIRY', 'LOW_STOCK', 'QUALITY_ISSUE')";
 
         List<PendingStockOutDTO> pendingStockOuts = jdbcTemplate.query(stockOutSql, (rs, rowNum) -> 
             PendingStockOutDTO.builder()
@@ -462,5 +464,262 @@ public class InventoryService {
             }
             purchaseRequestRepository.save(pr);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public StockOutFormDataDTO getStockOutFormData(Integer reportNumber) {
+        ProductReport report = productReportRepository.findById(reportNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Product report not found: " + reportNumber));
+
+        Product product = productRepository.findById(report.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + report.getProductNumber()));
+
+        Inventory inventory = inventoryRepository.findById(product.getProductNumber())
+                .orElse(null);
+
+        BigDecimal availableQty = inventory != null && inventory.getAvailableQuantity() != null
+                ? inventory.getAvailableQuantity()
+                : BigDecimal.ZERO;
+
+        String unitName = product.getUnit() != null ? product.getUnit().getUnitName() : "Unit";
+        String location = "A-" + (product.getCategoryNumber() != null ? product.getCategoryNumber() : "0") + "-" + product.getProductNumber();
+
+        return StockOutFormDataDTO.builder()
+                .reportNumber(report.getReportNumber())
+                .productNumber(product.getProductNumber())
+                .productName(product.getProductName())
+                .sku(product.getBarcode())
+                .quantity(report.getQuantity())
+                .unitName(unitName)
+                .location(location)
+                .description(report.getDescription())
+                .reportType(report.getReportType())
+                .issueType(report.getIssueType())
+                .availableQuantity(availableQty)
+                .build();
+    }
+
+    @Transactional
+    public void recordStockOut(StockOutRequestDTO request) {
+        if (request.getReportNumber() == null) {
+            throw new IllegalArgumentException("Report number is required.");
+        }
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Stock-out quantity must be greater than zero.");
+        }
+
+        ProductReport report = productReportRepository.findById(request.getReportNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product report not found: " + request.getReportNumber()));
+
+        if (!"APPROVED".equals(report.getStatus())) {
+            throw new IllegalArgumentException("Product report is not approved for stock-out.");
+        }
+        if (report.getResolvedAt() != null) {
+            throw new IllegalArgumentException("Stock-out has already been recorded for this report.");
+        }
+
+        Integer productNumber = report.getProductNumber();
+        BigDecimal quantityToStockOut = request.getQuantity();
+
+        Inventory inventory = inventoryRepository.findByIdForUpdate(productNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Inventory record not found for product: " + productNumber));
+
+        BigDecimal availableQty = inventory.getAvailableQuantity() != null ? inventory.getAvailableQuantity() : BigDecimal.ZERO;
+        if (availableQty.compareTo(quantityToStockOut) < 0) {
+            throw new IllegalArgumentException("Insufficient inventory to record stock-out. Available: " 
+                    + availableQty + ", Requested: " + quantityToStockOut);
+        }
+
+        List<StockInDetail> availableBatches = stockInDetailRepository.findLatestStockInDetails(productNumber);
+        BigDecimal remainingToDeduct = quantityToStockOut;
+
+        UUID createdBy = null;
+        if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
+            createdBy = UUID.fromString(request.getCreatedBy());
+        } else {
+            createdBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+        }
+
+        StockOut stockOut = StockOut.builder()
+                .createdBy(createdBy)
+                .reason(request.getReason() != null ? request.getReason() : "Stock-out for report #" + request.getReportNumber())
+                .createdDate(LocalDateTime.now())
+                .build();
+        stockOut = stockOutRepository.save(stockOut);
+        Integer stockOutNumber = stockOut.getStockOutNumber();
+
+        for (StockInDetail batch : availableBatches) {
+            if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+
+            BigDecimal batchRemaining = batch.getRemainingQuantity() != null ? batch.getRemainingQuantity() : BigDecimal.ZERO;
+            if (batchRemaining.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            BigDecimal deductAmount;
+            if (batchRemaining.compareTo(remainingToDeduct) >= 0) {
+                deductAmount = remainingToDeduct;
+                batch.setRemainingQuantity(batchRemaining.subtract(deductAmount));
+                remainingToDeduct = BigDecimal.ZERO;
+            } else {
+                deductAmount = batchRemaining;
+                batch.setRemainingQuantity(BigDecimal.ZERO);
+                remainingToDeduct = remainingToDeduct.subtract(deductAmount);
+            }
+
+            stockInDetailRepository.save(batch);
+
+            StockOutDetail detail = StockOutDetail.builder()
+                    .stockOutNumber(stockOutNumber)
+                    .stockInDetailNumber(batch.getStockInDetailNumber())
+                    .productNumber(productNumber)
+                    .quantity(deductAmount)
+                    .build();
+            stockOutDetailRepository.save(detail);
+        }
+
+        if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalArgumentException("Insufficient batch inventory. Missing quantity: " + remainingToDeduct);
+        }
+
+        BigDecimal totalQty = inventory.getTotalQuantity() != null ? inventory.getTotalQuantity() : BigDecimal.ZERO;
+        inventory.setAvailableQuantity(availableQty.subtract(quantityToStockOut));
+        inventory.setTotalQuantity(totalQty.subtract(quantityToStockOut));
+        inventory.setLastUpdated(LocalDateTime.now());
+        inventoryRepository.save(inventory);
+
+        InventoryTransaction tx = InventoryTransaction.builder()
+                .product(productRepository.findById(productNumber).orElse(null))
+                .type("OUT")
+                .quantity(quantityToStockOut)
+                .referenceType("STOCK_OUT")
+                .referenceId(stockOutNumber)
+                .reason(request.getNotes() != null && !request.getNotes().trim().isEmpty() 
+                        ? request.getNotes() 
+                        : (request.getReason() != null ? request.getReason() : "Stock-out from report #" + request.getReportNumber()))
+                .createdBy(createdBy)
+                .createdAt(LocalDateTime.now())
+                .build();
+        inventoryTransactionRepository.save(tx);
+
+        report.setResolvedBy(createdBy);
+        report.setResolvedAt(LocalDateTime.now());
+        productReportRepository.save(report);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PurchaseRequestListDTO> getPurchaseRequests() {
+        String sql = "SELECT pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, " +
+                "p1.full_name as creator_name, p2.full_name as approver_name, " +
+                "(SELECT s.supplier_name FROM purchase_request_details prd " +
+                " JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
+                " JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
+                " WHERE prd.purchase_request_number = pr.purchase_request_number LIMIT 1) as supplier_name, " +
+                "(SELECT COALESCE(SUM(prd.requested_quantity), 0) FROM purchase_request_details prd " +
+                " WHERE prd.purchase_request_number = pr.purchase_request_number) as total_quantity, " +
+                "(SELECT COUNT(*) FROM purchase_request_details prd " +
+                " WHERE prd.purchase_request_number = pr.purchase_request_number) as total_items " +
+                "FROM purchase_requests pr " +
+                "LEFT JOIN profiles p1 ON pr.created_by = p1.user_id " +
+                "LEFT JOIN profiles p2 ON pr.approved_by = p2.user_id " +
+                "ORDER BY pr.created_date DESC";
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> 
+            PurchaseRequestListDTO.builder()
+                .purchaseRequestNumber(rs.getInt("purchase_request_number"))
+                .createdBy(rs.getString("creator_name") != null ? rs.getString("creator_name") : "System")
+                .status(rs.getString("status"))
+                .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime() : null)
+                .approvedBy(rs.getString("approver_name"))
+                .approvedDate(rs.getTimestamp("approved_date") != null ? rs.getTimestamp("approved_date").toLocalDateTime() : null)
+                .supplierName(rs.getString("supplier_name") != null ? rs.getString("supplier_name") : "Various")
+                .totalQuantity(rs.getBigDecimal("total_quantity"))
+                .totalItems(rs.getInt("total_items"))
+                .build()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PurchaseRequestDetailDTO getPurchaseRequestDetails(Integer prNumber) {
+        PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
+
+        String creatorName = "System";
+        if (pr.getCreatedBy() != null) {
+            try {
+                creatorName = jdbcTemplate.queryForObject(
+                        "SELECT COALESCE(full_name, 'System') FROM profiles WHERE user_id = ?",
+                        String.class,
+                        pr.getCreatedBy()
+                );
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+
+        String approverName = null;
+        if (pr.getApprovedBy() != null) {
+            try {
+                approverName = jdbcTemplate.queryForObject(
+                        "SELECT full_name FROM profiles WHERE user_id = ?",
+                        String.class,
+                        pr.getApprovedBy()
+                );
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+
+        List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+
+        List<PurchaseRequestItemDTO> items = details.stream().map(d -> {
+            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
+                    .orElseThrow(() -> new IllegalArgumentException("Product supplier mapping not found: " + d.getProductSupplierNumber()));
+            
+            Product p = productRepository.findById(prodSupplier.getProductNumber())
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + prodSupplier.getProductNumber()));
+
+            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+
+            String supplierName = supplierRepository.findById(prodSupplier.getSupplierNumber())
+                    .map(Supplier::getSupplierName)
+                    .orElse("Unknown");
+
+            return PurchaseRequestItemDTO.builder()
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .sku(p.getBarcode())
+                    .requestedQuantity(d.getRequestedQuantity())
+                    .importPrice(prodSupplier.getImportPrice())
+                    .unitName(unitName)
+                    .supplierName(supplierName)
+                    .build();
+        }).collect(Collectors.toList());
+
+        return PurchaseRequestDetailDTO.builder()
+                .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                .createdBy(creatorName)
+                .createdDate(pr.getCreatedDate())
+                .approvedBy(approverName)
+                .approvedDate(pr.getApprovedDate())
+                .status(pr.getStatus())
+                .items(items)
+                .build();
+    }
+
+    @Transactional
+    public void submitPurchaseRequest(Integer prNumber) {
+        PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
+
+        if (!"DRAFT".equals(pr.getStatus())) {
+            throw new IllegalArgumentException("Only DRAFT purchase requests can be submitted. Current status: " + pr.getStatus());
+        }
+
+        pr.setStatus("PENDING");
+        pr.setCreatedDate(LocalDateTime.now());
+        purchaseRequestRepository.save(pr);
     }
 }

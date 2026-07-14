@@ -184,10 +184,10 @@ public class InventoryProductService {
         }
 
         final UUID finalUserId = userId;
-        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "PENDING")
+        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
                 .orElseGet(() -> {
                     PurchaseRequest newPr = PurchaseRequest.builder()
-                            .status("PENDING")
+                            .status("DRAFT")
                             .createdBy(finalUserId)
                             .createdDate(LocalDateTime.now())
                             .build();

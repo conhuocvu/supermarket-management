@@ -59,7 +59,7 @@ class AppScaffold extends ConsumerWidget {
       {
         'title': 'Purchase Requests',
         'icon': Icons.shopping_cart_outlined,
-        'active': false,
+        'active': currentPath.startsWith('/stock/purchase-requests'),
       },
       {
         'title': 'Expiring Products',
@@ -134,6 +134,8 @@ class AppScaffold extends ConsumerWidget {
                           context.go('/stock/categories');
                         } else if (item['title'] == 'Transactions') {
                           context.go('/stock/transactions');
+                        } else if (item['title'] == 'Purchase Requests') {
+                          context.go('/stock/purchase-requests');
                         }
                       },
                       borderRadius: BorderRadius.circular(12),
