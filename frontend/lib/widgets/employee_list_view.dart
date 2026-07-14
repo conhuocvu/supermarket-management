@@ -22,8 +22,8 @@ class EmployeeListView extends ConsumerWidget {
       data: (employees) {
         if (employees.isEmpty) {
           return const EmptyView(
-            title: 'Không tìm thấy nhân viên',
-            description: 'Hãy thử tìm kiếm với tên khác hoặc thay đổi bộ lọc trạng thái.',
+            title: 'No employees found',
+            description: 'Try searching with a different name or changing the status filter.',
           );
         }
         return ListView.separated(
@@ -106,12 +106,12 @@ class EmployeeListView extends ConsumerWidget {
       },
       loading: () => const LoadingView(
         isFullScreen: false,
-        message: 'Đang tải danh sách nhân viên...',
+        message: 'Loading employees list...',
       ),
       error: (err, stack) {
         final message = err is AppError
             ? err.userMessage
-            : 'Không thể tải danh sách nhân viên. Vui lòng kết nối backend.';
+            : 'Failed to load employees list. Please check backend connection.';
         return ErrorView(
           message: message,
           onRetry: () {
