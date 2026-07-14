@@ -292,7 +292,7 @@ class _NewPromotionScreenState extends ConsumerState<NewPromotionScreen> {
   }
 
   Future<void> _pickImageFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: false,
       dialogTitle: 'Chọn ảnh banner cho Promotion',

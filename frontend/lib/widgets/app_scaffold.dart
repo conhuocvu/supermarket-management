@@ -34,14 +34,18 @@ class AppScaffold extends ConsumerWidget {
       {
         'title': 'Dashboard',
         'icon': Icons.dashboard_outlined,
-        'active': currentPath == '/',
+        'active': currentPath == '/stock',
       },
       {
         'title': 'Products',
         'icon': Icons.inventory_2_outlined,
-        'active': currentPath.startsWith('/products'),
+        'active': currentPath.startsWith('/stock/products'),
       },
-      {'title': 'Categories', 'icon': Icons.category_outlined, 'active': false},
+      {
+        'title': 'Categories',
+        'icon': Icons.category_outlined,
+        'active': currentPath.startsWith('/stock/categories'),
+      },
       {
         'title': 'Transactions',
         'icon': Icons.swap_horiz_outlined,
@@ -118,9 +122,11 @@ class AppScaffold extends ConsumerWidget {
                           Navigator.pop(context);
                         }
                         if (item['title'] == 'Dashboard') {
-                          context.go('/');
+                          context.go('/stock');
                         } else if (item['title'] == 'Products') {
-                          context.go('/products');
+                          context.go('/stock/products');
+                        } else if (item['title'] == 'Categories') {
+                          context.go('/stock/categories');
                         }
                       },
                       borderRadius: BorderRadius.circular(12),

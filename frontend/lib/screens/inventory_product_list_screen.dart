@@ -298,7 +298,7 @@ class _InventoryProductListScreenState
         final List<Widget> actionButtons = [
           IconButton.filled(
             onPressed: () async {
-              final hasChanged = await context.push<bool>('/products/add');
+              final hasChanged = await context.push<bool>('/stock/products/add');
               if (!context.mounted) return;
               _setProductListHeader();
               if (hasChanged == true) {
@@ -768,7 +768,7 @@ class _InventoryProductListScreenState
                             tooltip: 'View details',
                             onPressed: () async {
                               final hasChanged = await context.push<bool>(
-                                '/products/detail/${item.productNumber}',
+                                '/stock/products/detail/${item.productNumber}',
                               );
                               if (!context.mounted) return;
                               _setProductListHeader();
@@ -784,7 +784,7 @@ class _InventoryProductListScreenState
                             tooltip: 'Edit product',
                             onPressed: () async {
                               final hasChanged = await context.push<bool>(
-                                '/products/edit/${item.productNumber}',
+                                '/stock/products/edit/${item.productNumber}',
                                 extra: item,
                               );
                               if (!context.mounted) return;

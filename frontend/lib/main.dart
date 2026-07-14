@@ -1,25 +1,28 @@
-import 'dart:convert';
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'core/theme/app_theme.dart';
-import 'models/inventory_product.dart';
+import 'package:http/http.dart' as http;
+
 import 'models/profile.dart';
+import 'models/inventory_product.dart';
 import 'providers/auth_provider.dart';
 import 'providers/splash_finished_provider.dart';
 import 'providers/router_notifier.dart';
-import 'screens/add_edit_product_screen.dart';
+import 'screens/product_form_screen.dart';
 import 'screens/inventory_dashboard_screen.dart';
 import 'screens/inventory_product_list_screen.dart';
 import 'screens/inventory_product_detail_screen.dart';
+import 'screens/category_list_screen.dart';
+import 'screens/category_form_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/role_screens.dart';
 import 'widgets/app_scaffold.dart';
+import 'core/theme/app_theme.dart';
 
 // Screens from the supplier/promotion/staff feature branch
 import 'screens/dashboard_screen.dart';
@@ -193,9 +196,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      // 3. If logged in:
-      final role = auth.profile?.roleNumber ?? UserRoles.stockController;
-      String landingPage = '/';
+      // 3. If logged in but profile is null:
+      if (auth.profile?.roleNumber == null) {
+        // Wait on splash while profile is loading
+        return isSplashRoute ? null : '/splash';
+      }
+
+      // 4. If logged in and profile loaded:
+      final role = auth.profile!.roleNumber;
+      String landingPage;
       switch (role) {
         case UserRoles.admin:
           landingPage = '/admin';
@@ -204,7 +213,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           landingPage = '/manager';
           break;
         case UserRoles.stockController:
-          landingPage = '/';
+          landingPage = '/stock';
           break;
         case UserRoles.salesAssociate:
           landingPage = '/sales';
@@ -212,9 +221,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         case UserRoles.cashier:
           landingPage = '/cashier';
           break;
+        default:
+          landingPage = '/login'; // Fallback for invalid role
       }
 
+      // Redirect if on a public/splash route
       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
+        return landingPage;
+      }
+
+      // Root path redirect
+      if (state.uri.path == '/') {
         return landingPage;
       }
 
@@ -248,7 +265,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               path.startsWith('/manager') ||
               path.startsWith('/sales') ||
               path.startsWith('/cashier')) {
-            return '/';
+            return '/stock';
           }
         }
       }
@@ -284,43 +301,67 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(
-            path: '/',
+            path: '/stock',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: InventoryDashboardScreen()),
-          ),
-          GoRoute(
-            path: '/products',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: InventoryProductListScreen()),
             routes: [
               GoRoute(
-                path: 'add',
+                path: 'categories',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: AddEditProductScreen()),
+                    const NoTransitionPage(child: CategoryListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    pageBuilder: (context, state) =>
+                        const NoTransitionPage(child: CategoryFormScreen()),
+                  ),
+                  GoRoute(
+                    path: 'edit/:id',
+                    pageBuilder: (context, state) {
+                      final idStr = state.pathParameters['id'] ?? '';
+                      final id = int.tryParse(idStr);
+                      return NoTransitionPage(
+                        child: CategoryFormScreen(categoryNumber: id),
+                      );
+                    },
+                  ),
+                ],
               ),
               GoRoute(
-                path: 'edit/:id',
-                pageBuilder: (context, state) {
-                  final idStr = state.pathParameters['id'] ?? '';
-                  final id = int.tryParse(idStr) ?? 0;
-                  final product = state.extra as InventoryProduct?;
-                  return NoTransitionPage(
-                    child: AddEditProductScreen(
-                      productId: id,
-                      product: product,
-                    ),
-                  );
-                },
-              ),
-              GoRoute(
-                path: 'detail/:id',
-                pageBuilder: (context, state) {
-                  final idStr = state.pathParameters['id'] ?? '';
-                  final id = int.tryParse(idStr) ?? 0;
-                  return NoTransitionPage(
-                    child: InventoryProductDetailScreen(productNumber: id),
-                  );
-                },
+                path: 'products',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: InventoryProductListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    pageBuilder: (context, state) =>
+                        const NoTransitionPage(child: ProductFormScreen()),
+                  ),
+                  GoRoute(
+                    path: 'edit/:id',
+                    pageBuilder: (context, state) {
+                      final idStr = state.pathParameters['id'] ?? '';
+                      final id = int.tryParse(idStr) ?? 0;
+                      final product = state.extra as InventoryProduct?;
+                      return NoTransitionPage(
+                        child: ProductFormScreen(
+                          productId: id,
+                          product: product,
+                        ),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'detail/:id',
+                    pageBuilder: (context, state) {
+                      final idStr = state.pathParameters['id'] ?? '';
+                      final id = int.tryParse(idStr) ?? 0;
+                      return NoTransitionPage(
+                        child: InventoryProductDetailScreen(productNumber: id),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
