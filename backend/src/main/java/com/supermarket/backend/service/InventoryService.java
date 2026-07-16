@@ -870,22 +870,59 @@ public class InventoryService {
 
         List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
 
-        List<PurchaseRequestItemDTO> items = details.stream().map(d -> {
-            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+        if (details.isEmpty()) {
+            return PurchaseRequestDetailDTO.builder()
+                    .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                    .createdBy(creatorName)
+                    .createdDate(pr.getCreatedDate())
+                    .approvedBy(approverName)
+                    .approvedDate(pr.getApprovedDate())
+                    .status(pr.getStatus())
+                    .expectedDeliveryDate(pr.getExpectedDeliveryDate())
+                    .items(java.util.Collections.emptyList())
+                    .build();
+        }
 
-            Product p = productRepository.findById(prodSupplier.getProductNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product not found: " + prodSupplier.getProductNumber()));
+        // Collect IDs needed
+        List<Integer> productSupplierIds = details.stream()
+                .map(PurchaseRequestDetail::getProductSupplierNumber)
+                .collect(Collectors.toList());
+
+        // Bulk load product-suppliers
+        Map<Integer, ProductSupplier> psMap = productSupplierRepository.findAllById(productSupplierIds).stream()
+                .collect(Collectors.toMap(ProductSupplier::getProductSupplierNumber, ps -> ps));
+
+        List<Integer> productIds = psMap.values().stream()
+                .map(ProductSupplier::getProductNumber)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Integer> supplierIds = psMap.values().stream()
+                .map(ProductSupplier::getSupplierNumber)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Bulk load products, inventories, and suppliers
+        Map<Integer, Product> productMap = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p));
+
+        Map<Integer, Inventory> inventoryMap = inventoryRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Inventory::getProductNumber, inv -> inv));
+
+        Map<Integer, String> supplierNameMap = supplierRepository.findAllById(supplierIds).stream()
+                .collect(Collectors.toMap(Supplier::getSupplierNumber, Supplier::getSupplierName));
+
+        List<PurchaseRequestItemDTO> items = details.stream().map(d -> {
+            ProductSupplier prodSupplier = psMap.get(d.getProductSupplierNumber());
+            if (prodSupplier == null) return null;
+
+            Product p = productMap.get(prodSupplier.getProductNumber());
+            if (p == null) return null;
 
             String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
-
-            String supplierName = supplierRepository.findById(prodSupplier.getSupplierNumber())
-                    .map(s -> s.getSupplierName())
-                    .orElse("Unknown");
-
-            BigDecimal stock = p.getInventory() != null ? p.getInventory().getAvailableQuantity() : BigDecimal.ZERO;
+            String supplierName = supplierNameMap.getOrDefault(prodSupplier.getSupplierNumber(), "Unknown");
+            Inventory inv = inventoryMap.get(p.getProductNumber());
+            BigDecimal stock = inv != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
 
             return PurchaseRequestItemDTO.builder()
                     .productNumber(p.getProductNumber())
@@ -900,7 +937,7 @@ public class InventoryService {
                     .currentStock(stock)
                     .reorderLevel(p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO)
                     .build();
-        }).collect(Collectors.toList());
+        }).filter(item -> item != null).collect(Collectors.toList());
 
         return PurchaseRequestDetailDTO.builder()
                 .purchaseRequestNumber(pr.getPurchaseRequestNumber())
@@ -930,7 +967,11 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public PurchaseRequestFormDataDTO getPurchaseRequestFormData() {
-        List<SupplierDTO> suppliers = supplierRepository.findAll().stream()
+        // Load ALL data in bulk (4 queries total) to avoid N+1 problem
+        Map<Integer, Supplier> supplierMap = supplierRepository.findAll().stream()
+                .collect(Collectors.toMap(Supplier::getSupplierNumber, s -> s));
+
+        List<SupplierDTO> activeSuppliersDTO = supplierMap.values().stream()
                 .filter(s -> "ACTIVE".equals(s.getStatus()))
                 .map(s -> SupplierDTO.builder()
                         .supplierNumber(s.getSupplierNumber())
@@ -938,33 +979,41 @@ public class InventoryService {
                         .build())
                 .collect(Collectors.toList());
 
-        List<Product> products = productRepository.findAll().stream()
+        List<Product> activeProducts = productRepository.findAll().stream()
                 .filter(p -> "ACTIVE".equals(p.getStatus()))
                 .collect(Collectors.toList());
 
+        // Bulk load all product-supplier mappings and group by productNumber
+        Map<Integer, List<ProductSupplier>> productSupplierMap = productSupplierRepository.findAll().stream()
+                .collect(Collectors.groupingBy(ProductSupplier::getProductNumber));
+
+        // Bulk load all inventories and index by productNumber
+        Map<Integer, Inventory> inventoryMap = inventoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Inventory::getProductNumber, inv -> inv));
+
         List<PurchaseRequestFormProductDTO> productDTOs = new java.util.ArrayList<>();
-        for (Product p : products) {
-            List<ProductSupplier> prodSuppliers = productSupplierRepository.findByProductNumber(p.getProductNumber());
+        for (Product p : activeProducts) {
+            List<ProductSupplier> prodSuppliers = productSupplierMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
             if (prodSuppliers.isEmpty()) {
                 continue;
             }
 
-            List<ProductSupplierInfoDTO> supplierInfos = new java.util.ArrayList<>();
-            for (ProductSupplier ps : prodSuppliers) {
-                String supplierName = supplierRepository.findById(ps.getSupplierNumber())
-                        .map(Supplier::getSupplierName)
-                        .orElse("Unknown Supplier");
-
-                supplierInfos.add(ProductSupplierInfoDTO.builder()
-                        .supplierNumber(ps.getSupplierNumber())
-                        .supplierName(supplierName)
-                        .importPrice(ps.getImportPrice())
-                        .minimumOrderQuantity(ps.getMinimumOrderQuantity())
-                        .build());
-            }
+            List<ProductSupplierInfoDTO> supplierInfos = prodSuppliers.stream()
+                    .map(ps -> {
+                        Supplier sup = supplierMap.get(ps.getSupplierNumber());
+                        String supplierName = sup != null ? sup.getSupplierName() : "Unknown Supplier";
+                        return ProductSupplierInfoDTO.builder()
+                                .supplierNumber(ps.getSupplierNumber())
+                                .supplierName(supplierName)
+                                .importPrice(ps.getImportPrice())
+                                .minimumOrderQuantity(ps.getMinimumOrderQuantity())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
 
             String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
-            BigDecimal stock = p.getInventory() != null ? p.getInventory().getAvailableQuantity() : BigDecimal.ZERO;
+            Inventory inv = inventoryMap.get(p.getProductNumber());
+            BigDecimal stock = inv != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
 
             productDTOs.add(PurchaseRequestFormProductDTO.builder()
                     .productNumber(p.getProductNumber())
@@ -978,7 +1027,7 @@ public class InventoryService {
         }
 
         return PurchaseRequestFormDataDTO.builder()
-                .suppliers(suppliers)
+                .suppliers(activeSuppliersDTO)
                 .products(productDTOs)
                 .build();
     }

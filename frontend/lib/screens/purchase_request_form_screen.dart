@@ -554,7 +554,13 @@ class _PurchaseRequestFormScreenState
                     // Actions Area
                     Container(
                       padding: const EdgeInsets.all(24.0),
-                      color: theme.colorScheme.surfaceContainerLow,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
+                        ),
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
