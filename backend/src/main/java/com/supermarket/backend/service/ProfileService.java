@@ -1,6 +1,7 @@
 package com.supermarket.backend.service;
 
 import com.supermarket.backend.dto.ProfileDTO;
+import com.supermarket.backend.dto.ProfileUpdateDTO;
 import com.supermarket.backend.entity.Profile;
 import com.supermarket.backend.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,26 @@ public class ProfileService {
         return mapToDTO(profile);
     }
 
+    /**
+     * Updates editable profile fields (fullName, phone, address).
+     * Returns the updated ProfileDTO so the caller can update state directly
+     * without an extra round-trip fetch.
+     */
+    @Transactional
+    public ProfileDTO updateProfile(UUID userId, ProfileUpdateDTO dto) {
+        Profile profile = profileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+
+        profile.setFullName(dto.getFullName().trim());
+        profile.setPhone(dto.getPhone().replaceAll("[\\s\\-]", ""));
+        // Treat blank address as null (optional field)
+        String address = dto.getAddress();
+        profile.setAddress(address != null && !address.isBlank() ? address.trim() : null);
+
+        profileRepository.save(profile);
+        return mapToDTO(profile);
+    }
+
     @Transactional
     public ProfileDTO updateAvatar(UUID userId, MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
@@ -47,14 +68,18 @@ public class ProfileService {
         Profile profile = profileRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
 
+        // Store the clean public URL — no version query parameter.
+        // Cache-busting (?v=timestamp) is applied client-side only during the
+        // immediate update so the browser/Flutter image cache is invalidated.
         String publicUrl = supabaseStorageService.uploadAvatar(userId, file);
-        // Cache-bust so clients refresh the image even though the path is stable
-        String versionedUrl = publicUrl + "?v=" + System.currentTimeMillis();
-
-        profile.setAvatarUrl(versionedUrl);
+        profile.setAvatarUrl(publicUrl);
         profileRepository.save(profile);
 
-        return mapToDTO(profile);
+        // Return a versioned URL for the current response so the client can
+        // display the new image immediately without an extra fetch.
+        ProfileDTO dto = mapToDTO(profile);
+        dto.setAvatarUrl(publicUrl + "?v=" + System.currentTimeMillis());
+        return dto;
     }
 
     private ProfileDTO mapToDTO(Profile profile) {

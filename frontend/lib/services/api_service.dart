@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 import '../models/dashboard_data.dart';
 import '../models/category_item.dart';
 import '../models/inventory_product.dart';
 import '../models/inventory_product_detail.dart';
 import '../models/product_adjustment.dart';
+import '../models/profile.dart';
 
 class ApiService {
   final Dio _dio;
@@ -14,14 +16,32 @@ class ApiService {
     defaultValue: 'http://localhost:8080/api',
   );
 
-  ApiService()
-    : _dio = Dio(
-        BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 30),
-        ),
-      );
+  ApiService() : _dio = _buildDio();
+
+  static Dio _buildDio() {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    // Attach the Supabase JWT Bearer token to every request so Spring Boot can
+    // verify ownership (IDOR protection) without a separate auth step.
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final token =
+              Supabase.instance.client.auth.currentSession?.accessToken;
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+    return dio;
+  }
 
   Future<DashboardData> fetchDashboardData() async {
     try {
@@ -234,6 +254,89 @@ class ApiService {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Profile Methods
+  // ---------------------------------------------------------------------------
+
+  /// Fetches a profile via the Spring Boot backend (GET /api/profiles/{userId}).
+  /// Converts the backend DTO field names (camelCase) into the Profile model.
+  Future<Profile> fetchProfile(String userId) async {
+    try {
+      final response = await _dio.get('/profiles/$userId');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as Map<String, dynamic>;
+          // Backend DTO uses camelCase; map to snake_case for Profile.fromJson
+          return Profile.fromJson({
+            'user_id': data['userId'],
+            'role_number': data['roleNumber'],
+            'full_name': data['fullName'],
+            'phone': data['phone'],
+            'status': data['status'],
+            'created_at': data['createdAt'],
+            'avatar_url': data['avatarUrl'],
+            'address': data['address'],
+          });
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load profile.');
+        }
+      } else {
+        throw Exception('Failed to load profile: HTTP \${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: \$e');
+    }
+  }
+
+  /// Updates editable profile fields via the Spring Boot backend
+  /// (PUT /api/profiles/{userId}).
+  /// Returns the updated Profile so the caller can refresh local state
+  /// without an extra fetch (fixes Issue #5 redundant refresh).
+  Future<Profile> updateProfile({
+    required String userId,
+    required String fullName,
+    required String phone,
+    String? address,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/profiles/\$userId',
+        data: {
+          'fullName': fullName,
+          'phone': phone,
+          'address': address,
+        },
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as Map<String, dynamic>;
+          return Profile.fromJson({
+            'user_id': data['userId'],
+            'role_number': data['roleNumber'],
+            'full_name': data['fullName'],
+            'phone': data['phone'],
+            'status': data['status'],
+            'created_at': data['createdAt'],
+            'avatar_url': data['avatarUrl'],
+            'address': data['address'],
+          });
+        } else {
+          throw Exception(body['message'] ?? 'Failed to update profile.');
+        }
+      } else {
+        throw Exception('Failed to update profile: HTTP \${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: \$e');
     }
   }
 

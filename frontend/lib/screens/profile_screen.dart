@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
@@ -32,7 +31,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
   late TextEditingController _postalController;
-  bool _hasChanges = false;
+  // _hasChanges is a computed getter — no bool field needed
   bool _isSaving = false;
   bool _isUploadingAvatar = false;
 
@@ -51,13 +50,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         TextEditingController(text: authState.user?.email ?? '');
     _postalController = TextEditingController(text: profile?.address ?? '');
 
+    // Trigger rebuild on text change so the computed _hasChanges getter
+    // re-evaluates and the Save button reflects the actual diff.
     for (final c in [_fullNameController, _phoneController, _postalController]) {
-      c.addListener(_onChanged);
+      c.addListener(() => setState(() {}));
     }
   }
 
-  void _onChanged() {
-    if (!_hasChanges) setState(() => _hasChanges = true);
+  /// True when the current field values differ from the profile stored in state.
+  /// This prevents the Save button staying active after the user reverts edits.
+  bool get _hasChanges {
+    final profile = ref.read(authProvider).profile;
+    if (profile == null) return false;
+    final nameDiff =
+        _fullNameController.text.trim() != profile.fullName.trim();
+    final phoneDiff =
+        _phoneController.text.replaceAll(RegExp(r'[\s-]'), '') !=
+        profile.phone.replaceAll(RegExp(r'[\s-]'), '');
+    final addressDiff =
+        _postalController.text.trim() != (profile.address?.trim() ?? '');
+    return nameDiff || phoneDiff || addressDiff;
   }
 
   @override
@@ -129,22 +141,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await Supabase.instance.client
-          .from('profiles')
-          .update({
-            'full_name': _fullNameController.text.trim(),
-            'phone':
-                _phoneController.text.replaceAll(RegExp(r'[\s-]'), ''),
-            'address': _postalController.text.trim().isEmpty
-                ? null
-                : _postalController.text.trim(),
-          })
-          .eq('user_id', userId);
+      // Issue #1 fix: route the update through Spring Boot instead of writing
+      // directly to Supabase from the client.
+      final updated = await ApiService().updateProfile(
+        userId: userId,
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.replaceAll(RegExp(r'[\s-]'), ''),
+        address: _postalController.text.trim().isEmpty
+            ? null
+            : _postalController.text.trim(),
+      );
 
-      await ref.read(authProvider.notifier).refreshProfile();
+      // Issue #5 fix: use the returned ProfileDTO to update state directly
+      // without firing an extra GET request.
+      ref.read(authProvider.notifier).updateProfileState(updated);
 
       if (!mounted) return;
-      setState(() => _hasChanges = false);
+      // Rebuild so the computed _hasChanges getter re-evaluates to false.
+      setState(() {});
       _showSnack('Profile changes saved successfully!');
     } catch (e) {
       _showSnack('Failed to save profile: $e', isError: true);
