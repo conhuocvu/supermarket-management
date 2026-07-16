@@ -26,4 +26,10 @@ public class PurchaseRequestDetail {
 
     @Column(name = "requested_quantity")
     private BigDecimal requestedQuantity;
+
+    @Column(name = "reason")
+    private String reason;
+
+    @Column(name = "notes")
+    private String notes;
 }

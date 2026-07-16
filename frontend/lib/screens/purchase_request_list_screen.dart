@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/purchase_request.dart';
 import '../providers/purchase_request_provider.dart';
@@ -335,6 +336,27 @@ class _PurchaseRequestListScreenState
                     },
                   );
                 }).toList(),
+          ),
+
+          // Create New Request Button
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: () async {
+                final result = await context.push('/stock/purchase-requests/create');
+                if (result == true && context.mounted) {
+                  ref.invalidate(purchaseRequestsProvider);
+                }
+              },
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Create New Request'),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+              ),
+            ),
           ),
         ],
       ),

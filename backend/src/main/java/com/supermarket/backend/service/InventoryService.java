@@ -885,6 +885,8 @@ public class InventoryService {
                     .map(s -> s.getSupplierName())
                     .orElse("Unknown");
 
+            BigDecimal stock = p.getInventory() != null ? p.getInventory().getAvailableQuantity() : BigDecimal.ZERO;
+
             return PurchaseRequestItemDTO.builder()
                     .productNumber(p.getProductNumber())
                     .productName(p.getProductName())
@@ -893,6 +895,10 @@ public class InventoryService {
                     .importPrice(prodSupplier.getImportPrice())
                     .unitName(unitName)
                     .supplierName(supplierName)
+                    .reason(d.getReason())
+                    .notes(d.getNotes())
+                    .currentStock(stock)
+                    .reorderLevel(p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO)
                     .build();
         }).collect(Collectors.toList());
 
@@ -903,6 +909,7 @@ public class InventoryService {
                 .approvedBy(approverName)
                 .approvedDate(pr.getApprovedDate())
                 .status(pr.getStatus())
+                .expectedDeliveryDate(pr.getExpectedDeliveryDate())
                 .items(items)
                 .build();
     }
@@ -919,5 +926,116 @@ public class InventoryService {
 
         pr.setStatus("PENDING");
         purchaseRequestRepository.save(pr);
+    }
+
+    @Transactional(readOnly = true)
+    public PurchaseRequestFormDataDTO getPurchaseRequestFormData() {
+        List<SupplierDTO> suppliers = supplierRepository.findAll().stream()
+                .filter(s -> "ACTIVE".equals(s.getStatus()))
+                .map(s -> SupplierDTO.builder()
+                        .supplierNumber(s.getSupplierNumber())
+                        .supplierName(s.getSupplierName())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<Product> products = productRepository.findAll().stream()
+                .filter(p -> "ACTIVE".equals(p.getStatus()))
+                .collect(Collectors.toList());
+
+        List<PurchaseRequestFormProductDTO> productDTOs = new java.util.ArrayList<>();
+        for (Product p : products) {
+            List<ProductSupplier> prodSuppliers = productSupplierRepository.findByProductNumber(p.getProductNumber());
+            if (prodSuppliers.isEmpty()) {
+                continue;
+            }
+
+            List<ProductSupplierInfoDTO> supplierInfos = new java.util.ArrayList<>();
+            for (ProductSupplier ps : prodSuppliers) {
+                String supplierName = supplierRepository.findById(ps.getSupplierNumber())
+                        .map(Supplier::getSupplierName)
+                        .orElse("Unknown Supplier");
+
+                supplierInfos.add(ProductSupplierInfoDTO.builder()
+                        .supplierNumber(ps.getSupplierNumber())
+                        .supplierName(supplierName)
+                        .importPrice(ps.getImportPrice())
+                        .minimumOrderQuantity(ps.getMinimumOrderQuantity())
+                        .build());
+            }
+
+            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+            BigDecimal stock = p.getInventory() != null ? p.getInventory().getAvailableQuantity() : BigDecimal.ZERO;
+
+            productDTOs.add(PurchaseRequestFormProductDTO.builder()
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .barcode(p.getBarcode())
+                    .unitName(unitName)
+                    .currentStock(stock)
+                    .reorderLevel(p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO)
+                    .suppliers(supplierInfos)
+                    .build());
+        }
+
+        return PurchaseRequestFormDataDTO.builder()
+                .suppliers(suppliers)
+                .products(productDTOs)
+                .build();
+    }
+
+    @Transactional
+    public PurchaseRequest saveDraftPurchaseRequest(UUID userId, PurchaseRequestSaveDraftDTO dto) {
+        if (userId == null) {
+            userId = getDefaultUserId();
+        }
+
+        final UUID finalUserId = userId;
+        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
+                .orElseGet(() -> {
+                    PurchaseRequest newPr = PurchaseRequest.builder()
+                            .status("DRAFT")
+                            .createdBy(finalUserId)
+                            .createdDate(LocalDateTime.now())
+                            .build();
+                    return purchaseRequestRepository.save(newPr);
+                });
+
+        pr.setExpectedDeliveryDate(dto.getExpectedDeliveryDate());
+        purchaseRequestRepository.save(pr);
+
+        purchaseRequestDetailRepository.deleteByPurchaseRequestNumber(pr.getPurchaseRequestNumber());
+
+        if (dto.getItems() != null) {
+            for (PurchaseRequestSaveDraftItemDTO item : dto.getItems()) {
+                ProductSupplier productSupplier = productSupplierRepository.findByProductNumber(item.getProductNumber()).stream()
+                        .filter(ps -> ps.getSupplierNumber().equals(item.getSupplierNumber()))
+                        .findFirst()
+                        .orElseGet(() -> {
+                            Product p = productRepository.findById(item.getProductNumber())
+                                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + item.getProductNumber()));
+                            BigDecimal importPrice = p.getSellingPrice() != null
+                                    ? p.getSellingPrice().multiply(BigDecimal.valueOf(0.75))
+                                    : BigDecimal.valueOf(10000);
+                            ProductSupplier newPs = ProductSupplier.builder()
+                                    .productNumber(item.getProductNumber())
+                                    .supplierNumber(item.getSupplierNumber())
+                                    .importPrice(importPrice)
+                                    .minimumOrderQuantity(BigDecimal.valueOf(1))
+                                    .build();
+                            return productSupplierRepository.save(newPs);
+                        });
+
+                PurchaseRequestDetail detail = PurchaseRequestDetail.builder()
+                        .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                        .productSupplierNumber(productSupplier.getProductSupplierNumber())
+                        .requestedQuantity(item.getRequestedQuantity())
+                        .reason(item.getReason())
+                        .notes(item.getNotes())
+                        .build();
+                purchaseRequestDetailRepository.save(detail);
+            }
+        }
+
+        return pr;
     }
 }

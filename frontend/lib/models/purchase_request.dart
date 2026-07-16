@@ -44,6 +44,10 @@ class PurchaseRequestItem {
   final double importPrice;
   final String unitName;
   final String supplierName;
+  final String? reason;
+  final String? notes;
+  final double? currentStock;
+  final double? reorderLevel;
 
   PurchaseRequestItem({
     required this.productNumber,
@@ -53,6 +57,10 @@ class PurchaseRequestItem {
     required this.importPrice,
     required this.unitName,
     required this.supplierName,
+    this.reason,
+    this.notes,
+    this.currentStock,
+    this.reorderLevel,
   });
 
   factory PurchaseRequestItem.fromJson(Map<String, dynamic> json) {
@@ -64,6 +72,10 @@ class PurchaseRequestItem {
       importPrice: (json['importPrice'] as num?)?.toDouble() ?? 0.0,
       unitName: json['unitName'] ?? 'Unit',
       supplierName: json['supplierName'] ?? 'Unknown',
+      reason: json['reason'],
+      notes: json['notes'],
+      currentStock: (json['currentStock'] as num?)?.toDouble(),
+      reorderLevel: (json['reorderLevel'] as num?)?.toDouble(),
     );
   }
 }
@@ -75,6 +87,7 @@ class PurchaseRequestDetail {
   final String? approvedBy;
   final DateTime? approvedDate;
   final String status;
+  final DateTime? expectedDeliveryDate;
   final List<PurchaseRequestItem> items;
 
   PurchaseRequestDetail({
@@ -84,6 +97,7 @@ class PurchaseRequestDetail {
     this.approvedBy,
     this.approvedDate,
     required this.status,
+    this.expectedDeliveryDate,
     required this.items,
   });
 
@@ -96,7 +110,100 @@ class PurchaseRequestDetail {
       approvedBy: json['approvedBy'],
       approvedDate: json['approvedDate'] != null ? DateTime.parse(json['approvedDate']) : null,
       status: json['status'] ?? 'PENDING',
+      expectedDeliveryDate: json['expectedDeliveryDate'] != null ? DateTime.parse(json['expectedDeliveryDate']) : null,
       items: rawItems.map((item) => PurchaseRequestItem.fromJson(item)).toList(),
+    );
+  }
+}
+
+class PurchaseRequestFormData {
+  final List<SupplierFormData> suppliers;
+  final List<ProductFormData> products;
+
+  PurchaseRequestFormData({
+    required this.suppliers,
+    required this.products,
+  });
+
+  factory PurchaseRequestFormData.fromJson(Map<String, dynamic> json) {
+    final listSuppliers = json['suppliers'] as List? ?? [];
+    final listProducts = json['products'] as List? ?? [];
+    return PurchaseRequestFormData(
+      suppliers: listSuppliers.map((item) => SupplierFormData.fromJson(item)).toList(),
+      products: listProducts.map((item) => ProductFormData.fromJson(item)).toList(),
+    );
+  }
+}
+
+class SupplierFormData {
+  final int supplierNumber;
+  final String supplierName;
+
+  SupplierFormData({
+    required this.supplierNumber,
+    required this.supplierName,
+  });
+
+  factory SupplierFormData.fromJson(Map<String, dynamic> json) {
+    return SupplierFormData(
+      supplierNumber: json['supplierNumber'] ?? 0,
+      supplierName: json['supplierName'] ?? '',
+    );
+  }
+}
+
+class ProductFormData {
+  final int productNumber;
+  final String productName;
+  final String barcode;
+  final String unitName;
+  final double currentStock;
+  final double reorderLevel;
+  final List<ProductSupplierInfo> suppliers;
+
+  ProductFormData({
+    required this.productNumber,
+    required this.productName,
+    required this.barcode,
+    required this.unitName,
+    required this.currentStock,
+    required this.reorderLevel,
+    required this.suppliers,
+  });
+
+  factory ProductFormData.fromJson(Map<String, dynamic> json) {
+    final listSuppliers = json['suppliers'] as List? ?? [];
+    return ProductFormData(
+      productNumber: json['productNumber'] ?? 0,
+      productName: json['productName'] ?? '',
+      barcode: json['barcode'] ?? '',
+      unitName: json['unitName'] ?? 'Unit',
+      currentStock: (json['currentStock'] as num?)?.toDouble() ?? 0.0,
+      reorderLevel: (json['reorderLevel'] as num?)?.toDouble() ?? 0.0,
+      suppliers: listSuppliers.map((item) => ProductSupplierInfo.fromJson(item)).toList(),
+    );
+  }
+}
+
+class ProductSupplierInfo {
+  final int supplierNumber;
+  final String supplierName;
+  final double importPrice;
+  final double minimumOrderQuantity;
+
+  ProductSupplierInfo({
+    required this.supplierNumber,
+    required this.supplierName,
+    required this.importPrice,
+    required this.minimumOrderQuantity,
+  });
+
+  factory ProductSupplierInfo.fromJson(Map<String, dynamic> json) {
+    return ProductSupplierInfo(
+      supplierNumber: json['supplierNumber'] ?? 0,
+      supplierName: json['supplierName'] ?? '',
+      importPrice: (json['importPrice'] as num?)?.toDouble() ?? 0.0,
+      minimumOrderQuantity: (json['minimumOrderQuantity'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

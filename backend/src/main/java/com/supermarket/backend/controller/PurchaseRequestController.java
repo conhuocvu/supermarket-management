@@ -20,6 +20,86 @@ public class PurchaseRequestController {
     private final InventoryProductService inventoryProductService;
     private final InventoryService inventoryService;
 
+    @GetMapping("/form-data")
+    public ResponseEntity<Map<String, Object>> getPurchaseRequestFormData() {
+        try {
+            com.supermarket.backend.dto.PurchaseRequestFormDataDTO data = inventoryService.getPurchaseRequestFormData();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Purchase request form data loaded successfully.");
+            response.put("data", data);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "System error while loading form data: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/draft")
+    public ResponseEntity<Map<String, Object>> getOrCreateDraftPurchaseRequest(
+            @RequestParam(value = "userId", required = false) String userIdStr) {
+        try {
+            UUID userId = null;
+            if (userIdStr != null && !userIdStr.trim().isEmpty()) {
+                userId = UUID.fromString(userIdStr);
+            }
+            
+            com.supermarket.backend.dto.PurchaseRequestSaveDraftDTO emptyDto = com.supermarket.backend.dto.PurchaseRequestSaveDraftDTO.builder()
+                    .items(java.util.Collections.emptyList())
+                    .build();
+            PurchaseRequest pr = inventoryService.saveDraftPurchaseRequest(userId, emptyDto);
+            com.supermarket.backend.dto.PurchaseRequestDetailDTO details = inventoryService.getPurchaseRequestDetails(pr.getPurchaseRequestNumber());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Draft purchase request loaded successfully.");
+            response.put("data", details);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "System error while loading draft: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PutMapping("/draft")
+    public ResponseEntity<Map<String, Object>> saveDraftPurchaseRequest(
+            @RequestBody com.supermarket.backend.dto.PurchaseRequestSaveDraftDTO dto) {
+        try {
+            UUID userId = null;
+            if (dto.getUserId() != null && !dto.getUserId().trim().isEmpty()) {
+                userId = UUID.fromString(dto.getUserId());
+            }
+
+            PurchaseRequest pr = inventoryService.saveDraftPurchaseRequest(userId, dto);
+            com.supermarket.backend.dto.PurchaseRequestDetailDTO details = inventoryService.getPurchaseRequestDetails(pr.getPurchaseRequestNumber());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Purchase request draft saved successfully.");
+            response.put("data", details);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to save purchase request draft: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
     @PostMapping("/items")
     public ResponseEntity<Map<String, Object>> addProductsToPurchaseRequest(
             @RequestBody PurchaseRequestItemsDTO dto) {
