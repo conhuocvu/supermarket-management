@@ -9,10 +9,12 @@ import '../services/api_service.dart';
 
 class StockInFormScreen extends ConsumerStatefulWidget {
   final int purchaseRequestNumber;
+  final int? supplierNumber;
 
   const StockInFormScreen({
     super.key,
     required this.purchaseRequestNumber,
+    this.supplierNumber,
   });
 
   @override
@@ -49,7 +51,7 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
   Future<void> _loadFormData() async {
     setState(() => _isLoading = true);
     try {
-      final data = await _apiService.fetchStockInFormData(widget.purchaseRequestNumber);
+      final data = await _apiService.fetchStockInFormData(widget.purchaseRequestNumber, widget.supplierNumber);
       setState(() {
         _supplierName = data['supplierName'] ?? 'Unknown';
         _supplierNumber = data['supplierNumber'];
@@ -102,6 +104,7 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
     try {
       final result = await _apiService.compareStockInQuantities(
         widget.purchaseRequestNumber,
+        widget.supplierNumber,
         deliveredMap,
       );
 

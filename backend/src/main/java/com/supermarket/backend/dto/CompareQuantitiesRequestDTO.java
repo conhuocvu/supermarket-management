@@ -13,5 +13,6 @@ import java.util.Map;
 @AllArgsConstructor
 public class CompareQuantitiesRequestDTO {
     private Integer purchaseRequestNumber;
+    private Integer supplierNumber;
     private Map<Integer, BigDecimal> deliveredQuantities; // key: productNumber, value: quantity
 }

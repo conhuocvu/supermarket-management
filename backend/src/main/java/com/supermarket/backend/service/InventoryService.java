@@ -43,13 +43,13 @@ public class InventoryService {
     public DashboardDataDTO getDashboardData() {
         long totalProducts = productRepository.count();
         long lowStockCount = inventoryRepository.countLowStock();
-        
+
         LocalDate now = LocalDate.now();
         LocalDate threshold = now.plusDays(30);
         long nearExpiryCount = stockInDetailRepository.countNearExpiry(now, threshold);
-        
+
         long pendingRequestsCount = purchaseRequestRepository.countByStatus("PENDING");
-        
+
         BigDecimal sumAvailable = inventoryRepository.sumAvailableQuantity();
         double capacityUsed = 0.0;
         if (sumAvailable != null && sumAvailable.doubleValue() > 0) {
@@ -65,7 +65,8 @@ public class InventoryService {
                     .doubleValue();
         }
 
-        List<InventoryTransaction> transactions = inventoryTransactionRepository.findRecentTransactions(PageRequest.of(0, 10));
+        List<InventoryTransaction> transactions = inventoryTransactionRepository
+                .findRecentTransactions(PageRequest.of(0, 10));
         List<RecentActivityDTO> recentActivities = transactions.stream()
                 .map(t -> {
                     String action = "Stock adjustment";
@@ -76,7 +77,7 @@ public class InventoryService {
                     }
 
                     String item = t.getProduct() != null ? t.getProduct().getProductName() : "Unknown Item";
-                    
+
                     // Format quantity nicely, removing unnecessary decimals
                     String qtyStr = "0 units";
                     if (t.getQuantity() != null) {
@@ -131,48 +132,47 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public PendingTasksDTO getPendingTasks() {
         String stockInSql = "SELECT pr.purchase_request_number, pr.created_date, pr.status, " +
-                "(SELECT s.supplier_name FROM purchase_request_details prd " +
-                " JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
-                " JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
-                " WHERE prd.purchase_request_number = pr.purchase_request_number LIMIT 1) as supplier_name, " +
-                "(SELECT SUM(prd.requested_quantity) FROM purchase_request_details prd " +
-                " WHERE prd.purchase_request_number = pr.purchase_request_number) as total_items, " +
-                "(SELECT u.unit_name FROM purchase_request_details prd " +
-                " JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
-                " JOIN products p ON ps.product_number = p.product_number " +
-                " JOIN units u ON p.inventory_unit_number = u.unit_number " +
-                " WHERE prd.purchase_request_number = pr.purchase_request_number LIMIT 1) as unit_name " +
+                "s.supplier_name, s.supplier_number, " +
+                "SUM(prd.requested_quantity) as total_items, " +
+                "MAX(u.unit_name) as unit_name " +
                 "FROM purchase_requests pr " +
-                "WHERE pr.status IN ('APPROVED', 'PARTIALLY_RECEIVED')";
+                "JOIN purchase_request_details prd ON pr.purchase_request_number = prd.purchase_request_number " +
+                "JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
+                "JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
+                "JOIN products p ON ps.product_number = p.product_number " +
+                "JOIN units u ON p.inventory_unit_number = u.unit_number " +
+                "WHERE pr.status IN ('APPROVED', 'PARTIALLY_RECEIVED') " +
+                "GROUP BY pr.purchase_request_number, pr.created_date, pr.status, s.supplier_name, s.supplier_number";
 
-        List<PendingStockInDTO> pendingStockIns = jdbcTemplate.query(stockInSql, (rs, rowNum) -> 
-            PendingStockInDTO.builder()
+        List<PendingStockInDTO> pendingStockIns = jdbcTemplate.query(stockInSql, (rs, rowNum) -> PendingStockInDTO
+                .builder()
                 .purchaseRequestNumber(rs.getInt("purchase_request_number"))
-                .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime() : null)
+                .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime()
+                        : null)
                 .supplierName(rs.getString("supplier_name"))
+                .supplierNumber(rs.getInt("supplier_number"))
                 .totalItems(rs.getBigDecimal("total_items"))
                 .unitName(rs.getString("unit_name"))
                 .status(rs.getString("status"))
-                .build()
-        );
+                .build());
 
         String stockOutSql = "SELECT pr.report_number, p.product_name, pr.quantity, u.unit_name, " +
                 "('A-' || p.category_number || '-' || p.product_number) as location, pr.created_at " +
                 "FROM product_reports pr " +
                 "JOIN products p ON pr.product_number = p.product_number " +
                 "JOIN units u ON p.inventory_unit_number = u.unit_number " +
-                "WHERE pr.status = 'APPROVED' AND pr.resolved_at IS NULL AND pr.report_type IN ('DAMAGED', 'NEAR_EXPIRY', 'LOW_STOCK', 'QUALITY_ISSUE')";
+                "WHERE pr.status = 'APPROVED' AND pr.resolved_at IS NULL AND pr.report_type IN ('DAMAGED', 'NEAR_EXPIRY', 'QUALITY_ISSUE')";
 
-        List<PendingStockOutDTO> pendingStockOuts = jdbcTemplate.query(stockOutSql, (rs, rowNum) -> 
-            PendingStockOutDTO.builder()
+        List<PendingStockOutDTO> pendingStockOuts = jdbcTemplate.query(stockOutSql, (rs, rowNum) -> PendingStockOutDTO
+                .builder()
                 .reportNumber(rs.getInt("report_number"))
                 .productName(rs.getString("product_name"))
                 .quantity(rs.getBigDecimal("quantity"))
                 .unitName(rs.getString("unit_name"))
                 .location(rs.getString("location"))
-                .createdAt(rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null)
-                .build()
-        );
+                .createdAt(
+                        rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null)
+                .build());
 
         return PendingTasksDTO.builder()
                 .pendingStockIns(pendingStockIns)
@@ -181,7 +181,7 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
-    public StockInFormDataDTO getPurchaseRequestDetail(Integer prNumber) {
+    public StockInFormDataDTO getPurchaseRequestDetail(Integer prNumber, Integer supplierNumber) {
         PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
 
@@ -190,37 +190,53 @@ public class InventoryService {
             throw new IllegalArgumentException("No items found for purchase request: " + prNumber);
         }
 
-        Integer supplierNumber = null;
+        if (supplierNumber != null) {
+            details = details.stream().filter(d -> {
+                ProductSupplier ps = productSupplierRepository.findById(d.getProductSupplierNumber()).orElse(null);
+                return ps != null && supplierNumber.equals(ps.getSupplierNumber());
+            }).collect(Collectors.toList());
+            if (details.isEmpty()) {
+                throw new IllegalArgumentException("No items found for purchase request: " + prNumber + " and supplier: " + supplierNumber);
+            }
+        }
+
+        Integer finalSupplierNumber = supplierNumber;
         String supplierName = "Unknown";
 
-        // Resolve supplier from the first detail
-        Integer psNum = details.get(0).getProductSupplierNumber();
-        Optional<ProductSupplier> psOpt = productSupplierRepository.findById(psNum);
-        if (psOpt.isPresent()) {
-            supplierNumber = psOpt.get().getSupplierNumber();
-            supplierName = supplierRepository.findById(supplierNumber)
-                    .map(Supplier::getSupplierName)
+        if (finalSupplierNumber == null) {
+            // Resolve supplier from the first detail
+            Integer psNum = details.get(0).getProductSupplierNumber();
+            Optional<ProductSupplier> psOpt = productSupplierRepository.findById(psNum);
+            if (psOpt.isPresent()) {
+                finalSupplierNumber = psOpt.get().getSupplierNumber();
+            }
+        }
+
+        if (finalSupplierNumber != null) {
+            supplierName = supplierRepository.findById(finalSupplierNumber)
+                    .map(s -> s.getSupplierName())
                     .orElse("Unknown");
         }
 
         List<StockInItemDTO> items = details.stream().map(d -> {
             ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException("Product supplier mapping not found: " + d.getProductSupplierNumber()));
-            
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+
             Product p = productRepository.findById(prodSupplier.getProductNumber())
-                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + prodSupplier.getProductNumber()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product not found: " + prodSupplier.getProductNumber()));
 
             String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
 
             BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                "FROM stock_in_details sid " +
-                "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                BigDecimal.class,
-                prNumber,
-                p.getProductNumber()
-            );
+                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                            "FROM stock_in_details sid " +
+                            "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                            "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                    BigDecimal.class,
+                    prNumber,
+                    p.getProductNumber());
 
             BigDecimal requestedQty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : BigDecimal.ZERO;
             BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
@@ -241,7 +257,7 @@ public class InventoryService {
         return StockInFormDataDTO.builder()
                 .purchaseRequestNumber(pr.getPurchaseRequestNumber())
                 .supplierName(supplierName)
-                .supplierNumber(supplierNumber)
+                .supplierNumber(finalSupplierNumber)
                 .createdDate(pr.getCreatedDate())
                 .status(pr.getStatus())
                 .items(items)
@@ -251,26 +267,33 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public CompareQuantitiesResultDTO compareQuantities(CompareQuantitiesRequestDTO request) {
         Integer prNumber = request.getPurchaseRequestNumber();
+        Integer supplierNumber = request.getSupplierNumber();
         Map<Integer, BigDecimal> delivered = request.getDeliveredQuantities();
 
         List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+        if (supplierNumber != null) {
+            details = details.stream().filter(d -> {
+                ProductSupplier ps = productSupplierRepository.findById(d.getProductSupplierNumber()).orElse(null);
+                return ps != null && supplierNumber.equals(ps.getSupplierNumber());
+            }).collect(Collectors.toList());
+        }
         Map<Integer, BigDecimal> differences = new HashMap<>();
         boolean hasDiscrepancy = false;
 
         for (PurchaseRequestDetail d : details) {
             ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException("Product supplier mapping not found: " + d.getProductSupplierNumber()));
-            
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+
             Integer prodNum = prodSupplier.getProductNumber();
             BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                "FROM stock_in_details sid " +
-                "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                BigDecimal.class,
-                prNumber,
-                prodNum
-            );
+                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                            "FROM stock_in_details sid " +
+                            "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                            "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                    BigDecimal.class,
+                    prNumber,
+                    prodNum);
 
             BigDecimal requestedQty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : BigDecimal.ZERO;
             BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
@@ -278,7 +301,8 @@ public class InventoryService {
                 remainingQty = BigDecimal.ZERO;
             }
 
-            BigDecimal delQty = delivered != null && delivered.containsKey(prodNum) ? delivered.get(prodNum) : BigDecimal.ZERO;
+            BigDecimal delQty = delivered != null && delivered.containsKey(prodNum) ? delivered.get(prodNum)
+                    : BigDecimal.ZERO;
 
             BigDecimal diff = remainingQty.subtract(delQty);
             differences.put(prodNum, diff);
@@ -297,6 +321,9 @@ public class InventoryService {
 
     @Transactional
     public void validateAndSaveDeliveryIssue(DeliveryIssueRequestDTO request) {
+        if (request.getPurchaseRequestNumber() == null) {
+            throw new IllegalArgumentException("Purchase request number is required.");
+        }
         if (request.getProductNumber() == null) {
             throw new IllegalArgumentException("Product number is required.");
         }
@@ -317,13 +344,15 @@ public class InventoryService {
             reportedBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
         }
 
+        String prefixedDescription = "[PR-" + request.getPurchaseRequestNumber() + "] " + request.getDescription();
+
         ProductReport report = ProductReport.builder()
                 .reportedBy(reportedBy)
                 .productNumber(request.getProductNumber())
                 .reportType("DELIVERY_DISCREPANCY")
                 .issueType(request.getIssueType().toUpperCase())
                 .quantity(request.getQuantity().abs())
-                .description(request.getDescription())
+                .description(prefixedDescription)
                 .status("PENDING")
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -340,6 +369,71 @@ public class InventoryService {
             throw new IllegalArgumentException("Stock-in items list cannot be empty.");
         }
 
+        // 1. Load and lock purchase request
+        PurchaseRequest pr = purchaseRequestRepository.findByIdForUpdate(request.getPurchaseRequestNumber())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Purchase request not found: " + request.getPurchaseRequestNumber()));
+
+        // 2. Check status
+        if (!"APPROVED".equals(pr.getStatus()) && !"PARTIALLY_RECEIVED".equals(pr.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Purchase request is not in an eligible status for stock-in: " + pr.getStatus());
+        }
+
+        // 3. Load purchase request details
+        List<PurchaseRequestDetail> allPrDetails = purchaseRequestDetailRepository
+                .findByPurchaseRequestNumber(request.getPurchaseRequestNumber());
+        if (allPrDetails.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No items found for purchase request: " + request.getPurchaseRequestNumber());
+        }
+
+        // 4. Verify and filter details by supplier
+        Integer requestSupplierNum = request.getSupplierNumber();
+        if (requestSupplierNum == null) {
+            throw new IllegalArgumentException("Supplier number is required for Stock-In.");
+        }
+
+        List<PurchaseRequestDetail> prDetails = allPrDetails.stream().filter(prd -> {
+            ProductSupplier ps = productSupplierRepository.findById(prd.getProductSupplierNumber()).orElse(null);
+            return ps != null && requestSupplierNum.equals(ps.getSupplierNumber());
+        }).collect(Collectors.toList());
+
+        if (prDetails.isEmpty()) {
+            throw new IllegalArgumentException("No items found in purchase request " + request.getPurchaseRequestNumber() +
+                    " for supplier " + requestSupplierNum);
+        }
+
+        // 5. Build Map of product outstanding quantities
+        Map<Integer, BigDecimal> prProductOutstanding = new HashMap<>();
+        for (PurchaseRequestDetail prd : prDetails) {
+            ProductSupplier ps = productSupplierRepository.findById(prd.getProductSupplierNumber())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product supplier mapping not found: " + prd.getProductSupplierNumber()));
+            Integer productNum = ps.getProductNumber();
+
+            BigDecimal requestedQty = prd.getRequestedQuantity() != null ? prd.getRequestedQuantity() : BigDecimal.ZERO;
+
+            BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                            "FROM stock_in_details sid " +
+                            "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                            "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                    BigDecimal.class,
+                    request.getPurchaseRequestNumber(),
+                    productNum);
+
+            BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
+            if (remainingQty.compareTo(BigDecimal.ZERO) < 0) {
+                remainingQty = BigDecimal.ZERO;
+            }
+
+            prProductOutstanding.put(productNum,
+                    prProductOutstanding.getOrDefault(productNum, BigDecimal.ZERO).add(remainingQty));
+        }
+
+        // 6. Check items delivered quantities against outstanding
+        Map<Integer, BigDecimal> requestProductDelivered = new HashMap<>();
         for (StockInDetailRequestDTO item : request.getItems()) {
             if (item.getProductNumber() == null) {
                 throw new IllegalArgumentException("Product number is required for all items.");
@@ -352,8 +446,27 @@ public class InventoryService {
                     throw new IllegalArgumentException("Expiry date cannot be before manufacturing date.");
                 }
             }
+            requestProductDelivered.put(item.getProductNumber(),
+                    requestProductDelivered.getOrDefault(item.getProductNumber(), BigDecimal.ZERO)
+                            .add(item.getDeliveredQuantity()));
         }
 
+        for (Map.Entry<Integer, BigDecimal> entry : requestProductDelivered.entrySet()) {
+            Integer productNum = entry.getKey();
+            BigDecimal totalDelivered = entry.getValue();
+
+            if (!prProductOutstanding.containsKey(productNum)) {
+                throw new IllegalArgumentException("Product " + productNum + " is not part of the purchase request.");
+            }
+
+            BigDecimal outstandingQty = prProductOutstanding.get(productNum);
+            if (totalDelivered.compareTo(outstandingQty) > 0) {
+                throw new IllegalArgumentException("Over-delivery not allowed for product " + productNum +
+                        ". Outstanding: " + outstandingQty + ", Delivered: " + totalDelivered);
+            }
+        }
+
+        // Mutation starts only after all validations pass
         UUID createdBy = null;
         if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
             createdBy = UUID.fromString(request.getCreatedBy());
@@ -372,7 +485,8 @@ public class InventoryService {
         Integer stockInNumber = stockIn.getStockInNumber();
 
         for (StockInDetailRequestDTO item : request.getItems()) {
-            String batchNumber = "BATCH-" + request.getPurchaseRequestNumber() + "-" + item.getProductNumber() + "-" + (System.currentTimeMillis() % 100000);
+            String batchNumber = "BATCH-" + request.getPurchaseRequestNumber() + "-" + item.getProductNumber() + "-"
+                    + (System.currentTimeMillis() % 100000);
 
             StockInDetail detail = StockInDetail.builder()
                     .stockInNumber(stockInNumber)
@@ -396,7 +510,8 @@ public class InventoryService {
                         return inventoryRepository.save(newInv);
                     });
 
-            BigDecimal currentAvailable = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal currentAvailable = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity()
+                    : BigDecimal.ZERO;
             BigDecimal currentTotal = inv.getTotalQuantity() != null ? inv.getTotalQuantity() : BigDecimal.ZERO;
 
             inv.setAvailableQuantity(currentAvailable.add(item.getDeliveredQuantity()));
@@ -411,7 +526,8 @@ public class InventoryService {
                     .quantity(item.getDeliveredQuantity())
                     .referenceType("STOCK_IN")
                     .referenceId(stockInNumber)
-                    .reason(item.getNotes() != null && !item.getNotes().trim().isEmpty() ? item.getNotes() : "Stock-in from purchase request #" + request.getPurchaseRequestNumber())
+                    .reason(item.getNotes() != null && !item.getNotes().trim().isEmpty() ? item.getNotes()
+                            : "Stock-in from purchase request #" + request.getPurchaseRequestNumber())
                     .createdBy(createdBy)
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -419,12 +535,14 @@ public class InventoryService {
 
             final Integer currentProductNumber = item.getProductNumber();
             final Integer currentDetailNumber = detail.getStockInDetailNumber();
+            final String prPrefix = "[PR-" + request.getPurchaseRequestNumber() + "]";
             List<ProductReport> reports = productReportRepository.findAll().stream()
-                    .filter(r -> "DELIVERY_DISCREPANCY".equals(r.getReportType()) && 
-                                 r.getProductNumber().equals(currentProductNumber) && 
-                                 r.getStockInDetailNumber() == null)
+                    .filter(r -> "DELIVERY_DISCREPANCY".equals(r.getReportType()) &&
+                            r.getProductNumber().equals(currentProductNumber) &&
+                            r.getStockInDetailNumber() == null &&
+                            r.getDescription() != null && r.getDescription().startsWith(prPrefix))
                     .collect(Collectors.toList());
-            
+
             for (ProductReport report : reports) {
                 report.setStockInDetailNumber(currentDetailNumber);
                 productReportRepository.save(report);
@@ -432,22 +550,21 @@ public class InventoryService {
         }
 
         boolean allPrItemsCompleted = true;
-        List<PurchaseRequestDetail> prDetails = purchaseRequestDetailRepository.findByPurchaseRequestNumber(request.getPurchaseRequestNumber());
         for (PurchaseRequestDetail prd : prDetails) {
-            ProductSupplier prodSupplier = productSupplierRepository.findById(prd.getProductSupplierNumber()).orElse(null);
+            ProductSupplier prodSupplier = productSupplierRepository.findById(prd.getProductSupplierNumber())
+                    .orElse(null);
             if (prodSupplier != null) {
                 Integer prodNum = prodSupplier.getProductNumber();
                 BigDecimal reqQty = prd.getRequestedQuantity() != null ? prd.getRequestedQuantity() : BigDecimal.ZERO;
 
                 BigDecimal totalDelivered = jdbcTemplate.queryForObject(
-                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                    "FROM stock_in_details sid " +
-                    "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                    "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                    BigDecimal.class,
-                    request.getPurchaseRequestNumber(),
-                    prodNum
-                );
+                        "SELECT COALESCE(SUM(sid.quantity), 0) " +
+                                "FROM stock_in_details sid " +
+                                "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                                "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
+                        BigDecimal.class,
+                        request.getPurchaseRequestNumber(),
+                        prodNum);
 
                 if (totalDelivered.compareTo(reqQty) < 0) {
                     allPrItemsCompleted = false;
@@ -455,15 +572,12 @@ public class InventoryService {
             }
         }
 
-        PurchaseRequest pr = purchaseRequestRepository.findById(request.getPurchaseRequestNumber()).orElse(null);
-        if (pr != null) {
-            if (allPrItemsCompleted) {
-                pr.setStatus("COMPLETED");
-            } else {
-                pr.setStatus("PARTIALLY_RECEIVED");
-            }
-            purchaseRequestRepository.save(pr);
+        if (allPrItemsCompleted) {
+            pr.setStatus("COMPLETED");
+        } else {
+            pr.setStatus("PARTIALLY_RECEIVED");
         }
+        purchaseRequestRepository.save(pr);
     }
 
     @Transactional(readOnly = true)
@@ -482,7 +596,8 @@ public class InventoryService {
                 : BigDecimal.ZERO;
 
         String unitName = product.getUnit() != null ? product.getUnit().getUnitName() : "Unit";
-        String location = "A-" + (product.getCategoryNumber() != null ? product.getCategoryNumber() : "0") + "-" + product.getProductNumber();
+        String location = "A-" + (product.getCategoryNumber() != null ? product.getCategoryNumber() : "0") + "-"
+                + product.getProductNumber();
 
         return StockOutFormDataDTO.builder()
                 .reportNumber(report.getReportNumber())
@@ -509,7 +624,13 @@ public class InventoryService {
         }
 
         ProductReport report = productReportRepository.findById(request.getReportNumber())
-                .orElseThrow(() -> new IllegalArgumentException("Product report not found: " + request.getReportNumber()));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Product report not found: " + request.getReportNumber()));
+
+        String reportType = report.getReportType();
+        if (!"DAMAGED".equals(reportType) && !"NEAR_EXPIRY".equals(reportType) && !"QUALITY_ISSUE".equals(reportType)) {
+            throw new IllegalArgumentException("Report type is not eligible for stock-out: " + reportType);
+        }
 
         if (!"APPROVED".equals(report.getStatus())) {
             throw new IllegalArgumentException("Product report is not approved for stock-out.");
@@ -522,11 +643,13 @@ public class InventoryService {
         BigDecimal quantityToStockOut = request.getQuantity();
 
         Inventory inventory = inventoryRepository.findByIdForUpdate(productNumber)
-                .orElseThrow(() -> new IllegalArgumentException("Inventory record not found for product: " + productNumber));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Inventory record not found for product: " + productNumber));
 
-        BigDecimal availableQty = inventory.getAvailableQuantity() != null ? inventory.getAvailableQuantity() : BigDecimal.ZERO;
+        BigDecimal availableQty = inventory.getAvailableQuantity() != null ? inventory.getAvailableQuantity()
+                : BigDecimal.ZERO;
         if (availableQty.compareTo(quantityToStockOut) < 0) {
-            throw new IllegalArgumentException("Insufficient inventory to record stock-out. Available: " 
+            throw new IllegalArgumentException("Insufficient inventory to record stock-out. Available: "
                     + availableQty + ", Requested: " + quantityToStockOut);
         }
 
@@ -542,7 +665,8 @@ public class InventoryService {
 
         StockOut stockOut = StockOut.builder()
                 .createdBy(createdBy)
-                .reason(request.getReason() != null ? request.getReason() : "Stock-out for report #" + request.getReportNumber())
+                .reason(request.getReason() != null ? request.getReason()
+                        : "Stock-out for report #" + request.getReportNumber())
                 .createdDate(LocalDateTime.now())
                 .build();
         stockOut = stockOutRepository.save(stockOut);
@@ -553,7 +677,8 @@ public class InventoryService {
                 break;
             }
 
-            BigDecimal batchRemaining = batch.getRemainingQuantity() != null ? batch.getRemainingQuantity() : BigDecimal.ZERO;
+            BigDecimal batchRemaining = batch.getRemainingQuantity() != null ? batch.getRemainingQuantity()
+                    : BigDecimal.ZERO;
             if (batchRemaining.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
@@ -596,9 +721,10 @@ public class InventoryService {
                 .quantity(quantityToStockOut)
                 .referenceType("STOCK_OUT")
                 .referenceId(stockOutNumber)
-                .reason(request.getNotes() != null && !request.getNotes().trim().isEmpty() 
-                        ? request.getNotes() 
-                        : (request.getReason() != null ? request.getReason() : "Stock-out from report #" + request.getReportNumber()))
+                .reason(request.getNotes() != null && !request.getNotes().trim().isEmpty()
+                        ? request.getNotes()
+                        : (request.getReason() != null ? request.getReason()
+                                : "Stock-out from report #" + request.getReportNumber()))
                 .createdBy(createdBy)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -613,32 +739,33 @@ public class InventoryService {
     public List<PurchaseRequestListDTO> getPurchaseRequests() {
         String sql = "SELECT pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, " +
                 "p1.full_name as creator_name, p2.full_name as approver_name, " +
-                "(SELECT s.supplier_name FROM purchase_request_details prd " +
-                " JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
-                " JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
-                " WHERE prd.purchase_request_number = pr.purchase_request_number LIMIT 1) as supplier_name, " +
-                "(SELECT COALESCE(SUM(prd.requested_quantity), 0) FROM purchase_request_details prd " +
-                " WHERE prd.purchase_request_number = pr.purchase_request_number) as total_quantity, " +
-                "(SELECT COUNT(*) FROM purchase_request_details prd " +
-                " WHERE prd.purchase_request_number = pr.purchase_request_number) as total_items " +
+                "MAX(s.supplier_name) as supplier_name, " +
+                "COALESCE(SUM(prd.requested_quantity), 0) as total_quantity, " +
+                "COUNT(prd.purchase_request_detail_number) as total_items " +
                 "FROM purchase_requests pr " +
                 "LEFT JOIN profiles p1 ON pr.created_by = p1.user_id " +
                 "LEFT JOIN profiles p2 ON pr.approved_by = p2.user_id " +
+                "LEFT JOIN purchase_request_details prd ON pr.purchase_request_number = prd.purchase_request_number " +
+                "LEFT JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
+                "LEFT JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
+                "GROUP BY pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, p1.full_name, p2.full_name "
+                +
                 "ORDER BY pr.created_date DESC";
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> 
-            PurchaseRequestListDTO.builder()
+        return jdbcTemplate.query(sql, (rs, rowNum) -> PurchaseRequestListDTO.builder()
                 .purchaseRequestNumber(rs.getInt("purchase_request_number"))
                 .createdBy(rs.getString("creator_name") != null ? rs.getString("creator_name") : "System")
                 .status(rs.getString("status"))
-                .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime() : null)
+                .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime()
+                        : null)
                 .approvedBy(rs.getString("approver_name"))
-                .approvedDate(rs.getTimestamp("approved_date") != null ? rs.getTimestamp("approved_date").toLocalDateTime() : null)
+                .approvedDate(
+                        rs.getTimestamp("approved_date") != null ? rs.getTimestamp("approved_date").toLocalDateTime()
+                                : null)
                 .supplierName(rs.getString("supplier_name") != null ? rs.getString("supplier_name") : "Various")
                 .totalQuantity(rs.getBigDecimal("total_quantity"))
                 .totalItems(rs.getInt("total_items"))
-                .build()
-        );
+                .build());
     }
 
     @Transactional(readOnly = true)
@@ -652,8 +779,7 @@ public class InventoryService {
                 creatorName = jdbcTemplate.queryForObject(
                         "SELECT COALESCE(full_name, 'System') FROM profiles WHERE user_id = ?",
                         String.class,
-                        pr.getCreatedBy()
-                );
+                        pr.getCreatedBy());
             } catch (Exception e) {
                 // Ignore
             }
@@ -665,8 +791,7 @@ public class InventoryService {
                 approverName = jdbcTemplate.queryForObject(
                         "SELECT full_name FROM profiles WHERE user_id = ?",
                         String.class,
-                        pr.getApprovedBy()
-                );
+                        pr.getApprovedBy());
             } catch (Exception e) {
                 // Ignore
             }
@@ -676,15 +801,17 @@ public class InventoryService {
 
         List<PurchaseRequestItemDTO> items = details.stream().map(d -> {
             ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException("Product supplier mapping not found: " + d.getProductSupplierNumber()));
-            
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+
             Product p = productRepository.findById(prodSupplier.getProductNumber())
-                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + prodSupplier.getProductNumber()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Product not found: " + prodSupplier.getProductNumber()));
 
             String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
 
             String supplierName = supplierRepository.findById(prodSupplier.getSupplierNumber())
-                    .map(Supplier::getSupplierName)
+                    .map(s -> s.getSupplierName())
                     .orElse("Unknown");
 
             return PurchaseRequestItemDTO.builder()
@@ -715,11 +842,11 @@ public class InventoryService {
                 .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
 
         if (!"DRAFT".equals(pr.getStatus())) {
-            throw new IllegalArgumentException("Only DRAFT purchase requests can be submitted. Current status: " + pr.getStatus());
+            throw new IllegalArgumentException(
+                    "Only DRAFT purchase requests can be submitted. Current status: " + pr.getStatus());
         }
 
         pr.setStatus("PENDING");
-        pr.setCreatedDate(LocalDateTime.now());
         purchaseRequestRepository.save(pr);
     }
 }

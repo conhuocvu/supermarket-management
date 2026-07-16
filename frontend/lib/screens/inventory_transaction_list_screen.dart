@@ -313,8 +313,9 @@ class _InventoryTransactionListScreenState
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: FilledButton(
                         onPressed: () async {
+                          final supplierQuery = item.supplierNumber != null ? '?supplierNumber=${item.supplierNumber}' : '';
                           final result = await context.push<bool>(
-                            '/stock/transactions/record-stock-in/${item.purchaseRequestNumber}',
+                            '/stock/transactions/record-stock-in/${item.purchaseRequestNumber}$supplierQuery',
                           );
                           if (result == true) {
                             ref.invalidate(pendingTasksProvider);

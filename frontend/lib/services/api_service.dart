@@ -422,11 +422,14 @@ class ApiService {
   // Stock-In Methods
   // ==========================================
 
-  Future<Map<String, dynamic>> fetchStockInFormData(int prNumber) async {
+  Future<Map<String, dynamic>> fetchStockInFormData(int prNumber, int? supplierNumber) async {
     try {
       final response = await _dio.get(
         '/stock-ins/form-data',
-        queryParameters: {'purchaseRequestNumber': prNumber},
+        queryParameters: {
+          'purchaseRequestNumber': prNumber,
+          if (supplierNumber != null) 'supplierNumber': supplierNumber,
+        },
       );
       if (response.statusCode == 200) {
         final body = response.data;
@@ -447,6 +450,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> compareStockInQuantities(
     int prNumber,
+    int? supplierNumber,
     Map<int, double> deliveredQuantities,
   ) async {
     try {
@@ -456,6 +460,7 @@ class ApiService {
         '/stock-ins/compare-quantities',
         data: {
           'purchaseRequestNumber': prNumber,
+          if (supplierNumber != null) 'supplierNumber': supplierNumber,
           'deliveredQuantities': stringKeysMap,
         },
       );

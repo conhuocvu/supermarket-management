@@ -154,6 +154,7 @@ public class InventoryServicePurchaseRequestTests {
         PurchaseRequest pr = PurchaseRequest.builder()
                 .purchaseRequestNumber(2)
                 .status("DRAFT")
+                .createdDate(LocalDateTime.now())
                 .build();
         when(purchaseRequestRepository.findById(2)).thenReturn(Optional.of(pr));
 

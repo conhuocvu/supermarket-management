@@ -5,6 +5,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 class BackendApplicationTests {
+	static {
+		BackendApplication.loadDotEnv();
+	}
 
 	@org.springframework.beans.factory.annotation.Autowired
 	private com.supermarket.backend.service.InventoryProductService inventoryProductService;

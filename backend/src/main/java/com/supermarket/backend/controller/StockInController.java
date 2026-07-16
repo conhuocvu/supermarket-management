@@ -18,9 +18,11 @@ public class StockInController {
     private final InventoryService inventoryService;
 
     @GetMapping("/form-data")
-    public ResponseEntity<Map<String, Object>> getFormData(@RequestParam("purchaseRequestNumber") Integer prNumber) {
+    public ResponseEntity<Map<String, Object>> getFormData(
+            @RequestParam("purchaseRequestNumber") Integer prNumber,
+            @RequestParam(value = "supplierNumber", required = false) Integer supplierNumber) {
         try {
-            StockInFormDataDTO data = inventoryService.getPurchaseRequestDetail(prNumber);
+            StockInFormDataDTO data = inventoryService.getPurchaseRequestDetail(prNumber, supplierNumber);
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Stock-In form data loaded successfully.");

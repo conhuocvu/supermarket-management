@@ -15,6 +15,7 @@ public class PendingStockInDTO {
     private Integer purchaseRequestNumber;
     private LocalDateTime createdDate;
     private String supplierName;
+    private Integer supplierNumber;
     private BigDecimal totalItems;
     private String unitName;
     private String status;

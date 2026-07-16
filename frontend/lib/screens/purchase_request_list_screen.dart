@@ -10,13 +10,16 @@ class PurchaseRequestListScreen extends ConsumerStatefulWidget {
   const PurchaseRequestListScreen({super.key});
 
   @override
-  ConsumerState<PurchaseRequestListScreen> createState() => _PurchaseRequestListScreenState();
+  ConsumerState<PurchaseRequestListScreen> createState() =>
+      _PurchaseRequestListScreenState();
 }
 
 class _InventorySearchController extends TextEditingController {}
 
-class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListScreen> {
-  final _InventorySearchController _searchController = _InventorySearchController();
+class _PurchaseRequestListScreenState
+    extends ConsumerState<PurchaseRequestListScreen> {
+  final _InventorySearchController _searchController =
+      _InventorySearchController();
   String _selectedStatus = 'ALL';
   String _searchQuery = '';
 
@@ -24,7 +27,9 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(shellLayoutProvider.notifier).update(
+      ref
+          .read(shellLayoutProvider.notifier)
+          .update(
             title: 'Purchase Requests',
             actions: [],
             breadcrumbs: ['Inventory', 'Purchase Requests'],
@@ -67,11 +72,20 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                 child: prAsync.when(
                   data: (requests) {
                     final filteredRequests = requests.where((pr) {
-                      final matchesStatus = _selectedStatus == 'ALL' ||
-                          pr.status.toUpperCase() == _selectedStatus.toUpperCase();
-                      final matchesSearch = pr.purchaseRequestNumber.toString().contains(_searchQuery) ||
-                          pr.createdBy.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                          pr.supplierName.toLowerCase().contains(_searchQuery.toLowerCase());
+                      final matchesStatus =
+                          _selectedStatus == 'ALL' ||
+                          pr.status.toUpperCase() ==
+                              _selectedStatus.toUpperCase();
+                      final matchesSearch =
+                          pr.purchaseRequestNumber.toString().contains(
+                            _searchQuery,
+                          ) ||
+                          pr.createdBy.toLowerCase().contains(
+                            _searchQuery.toLowerCase(),
+                          ) ||
+                          pr.supplierName.toLowerCase().contains(
+                            _searchQuery.toLowerCase(),
+                          );
                       return matchesStatus && matchesSearch;
                     }).toList();
 
@@ -83,7 +97,8 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                             Icon(
                               Icons.search_off_outlined,
                               size: 64,
-                              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -97,7 +112,8 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                             Text(
                               'Try adjusting your search query or status filter.',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -117,10 +133,11 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                             scrollDirection: Axis.horizontal,
                             child: DataTable(
                               showCheckboxColumn: false,
-                              headingTextStyle: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface,
-                              ),
+                              headingTextStyle: theme.textTheme.labelLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
                               dataRowMinHeight: 56,
                               dataRowMaxHeight: 56,
                               columns: const [
@@ -135,23 +152,41 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                               ],
                               rows: filteredRequests.map((pr) {
                                 return DataRow(
-                                  onSelectChanged: (_) => _showRequestDetails(context, pr.purchaseRequestNumber),
+                                  onSelectChanged: (_) => _showRequestDetails(
+                                    context,
+                                    pr.purchaseRequestNumber,
+                                  ),
                                   cells: [
-                                    DataCell(Text('#${pr.purchaseRequestNumber}')),
+                                    DataCell(
+                                      Text('#${pr.purchaseRequestNumber}'),
+                                    ),
                                     DataCell(Text(pr.createdBy)),
-                                    DataCell(Text(pr.createdDate != null
-                                        ? DateFormat('dd/MM/yyyy HH:mm').format(pr.createdDate!)
-                                        : 'N/A')),
+                                    DataCell(
+                                      Text(
+                                        pr.createdDate != null
+                                            ? DateFormat(
+                                                'dd/MM/yyyy HH:mm',
+                                              ).format(pr.createdDate!)
+                                            : 'N/A',
+                                      ),
+                                    ),
                                     DataCell(Text(pr.supplierName)),
                                     DataCell(Text('${pr.totalItems}')),
                                     DataCell(Text('${pr.totalQuantity}')),
-                                    DataCell(_buildStatusBadge(theme, pr.status)),
+                                    DataCell(
+                                      _buildStatusBadge(theme, pr.status),
+                                    ),
                                     DataCell(
                                       IconButton(
-                                        icon: const Icon(Icons.visibility_outlined),
+                                        icon: const Icon(
+                                          Icons.visibility_outlined,
+                                        ),
                                         tooltip: 'View Details',
                                         color: theme.colorScheme.primary,
-                                        onPressed: () => _showRequestDetails(context, pr.purchaseRequestNumber),
+                                        onPressed: () => _showRequestDetails(
+                                          context,
+                                          pr.purchaseRequestNumber,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -163,21 +198,32 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                       ),
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Container(
                         padding: const EdgeInsets.all(24.0),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.errorContainer.withValues(alpha: 0.1),
-                          border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.2)),
+                          color: theme.colorScheme.errorContainer.withValues(
+                            alpha: 0.1,
+                          ),
+                          border: Border.all(
+                            color: theme.colorScheme.error.withValues(
+                              alpha: 0.2,
+                            ),
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.error_outline, color: theme.colorScheme.error, size: 48),
+                            Icon(
+                              Icons.error_outline,
+                              color: theme.colorScheme.error,
+                              size: 48,
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'Purchase request data cannot be loaded.',
@@ -188,20 +234,24 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              err.toString().replaceAll('Exception:', '').trim(),
+                              err
+                                  .toString()
+                                  .replaceAll('Exception:', '')
+                                  .trim(),
                               style: theme.textTheme.bodyMedium,
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
                             FilledButton.icon(
-                              onPressed: () => ref.invalidate(purchaseRequestsProvider),
+                              onPressed: () =>
+                                  ref.invalidate(purchaseRequestsProvider),
                               icon: const Icon(Icons.refresh),
                               label: const Text('Retry'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: theme.colorScheme.error,
                                 foregroundColor: theme.colorScheme.onError,
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -260,23 +310,31 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
           // Status Tabs/Filters
           Wrap(
             spacing: 8,
-            children: ['ALL', 'DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'COMPLETED'].map((status) {
-              final isSelected = _selectedStatus == status;
-              return ChoiceChip(
-                label: Text(status),
-                selected: isSelected,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() {
-                      _selectedStatus = status;
-                    });
-                  }
-                },
-              );
-            }).toList(),
+            children:
+                [
+                  'ALL',
+                  'DRAFT',
+                  'PENDING',
+                  'APPROVED',
+                  'REJECTED',
+                  'COMPLETED',
+                ].map((status) {
+                  final isSelected = _selectedStatus == status;
+                  return ChoiceChip(
+                    label: Text(status),
+                    selected: isSelected,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedStatus = status;
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
           ),
         ],
       ),
@@ -339,7 +397,9 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
       context: context,
       builder: (dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
             child: FutureBuilder<PurchaseRequestDetail>(
@@ -358,7 +418,11 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.error_outline, color: theme.colorScheme.error, size: 48),
+                        Icon(
+                          Icons.error_outline,
+                          color: theme.colorScheme.error,
+                          size: 48,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Purchase request details cannot be loaded.',
@@ -369,7 +433,10 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          snapshot.error.toString().replaceAll('Exception:', '').trim(),
+                          snapshot.error
+                              .toString()
+                              .replaceAll('Exception:', '')
+                              .trim(),
                           style: theme.textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 24),
@@ -385,7 +452,8 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                 final detail = snapshot.data!;
                 final totalPrCost = detail.items.fold<double>(
                   0.0,
-                  (sum, item) => sum + (item.requestedQuantity * item.importPrice),
+                  (sum, item) =>
+                      sum + (item.requestedQuantity * item.importPrice),
                 );
 
                 return Padding(
@@ -403,7 +471,9 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                             children: [
                               Text(
                                 'Purchase Request #${detail.purchaseRequestNumber}',
-                                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -426,14 +496,27 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                         spacing: 24,
                         runSpacing: 12,
                         children: [
-                          _buildDetailField('Created Date', detail.createdDate != null
-                              ? DateFormat('dd/MM/yyyy HH:mm').format(detail.createdDate!)
-                              : 'N/A'),
+                          _buildDetailField(
+                            'Created Date',
+                            detail.createdDate != null
+                                ? DateFormat(
+                                    'dd/MM/yyyy HH:mm',
+                                  ).format(detail.createdDate!)
+                                : 'N/A',
+                          ),
                           if (detail.approvedBy != null) ...[
-                            _buildDetailField('Approved By', detail.approvedBy!),
-                            _buildDetailField('Approved Date', detail.approvedDate != null
-                                ? DateFormat('dd/MM/yyyy HH:mm').format(detail.approvedDate!)
-                                : 'N/A'),
+                            _buildDetailField(
+                              'Approved By',
+                              detail.approvedBy!,
+                            ),
+                            _buildDetailField(
+                              'Approved Date',
+                              detail.approvedDate != null
+                                  ? DateFormat(
+                                      'dd/MM/yyyy HH:mm',
+                                    ).format(detail.approvedDate!)
+                                  : 'N/A',
+                            ),
                           ],
                         ],
                       ),
@@ -442,7 +525,9 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                       // Items Table
                       Text(
                         'Requested Items',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Flexible(
@@ -450,16 +535,18 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                            side: BorderSide(
+                              color: theme.colorScheme.outlineVariant
+                                  .withValues(alpha: 0.5),
+                            ),
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: SingleChildScrollView(
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: DataTable(
-                                headingTextStyle: theme.textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                headingTextStyle: theme.textTheme.labelMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                                 columns: const [
                                   DataColumn(label: Text('Product')),
                                   DataColumn(label: Text('SKU')),
@@ -469,15 +556,26 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                                   DataColumn(label: Text('Total')),
                                 ],
                                 rows: detail.items.map((item) {
-                                  final total = item.requestedQuantity * item.importPrice;
+                                  final total =
+                                      item.requestedQuantity * item.importPrice;
                                   return DataRow(
                                     cells: [
                                       DataCell(Text(item.productName)),
                                       DataCell(Text(item.sku)),
                                       DataCell(Text(item.supplierName)),
-                                      DataCell(Text('${item.requestedQuantity} ${item.unitName}')),
-                                      DataCell(Text('\$${item.importPrice.toStringAsFixed(2)}')),
-                                      DataCell(Text('\$${total.toStringAsFixed(2)}')),
+                                      DataCell(
+                                        Text(
+                                          '${item.requestedQuantity} ${item.unitName}',
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          '\$${item.importPrice.toStringAsFixed(2)}',
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text('\$${total.toStringAsFixed(2)}'),
+                                      ),
                                     ],
                                   );
                                 }).toList(),
@@ -494,7 +592,9 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                         children: [
                           Text(
                             'Estimated Total Cost: ',
-                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           Text(
                             '\$${totalPrCost.toStringAsFixed(2)}',
@@ -523,11 +623,15 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                                 builder: (context, setDialogState) {
                                   return isSubmitting
                                       ? const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 16),
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
                                           child: SizedBox(
                                             width: 24,
                                             height: 24,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
                                           ),
                                         )
                                       : FilledButton.icon(
@@ -536,14 +640,30 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                                               isSubmitting = true;
                                             });
                                             try {
-                                              final ok = await apiService.submitPurchaseRequestForApproval(detail.purchaseRequestNumber);
-                                              if (ok && context.mounted) {
+                                              final ok = await apiService
+                                                  .submitPurchaseRequestForApproval(
+                                                    detail
+                                                        .purchaseRequestNumber,
+                                                  );
+                                              if (!ok) {
+                                                throw Exception(
+                                                  'Server rejected request.',
+                                                );
+                                              }
+                                              if (context.mounted) {
                                                 Navigator.pop(dialogContext);
-                                                ref.invalidate(purchaseRequestsProvider);
-                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                ref.invalidate(
+                                                  purchaseRequestsProvider,
+                                                );
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
                                                   const SnackBar(
-                                                    content: Text('Purchase request submitted for approval successfully.'),
-                                                    backgroundColor: Colors.green,
+                                                    content: Text(
+                                                      'Purchase request submitted for approval successfully.',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
                                                   ),
                                                 );
                                               }
@@ -552,17 +672,24 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
                                                 isSubmitting = false;
                                               });
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
                                                   SnackBar(
-                                                    content: Text('Failed to submit: $e'),
-                                                    backgroundColor: theme.colorScheme.error,
+                                                    content: Text(
+                                                      'Failed to submit: $e',
+                                                    ),
+                                                    backgroundColor:
+                                                        theme.colorScheme.error,
                                                   ),
                                                 );
                                               }
                                             }
                                           },
                                           icon: const Icon(Icons.send_outlined),
-                                          label: const Text('Submit for Approval'),
+                                          label: const Text(
+                                            'Submit for Approval',
+                                          ),
                                         );
                                 },
                               );
@@ -587,7 +714,11 @@ class _PurchaseRequestListScreenState extends ConsumerState<PurchaseRequestListS
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+          ),
         ),
         const SizedBox(height: 4),
         Text(

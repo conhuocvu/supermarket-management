@@ -295,8 +295,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (context, state) {
                       final prNumberStr = state.pathParameters['prNumber'] ?? '';
                       final prNumber = int.tryParse(prNumberStr) ?? 0;
+                      final supplierNumberStr = state.uri.queryParameters['supplierNumber'];
+                      final supplierNumber = supplierNumberStr != null ? int.tryParse(supplierNumberStr) : null;
                       return NoTransitionPage(
-                        child: StockInFormScreen(purchaseRequestNumber: prNumber),
+                        child: StockInFormScreen(
+                          purchaseRequestNumber: prNumber,
+                          supplierNumber: supplierNumber,
+                        ),
                       );
                     },
                   ),

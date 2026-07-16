@@ -2,6 +2,7 @@ class PendingStockIn {
   final int? purchaseRequestNumber;
   final DateTime? createdDate;
   final String? supplierName;
+  final int? supplierNumber;
   final num? totalItems;
   final String? unitName;
   final String? status;
@@ -10,6 +11,7 @@ class PendingStockIn {
     this.purchaseRequestNumber,
     this.createdDate,
     this.supplierName,
+    this.supplierNumber,
     this.totalItems,
     this.unitName,
     this.status,
@@ -20,6 +22,7 @@ class PendingStockIn {
       purchaseRequestNumber: json['purchaseRequestNumber'],
       createdDate: json['createdDate'] != null ? DateTime.parse(json['createdDate']) : null,
       supplierName: json['supplierName'],
+      supplierNumber: json['supplierNumber'],
       totalItems: json['totalItems'],
       unitName: json['unitName'],
       status: json['status'],
