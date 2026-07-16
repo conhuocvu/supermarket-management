@@ -116,7 +116,6 @@ public class InventoryProductService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void createPurchaseRequest(List<Integer> productNumbers) {
         if (productNumbers == null || productNumbers.isEmpty()) {
             throw new IllegalArgumentException("Product list cannot be empty");
@@ -658,7 +657,6 @@ public class InventoryProductService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public ProductAdjustmentDTO adjustProductQuantity(int productNumber, String adjustmentType, BigDecimal quantity, String reason) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Adjustment quantity must be greater than zero.");

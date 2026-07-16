@@ -8,7 +8,6 @@ import java.io.FileReader;
 import java.io.IOException;
 
 @SpringBootApplication
-@org.springframework.cache.annotation.EnableCaching
 public class BackendApplication {
 
 	public static void main(String[] args) {

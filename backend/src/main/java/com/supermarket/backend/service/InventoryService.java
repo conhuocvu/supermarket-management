@@ -47,7 +47,6 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable("dashboardData")
     public DashboardDataDTO getDashboardData() {
         long totalProducts = productRepository.count();
         long lowStockCount = inventoryRepository.countLowStock();
@@ -408,7 +407,6 @@ public class InventoryService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void recordStockIn(StockInRequestDTO request) {
         if (request.getPurchaseRequestNumber() == null) {
             throw new IllegalArgumentException("Purchase request number is required.");
@@ -688,7 +686,6 @@ public class InventoryService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void recordStockOut(StockOutRequestDTO request) {
         if (request.getReportNumber() == null) {
             throw new IllegalArgumentException("Report number is required.");
@@ -911,7 +908,6 @@ public class InventoryService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void submitPurchaseRequest(Integer prNumber) {
         PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
