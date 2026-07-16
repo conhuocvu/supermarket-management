@@ -88,12 +88,6 @@ class AppScaffold extends ConsumerWidget {
               'route': '/stock/reports',
               'active': false,
             },
-            {
-              'title': 'Profile',
-              'icon': Icons.person_outline,
-              'route': '/profile',
-              'active': currentPath == '/profile',
-            },
           ]
         : [
             {
