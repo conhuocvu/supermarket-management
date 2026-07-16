@@ -21,6 +21,7 @@ import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/role_screens.dart';
+import 'screens/manager_dashboard_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -203,7 +204,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),
       GoRoute(
         path: '/manager',
-        builder: (context, state) => const ManagerScreen(),
+        builder: (context, state) => const ManagerDashboardScreen(),
       ),
       GoRoute(
         path: '/sales',

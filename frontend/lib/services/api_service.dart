@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/dashboard_data.dart';
+import '../models/manager_dashboard_data.dart';
 import '../models/category_item.dart';
 import '../models/inventory_product.dart';
 import '../models/inventory_product_detail.dart';
@@ -38,6 +39,30 @@ class ApiService {
       } else {
         throw Exception(
           'Failed to load dashboard data: HTTP ${response.statusCode}',
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<ManagerDashboardData> fetchManagerDashboardData() async {
+    try {
+      final response = await _dio.get('/manager/dashboard');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return ManagerDashboardData.fromJson(body['data']);
+        } else {
+          throw Exception(
+            body['message'] ?? 'Failed to load manager dashboard data.',
+          );
+        }
+      } else {
+        throw Exception(
+          'Failed to load manager dashboard data: HTTP ${response.statusCode}',
         );
       }
     } on DioException catch (e) {
