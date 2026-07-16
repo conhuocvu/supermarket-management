@@ -667,8 +667,9 @@ class _PurchaseRequestFormScreenState
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<ProductFormData>(
+                  isExpanded: true,
                   value: row.selectedProduct,
-                  hint: const Text('Select Product'),
+                  hint: const Text('Select Product', overflow: TextOverflow.ellipsis),
                   decoration: InputDecoration(
                     labelText: 'Product',
                     filled: true,
@@ -682,7 +683,7 @@ class _PurchaseRequestFormScreenState
                   items: activeProducts.map((p) {
                     return DropdownMenuItem<ProductFormData>(
                       value: p,
-                      child: Text(p.productName),
+                      child: Text(p.productName, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (prod) {
@@ -708,8 +709,9 @@ class _PurchaseRequestFormScreenState
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<ProductSupplierInfo>(
+                  isExpanded: true,
                   value: row.selectedSupplier,
-                  hint: const Text('[Select Supplier]'),
+                  hint: const Text('Select Supplier', overflow: TextOverflow.ellipsis),
                   decoration: InputDecoration(
                     labelText: 'Supplier',
                     filled: true,
@@ -723,7 +725,7 @@ class _PurchaseRequestFormScreenState
                   items: row.selectedProduct?.suppliers.map((s) {
                     return DropdownMenuItem<ProductSupplierInfo>(
                       value: s,
-                      child: Text(s.supplierName),
+                      child: Text(s.supplierName, overflow: TextOverflow.ellipsis),
                     );
                   }).toList() ?? [],
                   onChanged: (supp) {
@@ -818,6 +820,7 @@ class _PurchaseRequestFormScreenState
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: row.selectedReason,
                   decoration: InputDecoration(
                     labelText: 'Reason',
@@ -832,7 +835,7 @@ class _PurchaseRequestFormScreenState
                   items: _reasonsList.map((reason) {
                     return DropdownMenuItem<String>(
                       value: reason,
-                      child: Text(reason),
+                      child: Text(reason, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (val) {

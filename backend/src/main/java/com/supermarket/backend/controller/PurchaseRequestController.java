@@ -45,16 +45,16 @@ public class PurchaseRequestController {
             if (userIdStr != null && !userIdStr.trim().isEmpty()) {
                 userId = UUID.fromString(userIdStr);
             }
-            
-            com.supermarket.backend.dto.PurchaseRequestSaveDraftDTO emptyDto = com.supermarket.backend.dto.PurchaseRequestSaveDraftDTO.builder()
-                    .items(java.util.Collections.emptyList())
-                    .build();
-            PurchaseRequest pr = inventoryService.saveDraftPurchaseRequest(userId, emptyDto);
+
+            // Use findOrCreateDraft (does NOT clear existing items)
+            PurchaseRequest pr = inventoryService.findOrCreateDraftPurchaseRequest(userId);
             com.supermarket.backend.dto.PurchaseRequestDetailDTO details = inventoryService.getPurchaseRequestDetails(pr.getPurchaseRequestNumber());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Draft purchase request loaded successfully.");
+            response.put("message", details.getItems().isEmpty()
+                    ? "New draft purchase request created."
+                    : "Existing draft loaded with " + details.getItems().size() + " item(s).");
             response.put("data", details);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {

@@ -1032,6 +1032,27 @@ public class InventoryService {
                 .build();
     }
 
+    /**
+     * Finds an existing DRAFT purchase request for the user, or creates a new empty one.
+     * Does NOT modify any existing items — safe to call on page open.
+     */
+    @Transactional
+    public PurchaseRequest findOrCreateDraftPurchaseRequest(UUID userId) {
+        if (userId == null) {
+            userId = getDefaultUserId();
+        }
+        final UUID finalUserId = userId;
+        return purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
+                .orElseGet(() -> {
+                    PurchaseRequest newPr = PurchaseRequest.builder()
+                            .status("DRAFT")
+                            .createdBy(finalUserId)
+                            .createdDate(LocalDateTime.now())
+                            .build();
+                    return purchaseRequestRepository.save(newPr);
+                });
+    }
+
     @Transactional
     public PurchaseRequest saveDraftPurchaseRequest(UUID userId, PurchaseRequestSaveDraftDTO dto) {
         if (userId == null) {
