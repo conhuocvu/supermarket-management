@@ -183,6 +183,16 @@ class ProductFormData {
       suppliers: listSuppliers.map((item) => ProductSupplierInfo.fromJson(item)).toList(),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProductFormData &&
+          runtimeType == other.runtimeType &&
+          productNumber == other.productNumber;
+
+  @override
+  int get hashCode => productNumber.hashCode;
 }
 
 class ProductSupplierInfo {
@@ -206,4 +216,14 @@ class ProductSupplierInfo {
       minimumOrderQuantity: (json['minimumOrderQuantity'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProductSupplierInfo &&
+          runtimeType == other.runtimeType &&
+          supplierNumber == other.supplierNumber;
+
+  @override
+  int get hashCode => supplierNumber.hashCode;
 }

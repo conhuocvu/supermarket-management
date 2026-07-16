@@ -6,6 +6,7 @@ import '../models/purchase_request.dart';
 import '../providers/purchase_request_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/auth_provider.dart';
 
 class PurchaseRequestListScreen extends ConsumerStatefulWidget {
   const PurchaseRequestListScreen({super.key});
@@ -49,9 +50,15 @@ class _PurchaseRequestListScreenState
     final theme = Theme.of(context);
     final prAsync = ref.watch(purchaseRequestsProvider);
 
-    // Detect if there's an existing draft with items
+    final authState = ref.watch(authProvider);
+    final currentUserFullName = authState.profile?.fullName ?? 'John Doe';
+
+    // Detect if there's an existing draft with items created by the current user
     final draftRequest = prAsync.whenData((list) =>
-      list.where((pr) => pr.status.toUpperCase() == 'DRAFT').firstOrNull
+      list.where((pr) => 
+        pr.status.toUpperCase() == 'DRAFT' && 
+        pr.createdBy.toLowerCase() == currentUserFullName.toLowerCase()
+      ).firstOrNull
     ).value;
     final hasDraft = draftRequest != null;
     final draftItemCount = draftRequest?.totalItems ?? 0;
@@ -86,6 +93,12 @@ class _PurchaseRequestListScreenState
                 child: prAsync.when(
                   data: (requests) {
                     final filteredRequests = requests.where((pr) {
+                      // Do not show drafts of other users
+                      if (pr.status.toUpperCase() == 'DRAFT' &&
+                          pr.createdBy.toLowerCase() != currentUserFullName.toLowerCase()) {
+                        return false;
+                      }
+
                       final matchesStatus =
                           _selectedStatus == 'ALL' ||
                           pr.status.toUpperCase() ==
