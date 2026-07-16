@@ -41,6 +41,13 @@ public class InventoryProductService {
     private final SupplierRepository supplierRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
+    private String defaultUserIdStr;
+
+    private UUID getDefaultUserId() {
+        return UUID.fromString(defaultUserIdStr);
+    }
+
     @Transactional(readOnly = true)
     public Page<InventoryProductDTO> getProducts(String keyword, Integer categoryNumber, Pageable pageable) {
         Page<Product> productsPage = productRepository.findProducts(keyword, categoryNumber, pageable);
@@ -109,9 +116,28 @@ public class InventoryProductService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void createPurchaseRequest(List<Integer> productNumbers) {
         if (productNumbers == null || productNumbers.isEmpty()) {
             throw new IllegalArgumentException("Product list cannot be empty");
+        }
+
+        // Validate all products belong to the same supplier
+        Integer commonSupplierNumber = null;
+        for (Integer prodNum : productNumbers) {
+            Product product = productRepository.findById(prodNum)
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + prodNum));
+
+            List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
+            if (suppliers.isEmpty()) {
+                throw new IllegalArgumentException("Product '" + product.getProductName() + "' has no mapped supplier configuration.");
+            }
+            Integer supplierNumber = suppliers.get(0).getSupplierNumber();
+            if (commonSupplierNumber == null) {
+                commonSupplierNumber = supplierNumber;
+            } else if (!commonSupplierNumber.equals(supplierNumber)) {
+                throw new IllegalArgumentException("All products in a purchase request must belong to the same supplier.");
+            }
         }
 
         // 1. Create a new PurchaseRequest
@@ -123,8 +149,8 @@ public class InventoryProductService {
 
         // 2. Add details for each selected product
         for (Integer prodNum : productNumbers) {
-            Product product = productRepository.findById(prodNum)
-                    .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + prodNum));
+            Product product = productRepository.findById(prodNum).orElse(null);
+            if (product == null) continue;
 
             if (!"ACTIVE".equals(product.getStatus())) {
                 throw new IllegalArgumentException("Cannot create purchase request for inactive product: " + product.getProductName());
@@ -180,14 +206,14 @@ public class InventoryProductService {
         }
 
         if (userId == null) {
-            userId = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+            userId = getDefaultUserId();
         }
 
         final UUID finalUserId = userId;
-        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "PENDING")
+        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
                 .orElseGet(() -> {
                     PurchaseRequest newPr = PurchaseRequest.builder()
-                            .status("PENDING")
+                            .status("DRAFT")
                             .createdBy(finalUserId)
                             .createdDate(LocalDateTime.now())
                             .build();
@@ -198,6 +224,7 @@ public class InventoryProductService {
         java.util.Set<Integer> existingSupplierNumbers = existingDetails.stream()
                 .map(PurchaseRequestDetail::getProductSupplierNumber)
                 .collect(Collectors.toSet());
+
 
         for (Integer prodNum : productNumbers) {
             Product product = productRepository.findById(prodNum)
@@ -631,6 +658,7 @@ public class InventoryProductService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public ProductAdjustmentDTO adjustProductQuantity(int productNumber, String adjustmentType, BigDecimal quantity, String reason) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Adjustment quantity must be greater than zero.");
