@@ -26,11 +26,30 @@ public class ProfileService {
     private final ProfileRepository profileRepository;
     private final SupabaseStorageService supabaseStorageService;
 
-    public ProfileDTO getProfile(UUID userId) {
-        Profile profile = profileRepository.findById(userId)
+    public ProfileDTO viewProfile(UUID userId) {
+        String status = profileRepository.checkAccountStatus(userId);
+        if (status == null) {
+            throw new IllegalArgumentException("Profile not found");
+        }
+
+        if (!"ACTIVE".equalsIgnoreCase(status)) {
+            throw new SecurityException("Account inactive");
+        }
+
+        Profile profile = profileRepository.findProfile(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
-        return mapToDTO(profile);
+
+        java.time.OffsetDateTime lastLogin = getLastLoginOffsetDateTime(userId);
+
+        ProfileDTO dto = mapToDTO(profile);
+        dto.setLastLogin(lastLogin);
+        return dto;
     }
+
+    public ProfileDTO getProfile(UUID userId) {
+        return viewProfile(userId);
+    }
+
 
     /**
      * Updates editable profile fields (fullName, phone, address).
@@ -49,7 +68,9 @@ public class ProfileService {
         profile.setAddress(address != null && !address.isBlank() ? address.trim() : null);
 
         profileRepository.save(profile);
-        return mapToDTO(profile);
+        ProfileDTO responseDto = mapToDTO(profile);
+        responseDto.setLastLogin(getLastLoginOffsetDateTime(userId));
+        return responseDto;
     }
 
     @Transactional
@@ -79,8 +100,10 @@ public class ProfileService {
         // display the new image immediately without an extra fetch.
         ProfileDTO dto = mapToDTO(profile);
         dto.setAvatarUrl(publicUrl + "?v=" + System.currentTimeMillis());
+        dto.setLastLogin(getLastLoginOffsetDateTime(userId));
         return dto;
     }
+
 
     private ProfileDTO mapToDTO(Profile profile) {
         return ProfileDTO.builder()
@@ -93,5 +116,10 @@ public class ProfileService {
                 .avatarUrl(profile.getAvatarUrl())
                 .address(profile.getAddress())
                 .build();
+    }
+
+    private java.time.OffsetDateTime getLastLoginOffsetDateTime(UUID userId) {
+        java.time.Instant instant = profileRepository.getLastLogin(userId);
+        return instant != null ? instant.atOffset(java.time.ZoneOffset.UTC) : null;
     }
 }

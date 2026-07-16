@@ -20,4 +20,6 @@ public class ProfileDTO {
     private OffsetDateTime createdAt;
     private String avatarUrl;
     private String address;
+    private OffsetDateTime lastLogin;
 }
+

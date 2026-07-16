@@ -75,6 +75,11 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
         return await ApiService().fetchProfile(userId);
       } catch (e) {
         debugPrint('Error fetching profile via backend (attempt $attempt): $e');
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('account inactive') || errorMsg.contains('access denied') || errorMsg.contains('403')) {
+          state = state.copyWith(errorMessage: 'Account inactive. Access denied.');
+          return null;
+        }
       }
       if (attempt < 3) {
         await Future.delayed(Duration(milliseconds: 200 * attempt));
@@ -82,6 +87,7 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
     }
     return null;
   }
+
 
   Future<void> signIn(String email, String password) async {
     state = state.copyWith(isSubmitting: true, clearError: true);

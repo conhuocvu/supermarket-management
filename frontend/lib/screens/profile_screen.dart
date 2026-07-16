@@ -216,6 +216,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final authState = ref.watch(authProvider);
+    final profile = authState.profile;
+
+    if (authState.errorMessage?.toLowerCase().contains('account inactive') == true ||
+        (profile != null && profile.status.toUpperCase() == 'INACTIVE')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(shellLayoutProvider.notifier).update(
+              title: 'Access Denied',
+              breadcrumbs: ['Account', 'Profile'],
+            );
+      });
+
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.error.withOpacity(0.3)),
+            ),
+            color: theme.colorScheme.surface,
+            margin: const EdgeInsets.all(32),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.block_outlined,
+                    color: theme.colorScheme.error,
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Access Denied',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Account inactive',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () {
+                      ref.read(authProvider.notifier).signOut();
+                    },
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                    ),
+                    child: const Text('Logout'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -355,10 +427,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final joinedDate = profile != null
         ? DateFormat('MMM d, y').format(profile.createdAt)
         : '—';
-    final lastSignIn = authState.user?.lastSignInAt;
-    final lastLogin = lastSignIn != null
+    final lastLoginDateTime = profile?.lastLogin ??
+        (authState.user?.lastSignInAt != null
+            ? DateTime.parse(authState.user!.lastSignInAt!)
+            : null);
+    final lastLogin = lastLoginDateTime != null
         ? DateFormat('MMM d, y HH:mm')
-            .format(DateTime.parse(lastSignIn).toLocal())
+            .format(lastLoginDateTime.toLocal())
         : '—';
     final employeeId = profile != null && profile.userId.length >= 8
         ? 'EMP-${profile.userId.substring(0, 8).toUpperCase()}'

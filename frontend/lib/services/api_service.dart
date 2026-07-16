@@ -280,17 +280,18 @@ class ApiService {
             'created_at': data['createdAt'],
             'avatar_url': data['avatarUrl'],
             'address': data['address'],
+            'last_login': data['lastLogin'],
           });
         } else {
           throw Exception(body['message'] ?? 'Failed to load profile.');
         }
       } else {
-        throw Exception('Failed to load profile: HTTP \${response.statusCode}');
+        throw Exception('Failed to load profile: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Unexpected error occurred: \$e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -304,40 +305,53 @@ class ApiService {
     required String phone,
     String? address,
   }) async {
-    try {
-      final response = await _dio.put(
-        '/profiles/\$userId',
-        data: {
-          'fullName': fullName,
-          'phone': phone,
-          'address': address,
-        },
-      );
-      if (response.statusCode == 200) {
-        final body = response.data;
-        if (body['success'] == true) {
-          final data = body['data'] as Map<String, dynamic>;
-          return Profile.fromJson({
-            'user_id': data['userId'],
-            'role_number': data['roleNumber'],
-            'full_name': data['fullName'],
-            'phone': data['phone'],
-            'status': data['status'],
-            'created_at': data['createdAt'],
-            'avatar_url': data['avatarUrl'],
-            'address': data['address'],
-          });
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final response = await _dio.put(
+          '/profiles/$userId',
+          data: {
+            'fullName': fullName,
+            'phone': phone,
+            'address': address,
+          },
+        );
+        if (response.statusCode == 200) {
+          final body = response.data;
+          if (body['success'] == true) {
+            final data = body['data'] as Map<String, dynamic>;
+            return Profile.fromJson({
+              'user_id': data['userId'],
+              'role_number': data['roleNumber'],
+              'full_name': data['fullName'],
+              'phone': data['phone'],
+              'status': data['status'],
+              'created_at': data['createdAt'],
+              'avatar_url': data['avatarUrl'],
+              'address': data['address'],
+              'last_login': data['lastLogin'],
+            });
+          } else {
+            throw Exception(body['message'] ?? 'Failed to update profile.');
+          }
         } else {
-          throw Exception(body['message'] ?? 'Failed to update profile.');
+          throw Exception('Failed to update profile: HTTP ${response.statusCode}');
         }
-      } else {
-        throw Exception('Failed to update profile: HTTP \${response.statusCode}');
+      } on DioException catch (e) {
+        final isTransientError = e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+        if (attempt == 3 || !isTransientError) {
+          throw Exception(_handleDioError(e));
+        }
+        await Future.delayed(Duration(milliseconds: 200 * attempt));
+      } catch (e) {
+        if (attempt == 3) {
+          throw Exception('Unexpected error occurred: $e');
+        }
+        await Future.delayed(Duration(milliseconds: 200 * attempt));
       }
-    } on DioException catch (e) {
-      throw Exception(_handleDioError(e));
-    } catch (e) {
-      throw Exception('Unexpected error occurred: \$e');
     }
+    throw Exception('Failed to update profile after multiple attempts.');
   }
 
   Future<String> uploadAvatar(String userId, XFile imageFile) async {

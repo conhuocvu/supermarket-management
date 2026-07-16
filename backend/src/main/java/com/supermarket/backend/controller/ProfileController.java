@@ -23,10 +23,12 @@ public class ProfileController {
     private final ProfileService profileService;
 
     @GetMapping("/{userId}")
-    public ResponseEntity<ApiResponse<ProfileDTO>> getProfile(@PathVariable UUID userId) {
+    public ResponseEntity<ApiResponse<ProfileDTO>> loadProfile(@PathVariable UUID userId) {
         try {
-            ProfileDTO profile = profileService.getProfile(userId);
+            ProfileDTO profile = profileService.viewProfile(userId);
             return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully.", profile));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
@@ -75,32 +77,30 @@ public class ProfileController {
     }
 
     /**
-     * Verifies that the Supabase JWT in the Authorization header belongs to the
-     * same user as the path variable, preventing IDOR attacks.
+     * Verifies that the JWT in the Authorization header belongs to the same user as
+     * the path variable, preventing accidental cross-user writes (IDOR).
      *
-     * The JWT is decoded without signature verification here because signature
-     * verification requires the Supabase JWT secret — which would be a full
-     * Spring Security integration out of scope for this PR. The primary goal is
-     * preventing accidental cross-user writes; for a production hardening pass,
-     * replace this with a proper JwtDecoder / Spring Security filter.
+     * Note: Supabase issues RS256-signed tokens. Full signature verification requires
+     * integrating Spring Security with Supabase JWKS endpoint, which is out of scope
+     * here. Decoding without signature verification is sufficient to prevent accidental
+     * misuse while keeping the implementation simple.
      */
     private void verifyOwnership(HttpServletRequest request, UUID userId) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            // No token present — anonymous request, reject.
             throw new SecurityException("Authentication required.");
         }
         try {
             String token = authHeader.substring(7);
-            DecodedJWT decoded = JWT.decode(token);
-            String sub = decoded.getSubject(); // Supabase sets sub = user UUID
+            DecodedJWT decoded = JWT.decode(token); // Decode only — no signature verification
+            String sub = decoded.getSubject();      // Supabase sets sub = user UUID
             if (sub == null || !sub.equals(userId.toString())) {
                 throw new SecurityException("You are not authorised to modify this profile.");
             }
         } catch (SecurityException e) {
             throw e;
         } catch (Exception e) {
-            throw new SecurityException("Invalid authentication token.");
+            throw new SecurityException("Invalid authentication token: " + e.getMessage());
         }
     }
 }
