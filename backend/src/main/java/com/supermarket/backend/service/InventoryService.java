@@ -39,6 +39,13 @@ public class InventoryService {
     private final StockOutRepository stockOutRepository;
     private final StockOutDetailRepository stockOutDetailRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
+    private String defaultUserIdStr;
+
+    private UUID getDefaultUserId() {
+        return UUID.fromString(defaultUserIdStr);
+    }
+
     @Transactional(readOnly = true)
     public DashboardDataDTO getDashboardData() {
         long totalProducts = productRepository.count();
@@ -218,25 +225,48 @@ public class InventoryService {
                     .orElse("Unknown");
         }
 
-        List<StockInItemDTO> items = details.stream().map(d -> {
-            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+        List<Integer> psIds = details.stream().map(PurchaseRequestDetail::getProductSupplierNumber).collect(Collectors.toList());
+        List<ProductSupplier> productSuppliers = productSupplierRepository.findAllById(psIds);
+        Map<Integer, ProductSupplier> psMap = productSuppliers.stream()
+                .collect(Collectors.toMap(ProductSupplier::getProductSupplierNumber, s -> s));
 
-            Product p = productRepository.findById(prodSupplier.getProductNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product not found: " + prodSupplier.getProductNumber()));
+        List<Integer> pIds = productSuppliers.stream().map(ProductSupplier::getProductNumber).collect(Collectors.toList());
+        List<Product> products = productRepository.findAllById(pIds);
+        Map<Integer, Product> pMap = products.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p));
+
+        Map<Integer, BigDecimal> alreadyReceivedMap = jdbcTemplate.query(
+                "SELECT sid.product_number, COALESCE(SUM(sid.quantity), 0) as total_qty " +
+                        "FROM stock_in_details sid " +
+                        "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                        "WHERE si.purchase_request_number = ? " +
+                        "GROUP BY sid.product_number",
+                rs -> {
+                    Map<Integer, BigDecimal> map = new java.util.HashMap<>();
+                    while (rs.next()) {
+                        map.put(rs.getInt("product_number"), rs.getBigDecimal("total_qty"));
+                    }
+                    return map;
+                },
+                prNumber
+        );
+
+        List<StockInItemDTO> items = details.stream().map(d -> {
+            ProductSupplier prodSupplier = psMap.get(d.getProductSupplierNumber());
+            if (prodSupplier == null) {
+                throw new IllegalArgumentException(
+                        "Product supplier mapping not found: " + d.getProductSupplierNumber());
+            }
+
+            Product p = pMap.get(prodSupplier.getProductNumber());
+            if (p == null) {
+                throw new IllegalArgumentException(
+                        "Product not found: " + prodSupplier.getProductNumber());
+            }
 
             String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
 
-            BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
-                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                            "FROM stock_in_details sid " +
-                            "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                            "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                    BigDecimal.class,
-                    prNumber,
-                    p.getProductNumber());
+            BigDecimal alreadyReceived = alreadyReceivedMap != null ? alreadyReceivedMap.getOrDefault(p.getProductNumber(), BigDecimal.ZERO) : BigDecimal.ZERO;
 
             BigDecimal requestedQty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : BigDecimal.ZERO;
             BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
@@ -271,29 +301,45 @@ public class InventoryService {
         Map<Integer, BigDecimal> delivered = request.getDeliveredQuantities();
 
         List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+        List<Integer> psIds = details.stream().map(PurchaseRequestDetail::getProductSupplierNumber).collect(Collectors.toList());
+        List<ProductSupplier> productSuppliers = productSupplierRepository.findAllById(psIds);
+        Map<Integer, ProductSupplier> psMap = productSuppliers.stream()
+                .collect(Collectors.toMap(ProductSupplier::getProductSupplierNumber, s -> s));
+
         if (supplierNumber != null) {
             details = details.stream().filter(d -> {
-                ProductSupplier ps = productSupplierRepository.findById(d.getProductSupplierNumber()).orElse(null);
+                ProductSupplier ps = psMap.get(d.getProductSupplierNumber());
                 return ps != null && supplierNumber.equals(ps.getSupplierNumber());
             }).collect(Collectors.toList());
         }
         Map<Integer, BigDecimal> differences = new HashMap<>();
         boolean hasDiscrepancy = false;
 
+        Map<Integer, BigDecimal> alreadyReceivedMap = jdbcTemplate.query(
+                "SELECT sid.product_number, COALESCE(SUM(sid.quantity), 0) as total_qty " +
+                        "FROM stock_in_details sid " +
+                        "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                        "WHERE si.purchase_request_number = ? " +
+                        "GROUP BY sid.product_number",
+                rs -> {
+                    Map<Integer, BigDecimal> map = new java.util.HashMap<>();
+                    while (rs.next()) {
+                        map.put(rs.getInt("product_number"), rs.getBigDecimal("total_qty"));
+                    }
+                    return map;
+                },
+                prNumber
+        );
+
         for (PurchaseRequestDetail d : details) {
-            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+            ProductSupplier prodSupplier = psMap.get(d.getProductSupplierNumber());
+            if (prodSupplier == null) {
+                throw new IllegalArgumentException(
+                        "Product supplier mapping not found: " + d.getProductSupplierNumber());
+            }
 
             Integer prodNum = prodSupplier.getProductNumber();
-            BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
-                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                            "FROM stock_in_details sid " +
-                            "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                            "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                    BigDecimal.class,
-                    prNumber,
-                    prodNum);
+            BigDecimal alreadyReceived = alreadyReceivedMap != null ? alreadyReceivedMap.getOrDefault(prodNum, BigDecimal.ZERO) : BigDecimal.ZERO;
 
             BigDecimal requestedQty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : BigDecimal.ZERO;
             BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
@@ -341,7 +387,7 @@ public class InventoryService {
         if (request.getReportedBy() != null && !request.getReportedBy().trim().isEmpty()) {
             reportedBy = UUID.fromString(request.getReportedBy());
         } else {
-            reportedBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+            reportedBy = getDefaultUserId();
         }
 
         String prefixedDescription = "[PR-" + request.getPurchaseRequestNumber() + "] " + request.getDescription();
@@ -394,8 +440,13 @@ public class InventoryService {
             throw new IllegalArgumentException("Supplier number is required for Stock-In.");
         }
 
+        List<Integer> allPsIds = allPrDetails.stream().map(PurchaseRequestDetail::getProductSupplierNumber).collect(Collectors.toList());
+        List<ProductSupplier> allProductSuppliers = productSupplierRepository.findAllById(allPsIds);
+        Map<Integer, ProductSupplier> allPsMap = allProductSuppliers.stream()
+                .collect(Collectors.toMap(ProductSupplier::getProductSupplierNumber, s -> s));
+
         List<PurchaseRequestDetail> prDetails = allPrDetails.stream().filter(prd -> {
-            ProductSupplier ps = productSupplierRepository.findById(prd.getProductSupplierNumber()).orElse(null);
+            ProductSupplier ps = allPsMap.get(prd.getProductSupplierNumber());
             return ps != null && requestSupplierNum.equals(ps.getSupplierNumber());
         }).collect(Collectors.toList());
 
@@ -406,22 +457,32 @@ public class InventoryService {
 
         // 5. Build Map of product outstanding quantities
         Map<Integer, BigDecimal> prProductOutstanding = new HashMap<>();
+        Map<Integer, BigDecimal> alreadyReceivedMap = jdbcTemplate.query(
+                "SELECT sid.product_number, COALESCE(SUM(sid.quantity), 0) as total_qty " +
+                        "FROM stock_in_details sid " +
+                        "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                        "WHERE si.purchase_request_number = ? " +
+                        "GROUP BY sid.product_number",
+                rs -> {
+                    Map<Integer, BigDecimal> map = new java.util.HashMap<>();
+                    while (rs.next()) {
+                        map.put(rs.getInt("product_number"), rs.getBigDecimal("total_qty"));
+                    }
+                    return map;
+                },
+                request.getPurchaseRequestNumber()
+        );
+
         for (PurchaseRequestDetail prd : prDetails) {
-            ProductSupplier ps = productSupplierRepository.findById(prd.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product supplier mapping not found: " + prd.getProductSupplierNumber()));
+            ProductSupplier ps = allPsMap.get(prd.getProductSupplierNumber());
+            if (ps == null) {
+                throw new IllegalArgumentException(
+                        "Product supplier mapping not found: " + prd.getProductSupplierNumber());
+            }
             Integer productNum = ps.getProductNumber();
 
             BigDecimal requestedQty = prd.getRequestedQuantity() != null ? prd.getRequestedQuantity() : BigDecimal.ZERO;
-
-            BigDecimal alreadyReceived = jdbcTemplate.queryForObject(
-                    "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                            "FROM stock_in_details sid " +
-                            "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                            "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                    BigDecimal.class,
-                    request.getPurchaseRequestNumber(),
-                    productNum);
+            BigDecimal alreadyReceived = alreadyReceivedMap != null ? alreadyReceivedMap.getOrDefault(productNum, BigDecimal.ZERO) : BigDecimal.ZERO;
 
             BigDecimal remainingQty = requestedQty.subtract(alreadyReceived);
             if (remainingQty.compareTo(BigDecimal.ZERO) < 0) {
@@ -471,7 +532,7 @@ public class InventoryService {
         if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
             createdBy = UUID.fromString(request.getCreatedBy());
         } else {
-            createdBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+            createdBy = getDefaultUserId();
         }
 
         StockIn stockIn = StockIn.builder()
@@ -484,9 +545,14 @@ public class InventoryService {
         stockIn = stockInRepository.save(stockIn);
         Integer stockInNumber = stockIn.getStockInNumber();
 
+        List<Integer> itemProductIds = request.getItems().stream().map(StockInDetailRequestDTO::getProductNumber).collect(Collectors.toList());
+        List<Product> itemProductsList = productRepository.findAllById(itemProductIds);
+        Map<Integer, Product> itemProductsMap = itemProductsList.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p));
+
         for (StockInDetailRequestDTO item : request.getItems()) {
             String batchNumber = "BATCH-" + request.getPurchaseRequestNumber() + "-" + item.getProductNumber() + "-"
-                    + (System.currentTimeMillis() % 100000);
+                    + java.util.UUID.randomUUID().toString().substring(0, 8);
 
             StockInDetail detail = StockInDetail.builder()
                     .stockInNumber(stockInNumber)
@@ -520,7 +586,7 @@ public class InventoryService {
             inventoryRepository.save(inv);
 
             InventoryTransaction tx = InventoryTransaction.builder()
-                    .product(productRepository.findById(item.getProductNumber()).orElse(null))
+                    .product(itemProductsMap.get(item.getProductNumber()))
                     .stockInDetailNumber(detail.getStockInDetailNumber())
                     .type("IN")
                     .quantity(item.getDeliveredQuantity())
@@ -536,12 +602,10 @@ public class InventoryService {
             final Integer currentProductNumber = item.getProductNumber();
             final Integer currentDetailNumber = detail.getStockInDetailNumber();
             final String prPrefix = "[PR-" + request.getPurchaseRequestNumber() + "]";
-            List<ProductReport> reports = productReportRepository.findAll().stream()
-                    .filter(r -> "DELIVERY_DISCREPANCY".equals(r.getReportType()) &&
-                            r.getProductNumber().equals(currentProductNumber) &&
-                            r.getStockInDetailNumber() == null &&
-                            r.getDescription() != null && r.getDescription().startsWith(prPrefix))
-                    .collect(Collectors.toList());
+            List<ProductReport> reports = productReportRepository.findDeliveryDiscrepancies(
+                    currentProductNumber,
+                    prPrefix + "%"
+            );
 
             for (ProductReport report : reports) {
                 report.setStockInDetailNumber(currentDetailNumber);
@@ -549,22 +613,29 @@ public class InventoryService {
             }
         }
 
+        Map<Integer, BigDecimal> updatedReceivedMap = jdbcTemplate.query(
+                "SELECT sid.product_number, COALESCE(SUM(sid.quantity), 0) as total_qty " +
+                        "FROM stock_in_details sid " +
+                        "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
+                        "WHERE si.purchase_request_number = ? " +
+                        "GROUP BY sid.product_number",
+                rs -> {
+                    Map<Integer, BigDecimal> map = new java.util.HashMap<>();
+                    while (rs.next()) {
+                        map.put(rs.getInt("product_number"), rs.getBigDecimal("total_qty"));
+                    }
+                    return map;
+                },
+                request.getPurchaseRequestNumber()
+        );
+
         boolean allPrItemsCompleted = true;
         for (PurchaseRequestDetail prd : prDetails) {
-            ProductSupplier prodSupplier = productSupplierRepository.findById(prd.getProductSupplierNumber())
-                    .orElse(null);
+            ProductSupplier prodSupplier = allPsMap.get(prd.getProductSupplierNumber());
             if (prodSupplier != null) {
                 Integer prodNum = prodSupplier.getProductNumber();
                 BigDecimal reqQty = prd.getRequestedQuantity() != null ? prd.getRequestedQuantity() : BigDecimal.ZERO;
-
-                BigDecimal totalDelivered = jdbcTemplate.queryForObject(
-                        "SELECT COALESCE(SUM(sid.quantity), 0) " +
-                                "FROM stock_in_details sid " +
-                                "JOIN stock_ins si ON sid.stock_in_number = si.stock_in_number " +
-                                "WHERE si.purchase_request_number = ? AND sid.product_number = ?",
-                        BigDecimal.class,
-                        request.getPurchaseRequestNumber(),
-                        prodNum);
+                BigDecimal totalDelivered = updatedReceivedMap != null ? updatedReceivedMap.getOrDefault(prodNum, BigDecimal.ZERO) : BigDecimal.ZERO;
 
                 if (totalDelivered.compareTo(reqQty) < 0) {
                     allPrItemsCompleted = false;
@@ -660,7 +731,7 @@ public class InventoryService {
         if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
             createdBy = UUID.fromString(request.getCreatedBy());
         } else {
-            createdBy = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+            createdBy = getDefaultUserId();
         }
 
         StockOut stockOut = StockOut.builder()

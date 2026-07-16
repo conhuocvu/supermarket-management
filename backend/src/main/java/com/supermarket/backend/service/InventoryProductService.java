@@ -41,6 +41,13 @@ public class InventoryProductService {
     private final SupplierRepository supplierRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
+    private String defaultUserIdStr;
+
+    private UUID getDefaultUserId() {
+        return UUID.fromString(defaultUserIdStr);
+    }
+
     @Transactional(readOnly = true)
     public Page<InventoryProductDTO> getProducts(String keyword, Integer categoryNumber, Pageable pageable) {
         Page<Product> productsPage = productRepository.findProducts(keyword, categoryNumber, pageable);
@@ -121,7 +128,10 @@ public class InventoryProductService {
                     .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + prodNum));
 
             List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
-            Integer supplierNumber = suppliers.isEmpty() ? 1 : suppliers.get(0).getSupplierNumber();
+            if (suppliers.isEmpty()) {
+                throw new IllegalArgumentException("Product '" + product.getProductName() + "' has no mapped supplier configuration.");
+            }
+            Integer supplierNumber = suppliers.get(0).getSupplierNumber();
             if (commonSupplierNumber == null) {
                 commonSupplierNumber = supplierNumber;
             } else if (!commonSupplierNumber.equals(supplierNumber)) {
@@ -195,7 +205,7 @@ public class InventoryProductService {
         }
 
         if (userId == null) {
-            userId = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+            userId = getDefaultUserId();
         }
 
         final UUID finalUserId = userId;

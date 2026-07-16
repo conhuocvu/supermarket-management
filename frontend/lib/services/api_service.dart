@@ -12,6 +12,7 @@ import '../models/purchase_request.dart';
 
 class ApiService {
   final Dio _dio;
+  static const String mockUserUuid = 'e3b3ec4a-da0b-40f5-9747-29361993892b';
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -183,7 +184,7 @@ class ApiService {
 
   Future<void> createPurchaseRequest(List<int> productNumbers) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? 'e3b3ec4a-da0b-40f5-9747-29361993892b';
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
       final response = await _dio.post(
         '/purchase-requests/items',
         data: {
@@ -428,7 +429,7 @@ class ApiService {
         '/stock-ins/form-data',
         queryParameters: {
           'purchaseRequestNumber': prNumber,
-          if (supplierNumber != null) 'supplierNumber': supplierNumber,
+          'supplierNumber': ?supplierNumber,
         },
       );
       if (response.statusCode == 200) {
@@ -460,7 +461,7 @@ class ApiService {
         '/stock-ins/compare-quantities',
         data: {
           'purchaseRequestNumber': prNumber,
-          if (supplierNumber != null) 'supplierNumber': supplierNumber,
+          'supplierNumber': ?supplierNumber,
           'deliveredQuantities': stringKeysMap,
         },
       );
@@ -489,7 +490,7 @@ class ApiService {
     required String description,
   }) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? 'e3b3ec4a-da0b-40f5-9747-29361993892b';
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
       final response = await _dio.post(
         '/inventory/delivery-issues',
         data: {

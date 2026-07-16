@@ -118,7 +118,7 @@ class _StockOutFormScreenState extends ConsumerState<StockOutFormScreen> {
         'quantity': qty,
         'reason': _reasonController.text.trim(),
         'notes': _notesController.text.trim(),
-        'createdBy': Supabase.instance.client.auth.currentUser?.id ?? 'e3b3ec4a-da0b-40f5-9747-29361993892b', // Default Stock Controller UUID from database
+        'createdBy': Supabase.instance.client.auth.currentUser?.id ?? ApiService.mockUserUuid, // Default Stock Controller UUID from database
       };
 
       final success = await _apiService.submitStockOut(payload);

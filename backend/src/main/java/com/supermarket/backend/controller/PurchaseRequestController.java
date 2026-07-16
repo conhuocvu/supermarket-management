@@ -31,11 +31,12 @@ public class PurchaseRequestController {
             }
 
             PurchaseRequest pr = inventoryProductService.addProductsToPurchaseRequest(userId, dto.getProductNumbers());
+            com.supermarket.backend.dto.PurchaseRequestDetailDTO details = inventoryService.getPurchaseRequestDetails(pr.getPurchaseRequestNumber());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Products added to the purchase request successfully.");
-            response.put("data", pr);
+            response.put("data", details);
 
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {

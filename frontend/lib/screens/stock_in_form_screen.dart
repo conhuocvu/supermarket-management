@@ -48,6 +48,16 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
     _loadFormData();
   }
 
+  @override
+  void dispose() {
+    for (var item in _items) {
+      item.deliveredQtyController.dispose();
+      item.notesController.dispose();
+      item.reportReasonController.dispose();
+    }
+    super.dispose();
+  }
+
   Future<void> _loadFormData() async {
     setState(() => _isLoading = true);
     try {
@@ -245,7 +255,7 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
       final payload = {
         'purchaseRequestNumber': widget.purchaseRequestNumber,
         'supplierNumber': _supplierNumber,
-        'createdBy': Supabase.instance.client.auth.currentUser?.id ?? 'e3b3ec4a-da0b-40f5-9747-29361993892b', // Default Stock Controller UUID from database
+        'createdBy': Supabase.instance.client.auth.currentUser?.id ?? ApiService.mockUserUuid, // Default Stock Controller UUID from database
         'items': _items.map((item) {
           final qty = double.tryParse(item.deliveredQtyController.text) ?? 0.0;
           return {
