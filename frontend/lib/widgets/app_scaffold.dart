@@ -30,48 +30,109 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final List<Map<String, dynamic>> menuItems = [
-      {
-        'title': 'Dashboard',
-        'icon': Icons.dashboard_outlined,
-        'active': currentPath == '/stock',
-      },
-      {
-        'title': 'Products',
-        'icon': Icons.inventory_2_outlined,
-        'active': currentPath.startsWith('/stock/products'),
-      },
-      {
-        'title': 'Categories',
-        'icon': Icons.category_outlined,
-        'active': currentPath.startsWith('/stock/categories'),
-      },
-      {
-        'title': 'Transactions',
-        'icon': Icons.swap_horiz_outlined,
-        'active': false,
-      },
-      {
-        'title': 'Low Stock',
-        'icon': Icons.priority_high_outlined,
-        'active': false,
-      },
-      {
-        'title': 'Purchase Requests',
-        'icon': Icons.shopping_cart_outlined,
-        'active': false,
-      },
-      {
-        'title': 'Expiring Products',
-        'icon': Icons.event_busy_outlined,
-        'active': false,
-      },
-      {
-        'title': 'Product Reports',
-        'icon': Icons.assessment_outlined,
-        'active': false,
-      },
-    ];
+    final bool isInWorkspace = currentPath.startsWith('/stock');
+
+    final List<Map<String, dynamic>> menuItems = isInWorkspace
+        ? [
+            {
+              'title': 'Workspace Home',
+              'icon': Icons.home_outlined,
+              'route': '/dashboard',
+              'active': false,
+            },
+            {
+              'title': 'Dashboard',
+              'icon': Icons.dashboard_outlined,
+              'route': '/stock',
+              'active': currentPath == '/stock',
+            },
+            {
+              'title': 'Products',
+              'icon': Icons.inventory_2_outlined,
+              'route': '/stock/products',
+              'active': currentPath.startsWith('/stock/products'),
+            },
+            {
+              'title': 'Categories',
+              'icon': Icons.category_outlined,
+              'route': '/stock/categories',
+              'active': currentPath.startsWith('/stock/categories'),
+            },
+            {
+              'title': 'Transactions',
+              'icon': Icons.swap_horiz_outlined,
+              'route': '/stock/transactions',
+              'active': false,
+            },
+            {
+              'title': 'Low Stock',
+              'icon': Icons.priority_high_outlined,
+              'route': '/stock/low-stock',
+              'active': false,
+            },
+            {
+              'title': 'Purchase Requests',
+              'icon': Icons.shopping_cart_outlined,
+              'route': '/stock/purchases',
+              'active': false,
+            },
+            {
+              'title': 'Expiring Products',
+              'icon': Icons.event_busy_outlined,
+              'route': '/stock/expiring',
+              'active': false,
+            },
+            {
+              'title': 'Product Reports',
+              'icon': Icons.assessment_outlined,
+              'route': '/stock/reports',
+              'active': false,
+            },
+            {
+              'title': 'Profile',
+              'icon': Icons.person_outline,
+              'route': '/profile',
+              'active': currentPath == '/profile',
+            },
+          ]
+        : [
+            {
+              'title': 'Home',
+              'icon': Icons.home_outlined,
+              'route': '/dashboard',
+              'active': currentPath == '/dashboard',
+            },
+            {
+              'title': 'Profile Management',
+              'icon': Icons.person_outline,
+              'route': '/profile',
+              'active': currentPath == '/profile',
+            },
+            {
+              'title': 'Work Schedule Management',
+              'icon': Icons.calendar_month_outlined,
+              'route': '/work-schedule',
+              'active': currentPath == '/work-schedule',
+            },
+            {
+              'title': 'Leave Request Form',
+              'icon': Icons.time_to_leave_outlined,
+              'route': '/leave-request',
+              'active': currentPath == '/leave-request',
+            },
+            {
+              'title': 'Schedule Change Request',
+              'icon': Icons.published_with_changes_outlined,
+              'route': '/schedule-change',
+              'active': currentPath == '/schedule-change',
+            },
+            {
+              'title': 'Manage Request Status',
+              'icon': Icons.rule_folder_outlined,
+              'route': '/manage-requests',
+              'active': currentPath == '/manage-requests',
+            },
+          ];
 
     Widget buildSidebarContent() {
       return Container(
@@ -121,13 +182,7 @@ class AppScaffold extends ConsumerWidget {
                         if (!isDesktop) {
                           Navigator.pop(context);
                         }
-                        if (item['title'] == 'Dashboard') {
-                          context.go('/stock');
-                        } else if (item['title'] == 'Products') {
-                          context.go('/stock/products');
-                        } else if (item['title'] == 'Categories') {
-                          context.go('/stock/categories');
-                        }
+                        context.go(item['route'] as String);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -151,15 +206,19 @@ class AppScaffold extends ConsumerWidget {
                                   : theme.colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              item['title'] as String,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: isActive
-                                    ? Colors.white
-                                    : theme.colorScheme.onSurfaceVariant,
-                                fontWeight: isActive
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                            Expanded(
+                              child: Text(
+                                item['title'] as String,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: isActive
+                                      ? Colors.white
+                                      : theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: isActive
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],

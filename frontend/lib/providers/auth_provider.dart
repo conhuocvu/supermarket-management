@@ -149,6 +149,18 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
     }
   }
 
+  Future<void> refreshProfile() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    final profile = await _fetchProfileData(user.id);
+    // copyWith does not fall back to previous user/session, so pass them explicitly
+    state = state.copyWith(
+      user: user,
+      session: _client.auth.currentSession,
+      profile: profile,
+    );
+  }
+
   void clearError() {
     state = state.copyWith(clearError: true);
   }

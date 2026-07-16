@@ -18,8 +18,8 @@ class ApiService {
     : _dio = Dio(
         BaseOptions(
           baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 30),
         ),
       );
 
@@ -229,6 +229,55 @@ class ApiService {
         }
       } else {
         throw Exception('Failed to upload image: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<String> uploadAvatar(String userId, XFile imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      // Determine content-type from extension so the backend can validate it
+      final ext = imageFile.name.split('.').last.toLowerCase();
+      final mimeType = const {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+      }[ext] ?? 'image/jpeg';
+
+      // Build DioMediaType from mime string (e.g. "image/jpeg" → type="image", subtype="jpeg")
+      final mimeParts = mimeType.split('/');
+      final dioContentType = DioMediaType(mimeParts[0], mimeParts[1]);
+
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.name,
+          contentType: dioContentType,
+        ),
+      });
+
+      final response = await _dio.put(
+        '/profiles/$userId/avatar',
+        data: formData,
+        options: Options(
+          // Avatar uploads may take longer than the default 30s
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return body['data']['avatarUrl'] as String;
+        } else {
+          throw Exception(body['message'] ?? 'Failed to upload avatar.');
+        }
+      } else {
+        throw Exception('Failed to upload avatar: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));

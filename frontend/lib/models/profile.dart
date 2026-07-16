@@ -5,6 +5,8 @@ class Profile {
   final String phone;
   final String status;
   final DateTime createdAt;
+  final String? avatarUrl;
+  final String? address;
 
   Profile({
     required this.userId,
@@ -13,6 +15,8 @@ class Profile {
     required this.phone,
     required this.status,
     required this.createdAt,
+    this.avatarUrl,
+    this.address,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -25,6 +29,8 @@ class Profile {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
+      avatarUrl: json['avatar_url'] as String?,
+      address: json['address'] as String?,
     );
   }
 
@@ -36,6 +42,8 @@ class Profile {
       'phone': phone,
       'status': status,
       'created_at': createdAt.toIso8601String(),
+      'avatar_url': avatarUrl,
+      'address': address,
     };
   }
 

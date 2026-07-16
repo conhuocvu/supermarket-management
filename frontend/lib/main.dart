@@ -21,6 +21,10 @@ import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/role_screens.dart';
+import 'screens/profile_screen.dart';
+import 'screens/change_password_screen.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/personal_screens.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -134,26 +138,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 4. If logged in and profile loaded:
       final role = auth.profile!.roleNumber;
-      String landingPage;
-      switch (role) {
-        case UserRoles.admin:
-          landingPage = '/admin';
-          break;
-        case UserRoles.manager:
-          landingPage = '/manager';
-          break;
-        case UserRoles.stockController:
-          landingPage = '/stock';
-          break;
-        case UserRoles.salesAssociate:
-          landingPage = '/sales';
-          break;
-        case UserRoles.cashier:
-          landingPage = '/cashier';
-          break;
-        default:
-          landingPage = '/login'; // Fallback for invalid role
-      }
+      const landingPage = '/dashboard';
 
       // Redirect if on a public/splash route
       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
@@ -165,8 +150,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         return landingPage;
       }
 
-      // Protect routes based on role:
       final path = state.uri.path;
+
+      // Routes shared by all authenticated roles
+      if (path == '/dashboard' ||
+          path == '/profile' ||
+          path == '/work-schedule' ||
+          path == '/leave-request' ||
+          path == '/schedule-change' ||
+          path == '/manage-requests' ||
+          path == '/change-password') {
+        return null;
+      }
+
+      // Protect routes based on role:
       if (role == UserRoles.admin && !path.startsWith('/admin')) {
         return '/admin';
       }
@@ -219,10 +216,45 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(
+            path: '/dashboard',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DashboardScreen()),
+          ),
+          GoRoute(
+            path: '/profile',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProfileScreen()),
+          ),
+          GoRoute(
+            path: '/work-schedule',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: WorkScheduleScreen()),
+          ),
+          GoRoute(
+            path: '/leave-request',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: LeaveRequestScreen()),
+          ),
+          GoRoute(
+            path: '/schedule-change',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ScheduleChangeRequestScreen()),
+          ),
+          GoRoute(
+            path: '/manage-requests',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ManageRequestStatusScreen()),
+          ),
+          GoRoute(
             path: '/stock',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: InventoryDashboardScreen()),
             routes: [
+              GoRoute(
+                path: 'profile',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: ProfileScreen()),
+              ),
               GoRoute(
                 path: 'categories',
                 pageBuilder: (context, state) =>
@@ -284,6 +316,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
       GoRoute(
         path: '/test-cors',
