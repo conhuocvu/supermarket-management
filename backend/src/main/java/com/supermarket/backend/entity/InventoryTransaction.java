@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "inventory_transactions")
@@ -41,6 +42,10 @@ public class InventoryTransaction {
     @Column(name = "reason")
     private String reason;
 
+    @Column(name = "created_by")
+    private UUID createdBy;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 }
+

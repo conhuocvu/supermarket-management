@@ -14,13 +14,13 @@ public interface StockInDetailRepository extends JpaRepository<StockInDetail, In
     @Query("SELECT COUNT(s) FROM StockInDetail s WHERE s.remainingQuantity > 0 AND s.expiryDate >= :now AND s.expiryDate <= :threshold")
     long countNearExpiry(@Param("now") LocalDate now, @Param("threshold") LocalDate threshold);
 
-    @Query("SELECT s FROM StockInDetail s WHERE s.productNumber = :productNumber AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC")
+    @Query("SELECT s FROM StockInDetail s WHERE s.productNumber = :productNumber AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC NULLS LAST")
     List<StockInDetail> findLatestStockInDetails(@Param("productNumber") Integer productNumber);
 
-    @Query("SELECT s FROM StockInDetail s WHERE s.remainingQuantity > 0 ORDER BY s.expiryDate ASC")
+    @Query("SELECT s FROM StockInDetail s WHERE s.remainingQuantity > 0 ORDER BY s.expiryDate ASC NULLS LAST")
     List<StockInDetail> findAllActiveStockInDetails();
 
-    @Query("SELECT s FROM StockInDetail s WHERE s.productNumber IN :productNumbers AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC")
+    @Query("SELECT s FROM StockInDetail s WHERE s.productNumber IN :productNumbers AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC NULLS LAST")
     List<StockInDetail> findActiveStockInDetailsByProductNumbers(@Param("productNumbers") List<Integer> productNumbers);
 }
 
