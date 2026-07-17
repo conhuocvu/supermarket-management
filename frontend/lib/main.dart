@@ -26,6 +26,8 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/role_screens.dart';
 import 'screens/manager_dashboard_screen.dart';
+import 'screens/staff_list_screen.dart';
+import 'screens/staff_detail_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -206,9 +208,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),
-      GoRoute(
-        path: '/manager',
-        builder: (context, state) => const ManagerDashboardScreen(),
+      ShellRoute(
+        builder: (context, state, child) {
+          return AppScaffold(body: child);
+        },
+        routes: [
+          GoRoute(
+            path: '/manager',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ManagerDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/manager/staff',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: StaffListScreen()),
+          ),
+          GoRoute(
+            path: '/manager/staff/:userId',
+            pageBuilder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return NoTransitionPage(
+                child: StaffDetailScreen(userId: userId),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/sales',

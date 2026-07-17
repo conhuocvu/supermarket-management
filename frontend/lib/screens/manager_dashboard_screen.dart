@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../providers/manager_dashboard_provider.dart';
+import '../providers/shell_layout_provider.dart';
 
 class ManagerDashboardScreen extends ConsumerWidget {
   const ManagerDashboardScreen({super.key});
@@ -9,9 +11,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final authState = ref.watch(authProvider);
     final dashboardState = ref.watch(managerDashboardDataProvider);
-    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     Future<void> handleRefresh() async {
       try {
@@ -38,99 +38,44 @@ class ManagerDashboardScreen extends ConsumerWidget {
       }
     }
 
-    final fullName = authState.profile?.fullName ?? 'Manager';
-
-    // ----- Sidebar -----
-    Widget buildSidebar() {
-      return Container(
-        width: 220,
-        decoration: const BoxDecoration(
-          color: Color(0xFFEFF3FF),
-          border: Border(right: BorderSide(color: Color(0xFFBFC9C3), width: 1)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final actions = [
+      IconButton(
+        onPressed: handleRefresh,
+        icon: const Icon(Icons.refresh_rounded),
+        tooltip: 'Refresh',
+      ),
+      const SizedBox(width: 8),
+      IconButton(
+        onPressed: () {},
+        icon: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 36, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.store_rounded, color: Colors.white, size: 22),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Viridian Ops',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    fullName,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Store Manager',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(color: Color(0xFFBFC9C3), height: 1),
-            const SizedBox(height: 8),
-            _SidebarItem(icon: Icons.dashboard_rounded, label: 'Dashboard', isActive: true),
-            _SidebarItem(icon: Icons.people_alt_outlined, label: 'Staff', isActive: false),
-            _SidebarItem(icon: Icons.receipt_long_outlined, label: 'Requests', isActive: false),
-            _SidebarItem(icon: Icons.campaign_outlined, label: 'Promotion', isActive: false),
-            _SidebarItem(icon: Icons.local_shipping_outlined, label: 'Supplier', isActive: false),
-            _SidebarItem(icon: Icons.bar_chart_rounded, label: 'Reports', isActive: false),
-            const Spacer(),
-            const Divider(color: Color(0xFFBFC9C3), height: 1),
-            InkWell(
-              onTap: () => ref.read(authProvider.notifier).signOut(),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: theme.colorScheme.error, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Logout',
-                      style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.error),
-                    ),
-                  ],
+            const Icon(Icons.notifications_outlined),
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error,
+                  shape: BoxShape.circle,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
           ],
         ),
-      );
-    }
+      ),
+    ];
 
-    // ----- Main Content -----
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(shellLayoutProvider.notifier).update(
+        title: 'Good ${_getGreeting()}, Manager',
+        subtitle: '${_formatDate(DateTime.now())} • Store Operating Normally',
+        actions: actions,
+      );
+    });
+
     Widget buildBody() {
       return dashboardState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -173,123 +118,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
       );
     }
 
-    if (isDesktop) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF7F8F7),
-        body: Row(
-          children: [
-            buildSidebar(),
-            Expanded(
-              child: Column(
-                children: [
-                  // Top bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(
-                        bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Good ${_getGreeting()}, Manager',
-                              style: theme.textTheme.headlineMedium,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${_formatDate(DateTime.now())} • Store Operating Normally',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: handleRefresh,
-                              icon: const Icon(Icons.refresh_rounded),
-                              tooltip: 'Refresh',
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: () {},
-                              icon: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  const Icon(Icons.notifications_outlined),
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.error,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Material(
-                      color: const Color(0xFFF7F8F7),
-                      child: buildBody(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Mobile layout
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F8F7),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Manager Dashboard', style: theme.textTheme.titleLarge),
-            Text(
-              _formatDate(DateTime.now()),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: handleRefresh,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          IconButton(
-            onPressed: () => ref.read(authProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: buildBody(),
-    );
+    return buildBody();
   }
 
   static String _getGreeting() {
@@ -313,11 +142,13 @@ class _SidebarItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const _SidebarItem({
     required this.icon,
     required this.label,
     required this.isActive,
+    this.onTap,
   });
 
   @override
@@ -344,7 +175,7 @@ class _SidebarItem extends StatelessWidget {
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          onTap: () {},
+          onTap: onTap,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           visualDensity: VisualDensity.compact,
         ),

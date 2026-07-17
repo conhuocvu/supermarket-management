@@ -642,6 +642,139 @@ class ApiService {
     }
   }
 
+  // ==========================================
+  // Staff Methods
+  // ==========================================
+
+  Future<Map<String, dynamic>> fetchStaffList({
+    String? keyword,
+    String? status,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {};
+      if (keyword != null && keyword.isNotEmpty) {
+        queryParams['keyword'] = keyword;
+      }
+      if (status != null && status != 'ALL') {
+        queryParams['status'] = status;
+      }
+
+      final response = await _dio.get(
+        '/staff',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as Map<String, dynamic>;
+          final itemsList = (data['staff'] as List? ?? [])
+              .map((item) => _parseStaffMember(item as Map<String, dynamic>))
+              .toList();
+          return {
+            'staff': itemsList,
+            'totalStaff': (data['totalStaff'] as num?)?.toInt() ?? 0,
+            'onShiftCount': (data['onShiftCount'] as num?)?.toInt() ?? 0,
+          };
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load staff list.');
+        }
+      } else {
+        throw Exception('Failed to load staff list: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  dynamic _parseStaffMember(Map<String, dynamic> json) {
+    // We return the raw map; the provider imports StaffMember and calls fromJson
+    return json;
+  }
+
+  /// UC-ST-02: Fetch detailed information of a single staff member.
+  Future<Map<String, dynamic>> fetchStaffDetail(String userId) async {
+    try {
+      final response = await _dio.get('/staff/$userId');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception(response.data['message'] ?? 'Staff record not found.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// UC-ST-03: Update a staff member's role.
+  Future<void> setStaffRole(String userId, int roleNumber, {String? reason}) async {
+    try {
+      final response = await _dio.put('/staff/$userId/role', data: {
+        'roleNumber': roleNumber,
+        if (reason != null) 'reason': reason,
+      });
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Unable to update staff role.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// UC-ST-04: Assign weekly shifts for a staff member.
+  Future<void> assignStaffShifts(String userId, List<Map<String, dynamic>> schedule) async {
+    try {
+      final response = await _dio.post('/staff/$userId/shifts', data: {
+        'schedule': schedule,
+      });
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Unable to save shift assignment.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Fetch all available roles.
+  Future<List<Map<String, dynamic>>> fetchRoles() async {
+    try {
+      final response = await _dio.get('/staff/meta/roles');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return (response.data['data'] as List)
+            .map((r) => r as Map<String, dynamic>)
+            .toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load roles.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Fetch all available shifts.
+  Future<List<Map<String, dynamic>>> fetchShifts() async {
+    try {
+      final response = await _dio.get('/staff/meta/shifts');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return (response.data['data'] as List)
+            .map((r) => r as Map<String, dynamic>)
+            .toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load shifts.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
   String _handleDioError(DioException e) {
     String message = 'Server connection error.';
     if (e.type == DioExceptionType.connectionTimeout ||
