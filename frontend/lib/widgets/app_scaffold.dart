@@ -20,8 +20,18 @@ class AppScaffold extends ConsumerWidget {
     ).routeInformationProvider.value.uri.path;
 
     final shellState = ref.watch(shellLayoutProvider);
-    final displayTitle = title ?? shellState.title;
+    
+    String displayTitle = title ?? shellState.title;
+    List<String> displayBreadcrumbs = shellState.breadcrumbs;
     final displayActions = actions ?? shellState.actions;
+
+    if (currentPath == '/manager/staff') {
+      displayTitle = 'Staff Management';
+      displayBreadcrumbs = ['Manager', 'Staff'];
+    } else if (currentPath.startsWith('/manager/staff/') && currentPath != '/manager/staff') {
+      displayTitle = 'Staff Details';
+      displayBreadcrumbs = ['Manager', 'Staff', 'Details'];
+    }
 
     final authState = ref.watch(authProvider);
     final fullName =
@@ -425,17 +435,17 @@ class AppScaffold extends ConsumerWidget {
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        ] else if (shellState.breadcrumbs.isNotEmpty) ...[
+                        ] else if (displayBreadcrumbs.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Row(
-                            children: shellState.breadcrumbs
+                            children: displayBreadcrumbs
                                 .asMap()
                                 .entries
                                 .map((entry) {
                                   final idx = entry.key;
                                   final label = entry.value;
                                   final isLast =
-                                      idx == shellState.breadcrumbs.length - 1;
+                                      idx == displayBreadcrumbs.length - 1;
                                   return Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -514,7 +524,7 @@ class AppScaffold extends ConsumerWidget {
         drawer: Drawer(child: buildSidebarContent()),
         body: Column(
           children: [
-            if (shellState.subtitle == null && shellState.breadcrumbs.isNotEmpty)
+            if (shellState.subtitle == null && displayBreadcrumbs.isNotEmpty)
               Container(
                 color: Colors.white,
                 width: double.infinity,
@@ -530,12 +540,12 @@ class AppScaffold extends ConsumerWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: shellState.breadcrumbs.asMap().entries.map((
+                    children: displayBreadcrumbs.asMap().entries.map((
                       entry,
                     ) {
                       final idx = entry.key;
                       final label = entry.value;
-                      final isLast = idx == shellState.breadcrumbs.length - 1;
+                      final isLast = idx == displayBreadcrumbs.length - 1;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

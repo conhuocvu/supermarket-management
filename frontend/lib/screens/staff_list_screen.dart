@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../models/staff_member.dart';
 import '../providers/staff_provider.dart';
-import '../providers/shell_layout_provider.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/error_view.dart';
 
@@ -19,6 +18,9 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
+  static const _pageSize = 6;
+  int _currentPage = 0;
+
   static const _filters = ['ALL', 'ON_DUTY', 'OFF_DUTY', 'ON_LEAVE'];
   static const _filterLabels = {
     'ALL': 'All Staff',
@@ -26,17 +28,6 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     'OFF_DUTY': 'Off Duty',
     'ON_LEAVE': 'On Leave',
   };
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(shellLayoutProvider.notifier).update(
-        title: 'Staff Management',
-        breadcrumbs: ['Manager', 'Staff'],
-      );
-    });
-  }
 
   @override
   void dispose() {
@@ -49,6 +40,14 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(staffListProvider);
     final theme = Theme.of(context);
+
+    // Client-side pagination
+    final allStaff = state.staff;
+    final totalPages = (allStaff.length / _pageSize).ceil().clamp(1, 9999);
+    final safePage = _currentPage.clamp(0, totalPages - 1);
+    final pageStart = safePage * _pageSize;
+    final pageEnd = (pageStart + _pageSize).clamp(0, allStaff.length);
+    final pageStaff = allStaff.sublist(pageStart, pageEnd);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -71,10 +70,12 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             filterLabels: _filterLabels,
             filters: _filters,
             onSearch: (q) {
+              setState(() => _currentPage = 0);
               ref.read(staffListProvider.notifier).search(q);
             },
             onFilterChanged: (f) {
               _searchController.clear();
+              setState(() => _currentPage = 0);
               ref.read(staffListProvider.notifier).setStatusFilter(f);
             },
           ),
@@ -82,8 +83,18 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
 
           // ── Staff List ───────────────────────────────────────────
           Expanded(
-            child: _buildBody(context, theme, state),
+            child: _buildBody(context, theme, state, pageStaff),
           ),
+
+          // ── Pagination Bar ───────────────────────────────────────
+          if (!state.isLoading && state.error == null && allStaff.isNotEmpty)
+            _PaginationBar(
+              currentPage: safePage,
+              totalPages: totalPages,
+              totalItems: allStaff.length,
+              pageSize: _pageSize,
+              onPageChanged: (p) => setState(() => _currentPage = p),
+            ),
         ],
       ),
     );
@@ -93,6 +104,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     BuildContext context,
     ThemeData theme,
     StaffListState state,
+    List<StaffMember> pageStaff,
   ) {
     if (state.isLoading) return const LoadingView();
 
@@ -110,7 +122,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     }
 
     return _StaffGrid(
-      staff: state.staff,
+      staff: pageStaff,
     );
   }
 
@@ -143,12 +155,159 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           OutlinedButton.icon(
             onPressed: () {
               _searchController.clear();
+              setState(() => _currentPage = 0);
               ref.read(staffListProvider.notifier).setStatusFilter('ALL');
             },
             icon: const Icon(Icons.refresh),
             label: const Text('Reset Filters'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Pagination Bar
+// ────────────────────────────────────────────────────────────────────────────
+
+class _PaginationBar extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final int totalItems;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalItems,
+    required this.pageSize,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final start = currentPage * pageSize + 1;
+    final end = ((currentPage + 1) * pageSize).clamp(0, totalItems);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        children: [
+          // ── Item count label ──────────────────────────────
+          Text(
+            'Showing $start–$end of $totalItems staff',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const Spacer(),
+
+          // ── Page buttons ──────────────────────────────────
+          _PageButton(
+            icon: Icons.first_page_rounded,
+            enabled: currentPage > 0,
+            onTap: () => onPageChanged(0),
+          ),
+          const SizedBox(width: 4),
+          _PageButton(
+            icon: Icons.chevron_left_rounded,
+            enabled: currentPage > 0,
+            onTap: () => onPageChanged(currentPage - 1),
+          ),
+          const SizedBox(width: 8),
+
+          // ── Page number pills ─────────────────────────────
+          ...List.generate(totalPages, (i) {
+            final isActive = i == currentPage;
+            return GestureDetector(
+              onTap: () => onPageChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? theme.colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isActive
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${i + 1}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: isActive
+                        ? Colors.white
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight:
+                        isActive ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(width: 8),
+          _PageButton(
+            icon: Icons.chevron_right_rounded,
+            enabled: currentPage < totalPages - 1,
+            onTap: () => onPageChanged(currentPage + 1),
+          ),
+          const SizedBox(width: 4),
+          _PageButton(
+            icon: Icons.last_page_rounded,
+            enabled: currentPage < totalPages - 1,
+            onTap: () => onPageChanged(totalPages - 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _PageButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled
+                ? theme.colorScheme.outlineVariant
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled
+              ? theme.colorScheme.onSurface
+              : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+        ),
       ),
     );
   }

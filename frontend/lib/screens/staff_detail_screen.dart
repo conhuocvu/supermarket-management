@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/staff_provider.dart';
-import '../providers/shell_layout_provider.dart';
 import '../providers/category_provider.dart'; // provides apiServiceProvider
 
 // ---------------------------------------------------------------------------
@@ -30,22 +29,20 @@ final shiftsMetaProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>
 // Staff Detail Screen  (UC-ST-02)
 // ---------------------------------------------------------------------------
 
-class StaffDetailScreen extends ConsumerWidget {
+class StaffDetailScreen extends ConsumerStatefulWidget {
   final String userId;
 
   const StaffDetailScreen({super.key, required this.userId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final detailAsync = ref.watch(staffDetailProvider(userId));
+  ConsumerState<StaffDetailScreen> createState() => _StaffDetailScreenState();
+}
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(shellLayoutProvider.notifier).update(
-        title: 'Staff Details',
-        breadcrumbs: ['Manager', 'Staff', 'Details'],
-      );
-    });
+class _StaffDetailScreenState extends ConsumerState<StaffDetailScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final detailAsync = ref.watch(staffDetailProvider(widget.userId));
 
     return detailAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -77,9 +74,9 @@ class StaffDetailScreen extends ConsumerWidget {
       ),
       data: (data) => _StaffDetailBody(
         data: data,
-        userId: userId,
-        onRoleUpdated: () => ref.refresh(staffDetailProvider(userId)),
-        onShiftsUpdated: () => ref.refresh(staffDetailProvider(userId)),
+        userId: widget.userId,
+        onRoleUpdated: () => ref.refresh(staffDetailProvider(widget.userId)),
+        onShiftsUpdated: () => ref.refresh(staffDetailProvider(widget.userId)),
       ),
     );
   }
