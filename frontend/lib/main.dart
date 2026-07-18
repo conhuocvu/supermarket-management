@@ -29,6 +29,7 @@ import 'screens/manager_dashboard_screen.dart';
 import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
 import 'screens/promotion_list_screen.dart';
+import 'screens/promotion_detail_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -237,6 +238,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/manager/promotion',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: PromotionListScreen()),
+          ),
+          GoRoute(
+            path: '/manager/promotion/:promotionNumber',
+            pageBuilder: (context, state) {
+              final promotionNumberStr = state.pathParameters['promotionNumber']!;
+              final promotionNumber = int.tryParse(promotionNumberStr) ?? 0;
+              return NoTransitionPage(
+                child: PromotionDetailScreen(promotionNumber: promotionNumber),
+              );
+            },
           ),
         ],
       ),

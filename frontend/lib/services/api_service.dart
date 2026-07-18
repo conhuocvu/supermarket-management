@@ -780,13 +780,18 @@ class ApiService {
     }
   }
 
-  /// Fetch promotions list with keyword and status filter.
+  /// Fetch promotions list with keyword, status filter, and pagination.
   Future<Map<String, dynamic>> fetchPromotions({
     String? keyword,
     String? status,
+    int page = 0,
+    int size = 10,
   }) async {
     try {
-      final Map<String, dynamic> queryParams = {};
+      final Map<String, dynamic> queryParams = {
+        'page': page,
+        'size': size,
+      };
       if (keyword != null && keyword.isNotEmpty) {
         queryParams['keyword'] = keyword;
       }
@@ -796,12 +801,98 @@ class ApiService {
 
       final response = await _dio.get(
         '/promotions',
-        queryParameters: queryParams.isEmpty ? null : queryParams,
+        queryParameters: queryParams,
       );
       if (response.statusCode == 200 && response.data['success'] == true) {
         return response.data['data'] as Map<String, dynamic>;
       }
       throw Exception(response.data['message'] ?? 'Failed to load promotions.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Upload promotion image.
+  Future<void> uploadPromotionImage(int promotionNumber, List<int> bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: filename,
+        ),
+      });
+
+      final response = await _dio.post(
+        '/promotions/$promotionNumber/upload-image',
+        data: formData,
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to upload image.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Fetch promotion detail by promotion number.
+  Future<Map<String, dynamic>> fetchPromotionDetail(int promotionNumber) async {
+    try {
+      final response = await _dio.get('/promotions/$promotionNumber');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load promotion detail.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Create a new promotion.
+  Future<Map<String, dynamic>> createPromotion(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/promotions', data: data);
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create promotion.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Update an existing promotion.
+  Future<void> updatePromotion(int promotionNumber, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('/promotions/$promotionNumber', data: data);
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update promotion.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Deactivate a promotion (sets status to INACTIVE).
+  Future<void> deactivatePromotion(int promotionNumber) async {
+    try {
+      final response = await _dio.patch('/promotions/$promotionNumber/deactivate');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to deactivate promotion.');
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {

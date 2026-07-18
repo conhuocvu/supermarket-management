@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/promotion.dart';
 import '../providers/promotion_provider.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/error_view.dart';
+import '../widgets/promotion_dialogs.dart';
 
 class PromotionListScreen extends ConsumerStatefulWidget {
   const PromotionListScreen({super.key});
@@ -77,6 +79,16 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
               Expanded(
                 child: _buildBody(context, theme, state, isWide, isTablet),
               ),
+              if (state.promotions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _PaginationControls(
+                  page: state.page,
+                  totalPages: state.totalPages,
+                  totalElements: state.totalElements,
+                  pageSize: state.pageSize,
+                  onPageChanged: (p) => ref.read(promotionListProvider.notifier).goToPage(p),
+                ),
+              ],
             ],
           ),
         );
@@ -497,13 +509,19 @@ class _SearchFilterBar extends StatelessWidget {
         final newPromotionBtn = SizedBox(
           height: 48,
           child: FilledButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('UC-PM-02 Create Promotion is not implemented yet.'),
-                  duration: Duration(seconds: 2),
-                ),
+            onPressed: () async {
+              final added = await showDialog<bool>(
+                context: context,
+                builder: (_) => const AddPromotionDialog(),
               );
+              if (added == true && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Promotion created successfully.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.add, size: 20),
             label: const Text('New Promotion'),
@@ -561,8 +579,10 @@ class _PromotionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final statusConfig = _statusConfig(promotion.status);
 
-    return Container(
-      decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => context.go('/manager/promotion/${promotion.promotionNumber}'),
+      child: Container(
+        decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -680,16 +700,53 @@ class _PromotionCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      IconButton(
+                      PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert_rounded),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('View, Edit, Delete Actions are not implemented yet.'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
+                        onSelected: (value) async {
+                          if (value == 'view') {
+                            context.go('/manager/promotion/${promotion.promotionNumber}');
+                          } else if (value == 'edit') {
+                            final updated = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => EditPromotionDialog(promotion: promotion),
+                            );
+                            if (updated == true && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Promotion updated successfully.'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } else if (value == 'deactivate') {
+                            final deactivated = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => DeactivatePromotionDialog(promotion: promotion),
+                            );
+                            if (deactivated == true && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Promotion deactivated successfully.'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
                         },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'view',
+                            child: Text('View Details'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Edit Promotion'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'deactivate',
+                            child: Text('Deactivate Promotion'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -727,8 +784,9 @@ class _PromotionCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   _StatusConfig _statusConfig(String status) {
     switch (status) {
@@ -816,7 +874,10 @@ class _FeaturedBanner extends StatelessWidget {
             ),
           ),
         ),
-        bannerContent,
+        GestureDetector(
+          onTap: () => context.go('/manager/promotion/${promotion.promotionNumber}'),
+          child: bannerContent,
+        ),
       ],
     );
   }
@@ -954,6 +1015,147 @@ class _FeaturedBanner extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaginationControls extends StatelessWidget {
+  final int page;
+  final int totalPages;
+  final int totalElements;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationControls({
+    required this.page,
+    required this.totalPages,
+    required this.totalElements,
+    required this.pageSize,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final start = page * pageSize + 1;
+    final end = ((page + 1) * pageSize).clamp(0, totalElements);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        children: [
+          // ── Item count label ──────────────────────────────
+          Text(
+            'Showing $start–$end of $totalElements promotions',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const Spacer(),
+
+          // ── Page buttons ──────────────────────────────────
+          _PageButton(
+            icon: Icons.first_page_rounded,
+            enabled: page > 0,
+            onTap: () => onPageChanged(0),
+          ),
+          const SizedBox(width: 4),
+          _PageButton(
+            icon: Icons.chevron_left_rounded,
+            enabled: page > 0,
+            onTap: () => onPageChanged(page - 1),
+          ),
+          const SizedBox(width: 8),
+
+          // ── Page number pills ─────────────────────────────
+          ...List.generate(totalPages, (i) {
+            final isActive = i == page;
+            return GestureDetector(
+              onTap: () => onPageChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? theme.colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isActive
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${i + 1}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: isActive
+                        ? Colors.white
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(width: 8),
+          _PageButton(
+            icon: Icons.chevron_right_rounded,
+            enabled: page < totalPages - 1,
+            onTap: () => onPageChanged(page + 1),
+          ),
+          const SizedBox(width: 4),
+          _PageButton(
+            icon: Icons.last_page_rounded,
+            enabled: page < totalPages - 1,
+            onTap: () => onPageChanged(totalPages - 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _PageButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled
+                ? theme.colorScheme.outlineVariant
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled
+              ? theme.colorScheme.onSurface
+              : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+        ),
       ),
     );
   }

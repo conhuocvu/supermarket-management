@@ -13,4 +13,7 @@ public class PromotionSummaryDTO {
     private long scheduledCount;
     private long expiredCount;
     private double avgDiscount;
+    private int currentPage;
+    private int totalPages;
+    private long totalElements;
 }
