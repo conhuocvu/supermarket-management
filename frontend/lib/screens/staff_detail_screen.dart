@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/staff_provider.dart';
-import '../providers/category_provider.dart'; // provides apiServiceProvider
+import '../core/providers/api_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Providers
@@ -108,15 +108,15 @@ class _StaffDetailBody extends ConsumerWidget {
     String statusLabel;
     switch (workStatus) {
       case 'ON_DUTY':
-        statusColor = const Color(0xFF22C55E);
+        statusColor = theme.colorScheme.primary;
         statusLabel = 'On Duty';
         break;
       case 'ON_LEAVE':
-        statusColor = const Color(0xFFF4A261);
+        statusColor = theme.colorScheme.secondary;
         statusLabel = 'On Leave';
         break;
       default:
-        statusColor = const Color(0xFF6B7280);
+        statusColor = theme.colorScheme.outline;
         statusLabel = 'Off Duty';
     }
 
@@ -447,8 +447,8 @@ class _ContactInfoCard extends StatelessWidget {
           value: data['status'] as String? ?? 'ACTIVE',
           theme: theme,
           valueColor: (data['status'] as String? ?? 'ACTIVE') == 'ACTIVE'
-              ? const Color(0xFF22C55E)
-              : const Color(0xFF9CA3AF),
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outlineVariant,
         ),
       ],
     );
@@ -742,7 +742,6 @@ class SetRoleDialog extends ConsumerStatefulWidget {
 
 class _SetRoleDialogState extends ConsumerState<SetRoleDialog> {
   int? _selectedRoleNumber;
-  final _reasonController = TextEditingController();
   bool _isSaving = false;
   String? _errorMessage;
 
@@ -754,11 +753,11 @@ class _SetRoleDialogState extends ConsumerState<SetRoleDialog> {
 
   @override
   void dispose() {
-    _reasonController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final theme = Theme.of(context);
     if (_selectedRoleNumber == null) {
       setState(() => _errorMessage = 'Please select a new role.');
       return;
@@ -778,15 +777,14 @@ class _SetRoleDialogState extends ConsumerState<SetRoleDialog> {
       await api.setStaffRole(
         widget.userId,
         _selectedRoleNumber!,
-        reason: _reasonController.text.isNotEmpty ? _reasonController.text : null,
       );
       if (mounted) {
         widget.onSaved();
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Staff role updated successfully.'),
-            backgroundColor: Color(0xFF22C55E),
+          SnackBar(
+            content: const Text('Staff role updated successfully.'),
+            backgroundColor: theme.colorScheme.primary,
           ),
         );
       }
@@ -990,30 +988,7 @@ class _SetRoleDialogState extends ConsumerState<SetRoleDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Reason field
-            Text('Reason / Note (optional)',
-                style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant)),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _reasonController,
-              decoration: InputDecoration(
-                hintText: 'Enter reason for role change...',
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      BorderSide(color: theme.colorScheme.primary, width: 2),
-                ),
-              ),
-              maxLines: 2,
-            ),
+
           ],
         ),
       ),
@@ -1113,12 +1088,13 @@ class _AssignShiftDialogState extends ConsumerState<AssignShiftDialog> {
       await api.assignStaffShifts(widget.userId, schedule);
 
       if (mounted) {
+        final theme = Theme.of(context);
         widget.onSaved();
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Shift assignment saved successfully.'),
-            backgroundColor: Color(0xFF22C55E),
+          SnackBar(
+            content: const Text('Shift assignment saved successfully.'),
+            backgroundColor: theme.colorScheme.primary,
           ),
         );
       }

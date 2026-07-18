@@ -4,9 +4,7 @@ import com.supermarket.backend.dto.ManagerDashboardDataDTO;
 import com.supermarket.backend.dto.RecentActivityDTO;
 import com.supermarket.backend.repository.InventoryRepository;
 import com.supermarket.backend.repository.ProductRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Query;
+import com.supermarket.backend.repository.ManagerDashboardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +16,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,39 +27,31 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ManagerDashboardService {
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final ManagerDashboardRepository managerDashboardRepository;
 
     public ManagerDashboardDataDTO getManagerDashboardData() {
         long totalProducts = productRepository.count();
         long lowStockCount = inventoryRepository.countLowStock();
 
         // 1. Total Staff
-        Query staffCountQuery = entityManager.createNativeQuery("SELECT COUNT(*) FROM profiles");
-        long totalStaff = ((Number) staffCountQuery.getSingleResult()).longValue();
+        long totalStaff = managerDashboardRepository.countStaff();
 
         // 2. Total Customers
-        Query customerCountQuery = entityManager.createNativeQuery("SELECT COUNT(*) FROM customers");
-        long totalCustomers = ((Number) customerCountQuery.getSingleResult()).longValue();
+        long totalCustomers = managerDashboardRepository.countCustomers();
 
         // 3. Total Suppliers
-        Query supplierCountQuery = entityManager.createNativeQuery("SELECT COUNT(*) FROM suppliers");
-        long totalSuppliers = ((Number) supplierCountQuery.getSingleResult()).longValue();
+        long totalSuppliers = managerDashboardRepository.countSuppliers();
 
         // 4. Total Revenue
-        Query totalRevenueQuery = entityManager.createNativeQuery("SELECT COALESCE(SUM(final_amount), 0) FROM invoices WHERE status = 'COMPLETED'");
-        double totalRevenue = ((Number) totalRevenueQuery.getSingleResult()).doubleValue();
+        double totalRevenue = managerDashboardRepository.sumTotalRevenue();
 
         // 5. Revenue Today
-        Query revenueTodayQuery = entityManager.createNativeQuery("SELECT COALESCE(SUM(final_amount), 0) FROM invoices WHERE status = 'COMPLETED' AND CAST(created_date AS DATE) = CURRENT_DATE");
-        double revenueToday = ((Number) revenueTodayQuery.getSingleResult()).doubleValue();
+        double revenueToday = managerDashboardRepository.sumRevenueToday();
 
         // 6. Active Orders Today (Completed or Pending Invoices today)
-        Query activeOrdersQuery = entityManager.createNativeQuery("SELECT COUNT(*) FROM invoices WHERE CAST(created_date AS DATE) = CURRENT_DATE");
-        long activeOrdersCount = ((Number) activeOrdersQuery.getSingleResult()).longValue();
+        long activeOrdersCount = managerDashboardRepository.countActiveOrdersToday();
 
         // 7. Stock Level Percentage
         double stockLevel = 100.0;
@@ -68,31 +60,35 @@ public class ManagerDashboardService {
             stockLevel = BigDecimal.valueOf(stockLevel).setScale(1, RoundingMode.HALF_UP).doubleValue();
         }
 
-        // 8. Weekly Revenue
+        // 8. Weekly Revenue (optimized: single query group by day)
+        LocalDate startDate = LocalDate.now().minusDays(6);
+        List<Object[]> weeklyRevenueData = managerDashboardRepository.getWeeklyRevenue(startDate);
+        Map<LocalDate, Double> revenueMap = new HashMap<>();
+        for (Object[] row : weeklyRevenueData) {
+            LocalDate date;
+            Object dateObj = row[0];
+            if (dateObj instanceof java.sql.Date) {
+                date = ((java.sql.Date) dateObj).toLocalDate();
+            } else if (dateObj instanceof LocalDate) {
+                date = (LocalDate) dateObj;
+            } else {
+                date = LocalDate.parse(dateObj.toString());
+            }
+            double amount = ((Number) row[1]).doubleValue();
+            revenueMap.put(date, amount);
+        }
+
         List<ManagerDashboardDataDTO.WeeklyRevenueDTO> weeklyRevenueList = new ArrayList<>();
         LocalDate today = LocalDate.now();
         for (int i = 6; i >= 0; i--) {
             LocalDate date = today.minusDays(i);
             String dayName = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
-            Query query = entityManager.createNativeQuery(
-                "SELECT COALESCE(SUM(final_amount), 0) FROM invoices WHERE status = 'COMPLETED' AND CAST(created_date AS DATE) = :date"
-            );
-            query.setParameter("date", java.sql.Date.valueOf(date));
-            double amount = ((Number) query.getSingleResult()).doubleValue();
+            double amount = revenueMap.getOrDefault(date, 0.0);
             weeklyRevenueList.add(new ManagerDashboardDataDTO.WeeklyRevenueDTO(dayName, amount));
         }
 
         // 9. Inventory Distribution
-        Query distQuery = entityManager.createNativeQuery(
-            "SELECT c.category_name, COALESCE(SUM(i.available_quantity), 0) as total_qty " +
-            "FROM categories c " +
-            "JOIN products p ON c.category_number = p.category_number " +
-            "JOIN inventories i ON p.product_number = i.product_number " +
-            "GROUP BY c.category_name " +
-            "ORDER BY total_qty DESC"
-        );
-        @SuppressWarnings("unchecked")
-        List<Object[]> distResults = distQuery.getResultList();
+        List<Object[]> distResults = managerDashboardRepository.getInventoryDistribution();
         double grandTotal = 0;
         for (Object[] row : distResults) {
             grandTotal += ((Number) row[1]).doubleValue();
@@ -111,11 +107,7 @@ public class ManagerDashboardService {
         List<RecentActivityDTO> activities = new ArrayList<>();
 
         // Promotions
-        Query promoQuery = entityManager.createNativeQuery(
-            "SELECT promotion_name, discount_value, start_date FROM promotions ORDER BY start_date DESC LIMIT 5"
-        );
-        @SuppressWarnings("unchecked")
-        List<Object[]> promoRows = promoQuery.getResultList();
+        List<Object[]> promoRows = managerDashboardRepository.findRecentPromotions();
         for (Object[] row : promoRows) {
             String name = (String) row[0];
             Number discount = (Number) row[1];
@@ -129,11 +121,7 @@ public class ManagerDashboardService {
         }
 
         // Stock-ins
-        Query stockInQuery = entityManager.createNativeQuery(
-            "SELECT s.supplier_name, si.stock_in_date FROM stock_ins si JOIN suppliers s ON si.supplier_number = s.supplier_number ORDER BY si.stock_in_date DESC LIMIT 5"
-        );
-        @SuppressWarnings("unchecked")
-        List<Object[]> stockInRows = stockInQuery.getResultList();
+        List<Object[]> stockInRows = managerDashboardRepository.findRecentDeliveries();
         for (Object[] row : stockInRows) {
             String supplierName = (String) row[0];
             LocalDateTime time = convertToLocalDateTime(row[1]);
@@ -146,11 +134,7 @@ public class ManagerDashboardService {
         }
 
         // Profiles / Staff
-        Query staffQuery = entityManager.createNativeQuery(
-            "SELECT full_name, role_number, created_at FROM profiles ORDER BY created_at DESC LIMIT 5"
-        );
-        @SuppressWarnings("unchecked")
-        List<Object[]> staffRows = staffQuery.getResultList();
+        List<Object[]> staffRows = managerDashboardRepository.findRecentProfiles();
         for (Object[] row : staffRows) {
             String fullName = (String) row[0];
             Number roleNum = (Number) row[1];
@@ -174,11 +158,7 @@ public class ManagerDashboardService {
         }
 
         // Reports
-        Query reportQuery = entityManager.createNativeQuery(
-            "SELECT pr.description, pr.created_at FROM product_reports pr ORDER BY pr.created_at DESC LIMIT 5"
-        );
-        @SuppressWarnings("unchecked")
-        List<Object[]> reportRows = reportQuery.getResultList();
+        List<Object[]> reportRows = managerDashboardRepository.findRecentReports();
         for (Object[] row : reportRows) {
             String desc = (String) row[0];
             LocalDateTime time = convertToLocalDateTime(row[1]);

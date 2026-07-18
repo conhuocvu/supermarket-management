@@ -257,14 +257,14 @@ class _ManagerDashboardBody extends StatelessWidget {
         value: currencyFmt,
         icon: Icons.account_balance_wallet_outlined,
         subLabel: '${data.totalRevenue > 0 ? '+${(data.revenueToday / data.totalRevenue * 100).toStringAsFixed(1)}%' : '0%'} of total',
-        subColor: const Color(0xFF40826D),
+        subColor: theme.colorScheme.primary,
       ),
       _KpiData(
         label: 'ACTIVE ORDERS',
         value: data.activeOrdersCount.toString(),
         icon: Icons.shopping_cart_checkout_rounded,
         subLabel: 'Today\'s transactions',
-        subColor: const Color(0xFF40826D),
+        subColor: theme.colorScheme.primary,
       ),
       _KpiData(
         label: 'ON-SHIFT STAFF',
@@ -278,7 +278,7 @@ class _ManagerDashboardBody extends StatelessWidget {
         value: '${data.stockLevel.toStringAsFixed(0)}%',
         icon: Icons.inventory_2_outlined,
         subLabel: data.lowStockCount > 0 ? '${data.lowStockCount} Alerts pending' : 'No alerts',
-        subColor: data.lowStockCount > 0 ? theme.colorScheme.secondary : const Color(0xFF40826D),
+        subColor: data.lowStockCount > 0 ? theme.colorScheme.secondary : theme.colorScheme.primary,
         valueColor: data.stockLevel < 80
             ? theme.colorScheme.secondary
             : theme.colorScheme.onSurface,
@@ -485,10 +485,10 @@ class _ManagerDashboardBody extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF40826D).withValues(alpha: 0.1),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.check_circle_outline, color: Color(0xFF40826D), size: 28),
+                  child: Icon(Icons.check_circle_outline, color: theme.colorScheme.primary, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -518,10 +518,10 @@ class _ManagerDashboardBody extends StatelessWidget {
               itemBuilder: (context, index) {
                 final level = index == 0 ? 'URGENT' : index == 1 ? 'CRITICAL' : 'LOW';
                 final badgeColor = index == 0
-                    ? const Color(0xFFDC2626)
+                    ? theme.colorScheme.error
                     : index == 1
-                        ? const Color(0xFFF4A261)
-                        : const Color(0xFF3B82F6);
+                        ? theme.colorScheme.secondary
+                        : theme.colorScheme.outline;
                 final unitsLeft = (lowStockCount - index * 3).clamp(1, 20);
                 return Container(
                   width: 140,
@@ -529,7 +529,7 @@ class _ManagerDashboardBody extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -636,20 +636,20 @@ class _ManagerDashboardBody extends StatelessWidget {
 
     if (action.contains('Delivery') || action.contains('Supplier')) {
       icon = Icons.local_shipping_rounded;
-      iconBg = const Color(0xFF3B82F6).withValues(alpha: 0.12);
-      iconColor = const Color(0xFF3B82F6);
+      iconBg = theme.colorScheme.primary.withValues(alpha: 0.12);
+      iconColor = theme.colorScheme.primary;
     } else if (action.contains('Promotion')) {
       icon = Icons.campaign_rounded;
-      iconBg = const Color(0xFFF4A261).withValues(alpha: 0.12);
-      iconColor = const Color(0xFFF4A261);
+      iconBg = theme.colorScheme.secondary.withValues(alpha: 0.12);
+      iconColor = theme.colorScheme.secondary;
     } else if (action.contains('Staff') || action.contains('Onboard')) {
       icon = Icons.person_add_alt_1_rounded;
-      iconBg = const Color(0xFF40826D).withValues(alpha: 0.12);
-      iconColor = const Color(0xFF40826D);
+      iconBg = theme.colorScheme.primary.withValues(alpha: 0.12);
+      iconColor = theme.colorScheme.primary;
     } else {
       icon = Icons.warning_amber_rounded;
-      iconBg = const Color(0xFFDC2626).withValues(alpha: 0.12);
-      iconColor = const Color(0xFFDC2626);
+      iconBg = theme.colorScheme.error.withValues(alpha: 0.12);
+      iconColor = theme.colorScheme.error;
     }
 
     return Padding(
@@ -748,7 +748,7 @@ class _KpiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -812,12 +812,13 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
