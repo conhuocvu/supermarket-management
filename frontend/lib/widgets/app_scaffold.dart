@@ -31,6 +31,9 @@ class AppScaffold extends ConsumerWidget {
     } else if (currentPath.startsWith('/manager/staff/') && currentPath != '/manager/staff') {
       displayTitle = 'Staff Details';
       displayBreadcrumbs = ['Manager', 'Staff', 'Details'];
+    } else if (currentPath == '/manager/promotion') {
+      displayTitle = 'Promotions';
+      displayBreadcrumbs = ['Manager', 'Promotions'];
     }
 
     final authState = ref.watch(authProvider);
@@ -231,6 +234,8 @@ class AppScaffold extends ConsumerWidget {
                             context.go('/manager');
                           } else if (item['title'] == 'Staff') {
                             context.go('/manager/staff');
+                          } else if (item['title'] == 'Promotion') {
+                            context.go('/manager/promotion');
                           }
                         } else {
                           if (item['title'] == 'Dashboard') {

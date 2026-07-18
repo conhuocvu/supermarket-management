@@ -775,6 +775,35 @@ class ApiService {
     }
   }
 
+  /// Fetch promotions list with keyword and status filter.
+  Future<Map<String, dynamic>> fetchPromotions({
+    String? keyword,
+    String? status,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {};
+      if (keyword != null && keyword.isNotEmpty) {
+        queryParams['keyword'] = keyword;
+      }
+      if (status != null && status != 'ALL') {
+        queryParams['status'] = status;
+      }
+
+      final response = await _dio.get(
+        '/promotions',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load promotions.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
   String _handleDioError(DioException e) {
     String message = 'Server connection error.';
     if (e.type == DioExceptionType.connectionTimeout ||

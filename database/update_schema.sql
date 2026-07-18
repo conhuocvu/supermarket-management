@@ -47,3 +47,25 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
 
 -- 8. Add internal notes to categories table
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS internal_notes TEXT;
+
+-- 9. Add columns to promotions table
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50);
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;
+
+-- 10. Update seeded promotions with code, category, is_featured, and image URL
+UPDATE promotions SET promo_code = 'HARVEST20', category = 'SEASONAL SALE', is_featured = FALSE, image_url = 'https://images.unsplash.com/photo-1610348725531-843dff163e2c?w=400&q=80', description = 'Fresh Harvest 20% Off' WHERE promotion_number = 1;
+UPDATE promotions SET promo_code = 'BAKE50', category = 'FLASH DEAL', is_featured = FALSE, image_url = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80', description = 'Midnight Bakery Special' WHERE promotion_number = 2;
+UPDATE promotions SET promo_code = 'CLEANUP', category = 'HOME CARE', is_featured = FALSE, image_url = 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80', description = 'Cleaning Essentials Pack', status = 'EXPIRED'::promotion_status WHERE promotion_number = 3;
+
+-- 11. Add a few more promotions to match mockups
+INSERT INTO promotions (promotion_number, promotion_name, discount_value, status, start_date, end_date, promo_code, category, is_featured, image_url, description)
+VALUES 
+(4, 'Buy 1 Get 1 Juice Blend', 12.5, 'ACTIVE'::promotion_status, CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE + INTERVAL '20 days', 'VIBE24', 'BOGO', FALSE, 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80', 'Buy 1 Get 1 Juice Blend')
+ON CONFLICT (promotion_number) DO NOTHING;
+
+INSERT INTO promotions (promotion_number, promotion_name, discount_value, status, start_date, end_date, promo_code, category, is_featured, image_url, description)
+VALUES 
+(5, 'Grand Opening Anniversary', 15.0, 'ACTIVE'::promotion_status, CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '12 days', 'ANNIVERSARY5', 'STOREWIDE EVENT', TRUE, 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=800&q=80', 'Special store-wide discounts across all departments to celebrate our 5th year in operation.')
+ON CONFLICT (promotion_number) DO NOTHING;
+

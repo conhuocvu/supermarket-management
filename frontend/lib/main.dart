@@ -28,6 +28,7 @@ import 'screens/role_screens.dart';
 import 'screens/manager_dashboard_screen.dart';
 import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
+import 'screens/promotion_list_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -231,6 +232,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 child: StaffDetailScreen(userId: userId),
               );
             },
+          ),
+          GoRoute(
+            path: '/manager/promotion',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PromotionListScreen()),
           ),
         ],
       ),
