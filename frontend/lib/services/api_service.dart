@@ -649,9 +649,14 @@ class ApiService {
   Future<Map<String, dynamic>> fetchStaffList({
     String? keyword,
     String? status,
+    int page = 0,
+    int size = 6,
   }) async {
     try {
-      final Map<String, dynamic> queryParams = {};
+      final Map<String, dynamic> queryParams = {
+        'page': page,
+        'size': size,
+      };
       if (keyword != null && keyword.isNotEmpty) {
         queryParams['keyword'] = keyword;
       }
@@ -661,7 +666,7 @@ class ApiService {
 
       final response = await _dio.get(
         '/staff',
-        queryParameters: queryParams.isEmpty ? null : queryParams,
+        queryParameters: queryParams,
       );
       if (response.statusCode == 200) {
         final body = response.data;
@@ -674,6 +679,7 @@ class ApiService {
             'staff': itemsList,
             'totalStaff': (data['totalStaff'] as num?)?.toInt() ?? 0,
             'onShiftCount': (data['onShiftCount'] as num?)?.toInt() ?? 0,
+            'totalPages': (data['totalPages'] as num?)?.toInt() ?? 1,
           };
         } else {
           throw Exception(body['message'] ?? 'Failed to load staff list.');
@@ -709,11 +715,10 @@ class ApiService {
   }
 
   /// UC-ST-03: Update a staff member's role.
-  Future<void> setStaffRole(String userId, int roleNumber, {String? reason}) async {
+  Future<void> setStaffRole(String userId, int roleNumber) async {
     try {
       final response = await _dio.put('/staff/$userId/role', data: {
         'roleNumber': roleNumber,
-        if (reason != null) 'reason': reason,
       });
       if (response.statusCode != 200 || response.data['success'] != true) {
         throw Exception(response.data['message'] ?? 'Unable to update staff role.');

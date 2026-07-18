@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/staff_member.dart';
 import '../services/api_service.dart';
-import 'category_provider.dart'; // provides apiServiceProvider
+import '../core/providers/api_provider.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -9,28 +9,29 @@ import 'category_provider.dart'; // provides apiServiceProvider
 
 class StaffListState {
   final List<StaffMember> staff;
-  final List<StaffMember> filteredStaff;
   final bool isLoading;
   final String? error;
   final int totalStaff;
   final int onShiftCount;
   final String searchQuery;
   final String statusFilter; // ALL | ON_DUTY | OFF_DUTY | ON_LEAVE
+  final int currentPage;
+  final int totalPages;
 
   const StaffListState({
     this.staff = const [],
-    this.filteredStaff = const [],
     this.isLoading = false,
     this.error,
     this.totalStaff = 0,
     this.onShiftCount = 0,
     this.searchQuery = '',
     this.statusFilter = 'ALL',
+    this.currentPage = 0,
+    this.totalPages = 1,
   });
 
   StaffListState copyWith({
     List<StaffMember>? staff,
-    List<StaffMember>? filteredStaff,
     bool? isLoading,
     String? error,
     bool clearError = false,
@@ -38,16 +39,19 @@ class StaffListState {
     int? onShiftCount,
     String? searchQuery,
     String? statusFilter,
+    int? currentPage,
+    int? totalPages,
   }) {
     return StaffListState(
       staff: staff ?? this.staff,
-      filteredStaff: filteredStaff ?? this.filteredStaff,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       totalStaff: totalStaff ?? this.totalStaff,
       onShiftCount: onShiftCount ?? this.onShiftCount,
       searchQuery: searchQuery ?? this.searchQuery,
       statusFilter: statusFilter ?? this.statusFilter,
+      currentPage: currentPage ?? this.currentPage,
+      totalPages: totalPages ?? this.totalPages,
     );
   }
 }
@@ -72,6 +76,8 @@ class StaffListNotifier extends StateNotifier<StaffListState> {
       final result = await _apiService.fetchStaffList(
         keyword: state.searchQuery.isEmpty ? null : state.searchQuery,
         status: state.statusFilter,
+        page: state.currentPage,
+        size: 6,
       );
 
       final rawList = result['staff'] as List;
@@ -80,13 +86,14 @@ class StaffListNotifier extends StateNotifier<StaffListState> {
           .toList();
       final totalStaff = result['totalStaff'] as int;
       final onShiftCount = result['onShiftCount'] as int;
+      final totalPages = result['totalPages'] as int? ?? 1;
 
       state = state.copyWith(
         staff: items,
-        filteredStaff: items,
         isLoading: false,
         totalStaff: totalStaff,
         onShiftCount: onShiftCount,
+        totalPages: totalPages,
         clearError: true,
       );
     } catch (e) {
@@ -98,13 +105,20 @@ class StaffListNotifier extends StateNotifier<StaffListState> {
   }
 
   void search(String query) {
-    state = state.copyWith(searchQuery: query);
+    state = state.copyWith(searchQuery: query, currentPage: 0);
     loadStaff(isRefresh: true);
   }
 
   void setStatusFilter(String status) {
-    state = state.copyWith(statusFilter: status, searchQuery: '');
+    state = state.copyWith(statusFilter: status, searchQuery: '', currentPage: 0);
     loadStaff(isRefresh: true);
+  }
+
+  void setPage(int page) {
+    if (page >= 0 && page < state.totalPages && page != state.currentPage) {
+      state = state.copyWith(currentPage: page);
+      loadStaff(isRefresh: true);
+    }
   }
 }
 

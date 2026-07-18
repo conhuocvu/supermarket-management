@@ -14,5 +14,6 @@ import java.util.List;
 public class StaffSummaryDTO {
     private long totalStaff;
     private long onShiftCount;
+    private int totalPages;
     private List<StaffListDTO> staff;
 }

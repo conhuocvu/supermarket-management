@@ -28,15 +28,12 @@ public class StaffController {
     @GetMapping
     public ResponseEntity<ApiResponse<StaffSummaryDTO>> getStaff(
             @RequestParam(value = "keyword", required = false) String keyword,
-            @RequestParam(value = "status", required = false, defaultValue = "ALL") String status) {
+            @RequestParam(value = "status", required = false, defaultValue = "ALL") String status,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "6") int size) {
 
-        try {
-            StaffSummaryDTO data = staffService.getStaffList(keyword, status);
-            return ResponseEntity.ok(ApiResponse.success("Staff list loaded successfully.", data));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Unable to load staff list: " + e.getMessage()));
-        }
+        StaffSummaryDTO data = staffService.getStaffList(keyword, status, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Staff list loaded successfully.", data));
     }
 
     /**
@@ -44,16 +41,8 @@ public class StaffController {
      */
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<StaffDetailDTO>> getStaffDetail(@PathVariable String userId) {
-        try {
-            StaffDetailDTO data = staffService.getStaffDetail(userId);
-            return ResponseEntity.ok(ApiResponse.success("Staff detail loaded.", data));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Unable to load staff detail: " + e.getMessage()));
-        }
+        StaffDetailDTO data = staffService.getStaffDetail(userId);
+        return ResponseEntity.ok(ApiResponse.success("Staff detail loaded.", data));
     }
 
     /**
@@ -63,20 +52,11 @@ public class StaffController {
     public ResponseEntity<ApiResponse<Void>> setRole(
             @PathVariable String userId,
             @RequestBody SetRoleRequestDTO request) {
-        try {
-            if (request.getRoleNumber() == null) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("Please select a new role."));
-            }
-            staffService.setStaffRole(userId, request.getRoleNumber());
-            return ResponseEntity.ok(ApiResponse.success("Staff role updated successfully.", null));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Unable to update staff role."));
+        if (request.getRoleNumber() == null) {
+            throw new IllegalArgumentException("Please select a new role.");
         }
+        staffService.setStaffRole(userId, request.getRoleNumber());
+        return ResponseEntity.ok(ApiResponse.success("Staff role updated successfully.", null));
     }
 
     /**
@@ -86,16 +66,8 @@ public class StaffController {
     public ResponseEntity<ApiResponse<Void>> assignShifts(
             @PathVariable String userId,
             @RequestBody AssignShiftsRequestDTO request) {
-        try {
-            staffService.assignShifts(userId, request);
-            return ResponseEntity.ok(ApiResponse.success("Shift assignment saved successfully.", null));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Unable to save shift assignment."));
-        }
+        staffService.assignShifts(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("Shift assignment saved successfully.", null));
     }
 
     /**
@@ -103,18 +75,13 @@ public class StaffController {
      */
     @GetMapping("/meta/roles")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRoles() {
-        try {
-            List<Object[]> rows = staffService.getRoles();
-            List<Map<String, Object>> data = rows.stream().map(r -> Map.<String, Object>of(
-                    "roleNumber", r[0],
-                    "roleName", r[1],
-                    "description", r[2] != null ? r[2] : ""
-            )).collect(Collectors.toList());
-            return ResponseEntity.ok(ApiResponse.success("Roles loaded.", data));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Unable to load roles."));
-        }
+        List<Object[]> rows = staffService.getRoles();
+        List<Map<String, Object>> data = rows.stream().map(r -> Map.<String, Object>of(
+                "roleNumber", r[0],
+                "roleName", r[1],
+                "description", r[2] != null ? r[2] : ""
+        )).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success("Roles loaded.", data));
     }
 
     /**
@@ -122,18 +89,13 @@ public class StaffController {
      */
     @GetMapping("/meta/shifts")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getShifts() {
-        try {
-            List<Object[]> rows = staffService.getShifts();
-            List<Map<String, Object>> data = rows.stream().map(r -> Map.<String, Object>of(
-                    "shiftNumber", r[0],
-                    "shiftName", r[1],
-                    "startTime", r[2] != null ? r[2] : "",
-                    "endTime", r[3] != null ? r[3] : ""
-            )).collect(Collectors.toList());
-            return ResponseEntity.ok(ApiResponse.success("Shifts loaded.", data));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Unable to load shifts."));
-        }
+        List<Object[]> rows = staffService.getShifts();
+        List<Map<String, Object>> data = rows.stream().map(r -> Map.<String, Object>of(
+                "shiftNumber", r[0],
+                "shiftName", r[1],
+                "startTime", r[2] != null ? r[2] : "",
+                "endTime", r[3] != null ? r[3] : ""
+        )).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success("Shifts loaded.", data));
     }
 }

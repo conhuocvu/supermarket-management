@@ -19,7 +19,6 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   final FocusNode _searchFocus = FocusNode();
 
   static const _pageSize = 6;
-  int _currentPage = 0;
 
   static const _filters = ['ALL', 'ON_DUTY', 'OFF_DUTY', 'ON_LEAVE'];
   static const _filterLabels = {
@@ -40,14 +39,6 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(staffListProvider);
     final theme = Theme.of(context);
-
-    // Client-side pagination
-    final allStaff = state.staff;
-    final totalPages = (allStaff.length / _pageSize).ceil().clamp(1, 9999);
-    final safePage = _currentPage.clamp(0, totalPages - 1);
-    final pageStart = safePage * _pageSize;
-    final pageEnd = (pageStart + _pageSize).clamp(0, allStaff.length);
-    final pageStaff = allStaff.sublist(pageStart, pageEnd);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -70,12 +61,10 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             filterLabels: _filterLabels,
             filters: _filters,
             onSearch: (q) {
-              setState(() => _currentPage = 0);
               ref.read(staffListProvider.notifier).search(q);
             },
             onFilterChanged: (f) {
               _searchController.clear();
-              setState(() => _currentPage = 0);
               ref.read(staffListProvider.notifier).setStatusFilter(f);
             },
           ),
@@ -83,17 +72,19 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
 
           // ── Staff List ───────────────────────────────────────────
           Expanded(
-            child: _buildBody(context, theme, state, pageStaff),
+            child: _buildBody(context, theme, state, state.staff),
           ),
 
           // ── Pagination Bar ───────────────────────────────────────
-          if (!state.isLoading && state.error == null && allStaff.isNotEmpty)
+          if (!state.isLoading && state.error == null && state.staff.isNotEmpty)
             _PaginationBar(
-              currentPage: safePage,
-              totalPages: totalPages,
-              totalItems: allStaff.length,
+              currentPage: state.currentPage,
+              totalPages: state.totalPages,
+              totalItems: state.totalStaff,
               pageSize: _pageSize,
-              onPageChanged: (p) => setState(() => _currentPage = p),
+              onPageChanged: (p) {
+                ref.read(staffListProvider.notifier).setPage(p);
+              },
             ),
         ],
       ),
@@ -155,7 +146,6 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           OutlinedButton.icon(
             onPressed: () {
               _searchController.clear();
-              setState(() => _currentPage = 0);
               ref.read(staffListProvider.notifier).setStatusFilter('ALL');
             },
             icon: const Icon(Icons.refresh),
@@ -348,10 +338,10 @@ class _SummaryCards extends StatelessWidget {
             label: 'On Shift',
             value: isLoading ? '—' : '$onShiftCount',
             icon: Icons.access_time_outlined,
-            iconColor: const Color(0xFF22C55E),
-            iconBg: const Color(0xFF22C55E).withValues(alpha: 0.1),
+            iconColor: theme.colorScheme.primary,
+            iconBg: theme.colorScheme.primary.withValues(alpha: 0.1),
             badge: isLoading ? null : 'Live',
-            badgeColor: const Color(0xFF22C55E),
+            badgeColor: theme.colorScheme.primary,
           ),
         ),
       ],
@@ -720,7 +710,7 @@ class _StaffCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final statusConfig = _statusConfig(member.workStatus);
+    final statusConfig = _statusConfig(member.workStatus, theme);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -832,14 +822,14 @@ class _StaffCard extends StatelessWidget {
     );
   }
 
-  _StatusConfig _statusConfig(String workStatus) {
+  _StatusConfig _statusConfig(String workStatus, ThemeData theme) {
     switch (workStatus) {
       case 'ON_DUTY':
-        return _StatusConfig('On Duty', const Color(0xFF22C55E));
+        return _StatusConfig('On Duty', theme.colorScheme.primary);
       case 'ON_LEAVE':
-        return _StatusConfig('On Leave', const Color(0xFFF4A261));
+        return _StatusConfig('On Leave', theme.colorScheme.secondary);
       default:
-        return _StatusConfig('Off Duty', const Color(0xFF6B7280));
+        return _StatusConfig('Off Duty', theme.colorScheme.outline);
     }
   }
 }
@@ -926,16 +916,17 @@ class _WorkStatusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     Color color;
     switch (workStatus) {
       case 'ON_DUTY':
-        color = const Color(0xFF22C55E);
+        color = theme.colorScheme.primary;
         break;
       case 'ON_LEAVE':
-        color = const Color(0xFFF4A261);
+        color = theme.colorScheme.secondary;
         break;
       default:
-        color = const Color(0xFF9CA3AF);
+        color = theme.colorScheme.outlineVariant;
     }
 
     return Container(
@@ -1003,7 +994,7 @@ class _ShiftInfoRow extends StatelessWidget {
       return _infoRow(
         Icons.beach_access_outlined,
         'On Leave',
-        const Color(0xFFF4A261),
+        theme.colorScheme.secondary,
         '',
         theme,
       );

@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/manager_dashboard_data.dart';
 import '../services/api_service.dart';
-
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
+import '../core/providers/api_provider.dart';
 
 final managerDashboardDataProvider =
     StateNotifierProvider<ManagerDashboardDataNotifier, AsyncValue<ManagerDashboardData>>((
