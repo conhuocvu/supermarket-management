@@ -60,4 +60,26 @@ public class StockOutController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @PostMapping("/disposals")
+    public ResponseEntity<Map<String, Object>> recordDisposal(@jakarta.validation.Valid @RequestBody com.supermarket.backend.dto.DisposalRequestDTO request) {
+        try {
+            inventoryService.recordDisposal(request);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Expired product has been disposed successfully.");
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Expired product cannot be disposed.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }
+

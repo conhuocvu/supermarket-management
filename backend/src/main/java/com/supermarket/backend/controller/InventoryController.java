@@ -105,4 +105,27 @@ public class InventoryController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    @GetMapping("/disposals/{stockInDetailNumber}")
+    public ResponseEntity<Map<String, Object>> getDisposalFormData(@PathVariable("stockInDetailNumber") Integer stockInDetailNumber) {
+        try {
+            com.supermarket.backend.dto.DisposalFormDataDTO data = inventoryService.getDisposalFormData(stockInDetailNumber);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Disposal form data loaded successfully.");
+            response.put("data", data);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Expired product information cannot be loaded.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }
+

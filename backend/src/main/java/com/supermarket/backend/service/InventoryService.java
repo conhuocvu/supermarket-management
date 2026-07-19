@@ -1269,4 +1269,98 @@ public class InventoryService {
         dtos.sort((d1, d2) -> d1.getExpiryDate().compareTo(d2.getExpiryDate()));
         return dtos;
     }
+
+    @Transactional(readOnly = true)
+    public DisposalFormDataDTO getDisposalFormData(Integer stockInDetailNumber) {
+        StockInDetail detail = stockInDetailRepository.findById(stockInDetailNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Stock batch not found with ID: " + stockInDetailNumber));
+
+        Product product = productRepository.findById(detail.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + detail.getProductNumber()));
+
+        String unitName = "Pcs";
+        if (product.getInventoryUnitNumber() != null) {
+            unitName = unitRepository.findById(product.getInventoryUnitNumber())
+                    .map(Unit::getUnitName)
+                    .orElse("Pcs");
+        }
+
+        return DisposalFormDataDTO.builder()
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .productName(product.getProductName())
+                .barcode(product.getBarcode())
+                .batchNumber(detail.getBatchNumber())
+                .expiryDate(detail.getExpiryDate())
+                .remainingQuantity(detail.getRemainingQuantity())
+                .unitName(unitName)
+                .importPrice(detail.getImportPrice())
+                .sellingPrice(product.getSellingPrice())
+                .build();
+    }
+
+    @Transactional
+    public void recordDisposal(DisposalRequestDTO request) {
+        StockInDetail detail = stockInDetailRepository.findById(request.getStockInDetailNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Stock batch not found with ID: " + request.getStockInDetailNumber()));
+
+        if (detail.getRemainingQuantity() == null || request.getQuantity().compareTo(detail.getRemainingQuantity()) > 0) {
+            throw new IllegalArgumentException("Disposal quantity cannot exceed remaining stock quantity (" + detail.getRemainingQuantity() + ").");
+        }
+
+        Product product = productRepository.findById(request.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + request.getProductNumber()));
+
+        String fullReason = "DISPOSAL: " + request.getReason();
+        if (request.getObservations() != null && !request.getObservations().isBlank()) {
+            fullReason += " - " + request.getObservations().trim();
+        }
+
+        // 1. Create StockOut
+        StockOut stockOut = StockOut.builder()
+                .createdBy(getDefaultUserId())
+                .reason(fullReason)
+                .createdDate(LocalDateTime.now())
+                .build();
+        StockOut savedStockOut = stockOutRepository.save(stockOut);
+
+        // 2. Create StockOutDetail
+        StockOutDetail stockOutDetail = StockOutDetail.builder()
+                .stockOutNumber(savedStockOut.getStockOutNumber())
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .quantity(request.getQuantity())
+                .build();
+        stockOutDetailRepository.save(stockOutDetail);
+
+        // 3. Update StockInDetail remaining quantity
+        BigDecimal newRemaining = detail.getRemainingQuantity().subtract(request.getQuantity());
+        detail.setRemainingQuantity(newRemaining.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newRemaining);
+        stockInDetailRepository.save(detail);
+
+        // 4. Update Inventory available quantity
+        Optional<Inventory> invOpt = inventoryRepository.findByProductNumber(product.getProductNumber());
+        if (invOpt.isPresent()) {
+            Inventory inv = invOpt.get();
+            BigDecimal currentQty = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal updatedQty = currentQty.subtract(request.getQuantity());
+            inv.setAvailableQuantity(updatedQty.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : updatedQty);
+            inventoryRepository.save(inv);
+        }
+
+        // 5. Create InventoryTransaction
+        InventoryTransaction tx = InventoryTransaction.builder()
+                .productNumber(product.getProductNumber())
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .type("OUT")
+                .quantity(request.getQuantity())
+                .referenceType("DISPOSAL")
+                .referenceId(savedStockOut.getStockOutNumber())
+                .createdBy(getDefaultUserId())
+                .createdAt(LocalDateTime.now())
+                .reason(fullReason)
+                .build();
+        inventoryTransactionRepository.save(tx);
+    }
 }
+

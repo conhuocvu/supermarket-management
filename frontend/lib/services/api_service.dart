@@ -16,6 +16,7 @@ import '../models/supplier_product.dart';
 import '../models/expiring_product.dart';
 import '../models/clearance_proposal.dart';
 import '../models/promotion.dart';
+import '../models/disposal_form_data.dart';
 
 class ApiService {
   final Dio _dio;
@@ -1289,6 +1290,56 @@ class ApiService {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<DisposalFormData> fetchDisposalFormData(int stockInDetailNumber) async {
+    try {
+      final response = await _dio.get('/inventory/disposals/$stockInDetailNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return DisposalFormData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Expired product information cannot be loaded.');
+        }
+      } else {
+        throw Exception('Expired product information cannot be loaded.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Expired product information cannot be loaded.');
+    }
+  }
+
+  Future<void> recordDisposal({
+    required int stockInDetailNumber,
+    required int productNumber,
+    required double quantity,
+    required String reason,
+    String? observations,
+  }) async {
+    try {
+      final response = await _dio.post('/stock-outs/disposals', data: {
+        'stockInDetailNumber': stockInDetailNumber,
+        'productNumber': productNumber,
+        'quantity': quantity,
+        'reason': reason,
+        'observations': observations,
+      });
+      if (response.statusCode == 201) {
+        final body = response.data;
+        if (body['success'] != true) {
+          throw Exception(body['message'] ?? 'Expired product cannot be disposed.');
+        }
+      } else {
+        throw Exception('Expired product cannot be disposed.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Expired product cannot be disposed.');
     }
   }
 
