@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface ProductSupplierRepository extends JpaRepository<ProductSupplier, Integer> {
     List<ProductSupplier> findByProductNumber(Integer productNumber);
+    List<ProductSupplier> findByProductNumberIn(List<Integer> productNumbers);
 }

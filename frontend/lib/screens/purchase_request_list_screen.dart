@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/purchase_request.dart';
 import '../providers/purchase_request_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 
 class PurchaseRequestListScreen extends ConsumerStatefulWidget {
   const PurchaseRequestListScreen({super.key});
@@ -43,35 +46,72 @@ class _PurchaseRequestListScreenState
     super.dispose();
   }
 
+  String _formatQuantity(double quantity) {
+    if (quantity == quantity.toInt()) {
+      return quantity.toInt().toString();
+    }
+    return quantity.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final prAsync = ref.watch(purchaseRequestsProvider);
 
+    final authState = ref.watch(authProvider);
+    final currentUserFullName = authState.profile?.fullName ?? 'John Doe';
+    final currentUserId = authState.user?.id ?? ApiService.mockUserUuid;
+
+    // Detect if there's an existing draft with items created by the current user
+    final draftRequest = prAsync.whenData((list) =>
+      list.where((pr) => 
+        pr.status.toUpperCase() == 'DRAFT' && 
+        (pr.createdById != null 
+            ? pr.createdById == currentUserId 
+            : pr.createdBy.toLowerCase() == currentUserFullName.toLowerCase())
+      ).firstOrNull
+    ).value;
+    final hasDraft = draftRequest != null;
+    final draftItemCount = draftRequest?.totalItems ?? 0;
+
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Card(
-          elevation: 2,
-          shadowColor: Colors.black.withValues(alpha: 0.04),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Filters Header Section
-              _buildFiltersHeader(theme),
-              const Divider(height: 1),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Draft Banner
+            if (hasDraft) _buildDraftBanner(theme, draftRequest, draftItemCount),
+            Expanded(
+              child: Card(
+                elevation: 2,
+                shadowColor: Colors.black.withValues(alpha: 0.04),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Filters Header Section
+                    _buildFiltersHeader(theme, hasDraft, draftItemCount),
+                    const Divider(height: 1),
 
               // Main List/Table Section
               Expanded(
                 child: prAsync.when(
                   data: (requests) {
                     final filteredRequests = requests.where((pr) {
+                      // Do not show drafts of other users
+                      if (pr.status.toUpperCase() == 'DRAFT') {
+                        final isOwner = pr.createdById != null 
+                            ? pr.createdById == currentUserId 
+                            : pr.createdBy.toLowerCase() == currentUserFullName.toLowerCase();
+                        if (!isOwner) return false;
+                      }
+
                       final matchesStatus =
                           _selectedStatus == 'ALL' ||
                           pr.status.toUpperCase() ==
@@ -172,7 +212,7 @@ class _PurchaseRequestListScreenState
                                     ),
                                     DataCell(Text(pr.supplierName)),
                                     DataCell(Text('${pr.totalItems}')),
-                                    DataCell(Text('${pr.totalQuantity}')),
+                                    DataCell(Text(_formatQuantity(pr.totalQuantity))),
                                     DataCell(
                                       _buildStatusBadge(theme, pr.status),
                                     ),
@@ -257,16 +297,85 @@ class _PurchaseRequestListScreenState
                       ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          ),
+                ),    // Expanded(child: prAsync.when)
+              ),      // Expanded
+                  ],  // Card Column children
+                ),    // Card Column
+              ),      // Card
+            ),        // outer Expanded
+          ],          // outer Column children
+        ),            // outer Column
+      ),              // Padding
+    );
+  }
+
+  Widget _buildDraftBanner(ThemeData theme, PurchaseRequestList draft, int itemCount) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF40826D).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF40826D).withValues(alpha: 0.3),
         ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF40826D).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.edit_note_rounded,
+              color: Color(0xFF40826D),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You have an unsubmitted draft',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFF2F5D50),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  itemCount > 0
+                      ? '$itemCount item(s) saved — continue editing before submitting'
+                      : 'Empty draft — add products then submit for approval',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF40826D),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () async {
+              final result = await context.push('/stock/purchase-requests/create');
+              if (result == true && context.mounted) {
+                ref.invalidate(purchaseRequestsProvider);
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF40826D),
+            ),
+            child: const Text('Continue →'),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFiltersHeader(ThemeData theme) {
+  Widget _buildFiltersHeader(ThemeData theme, bool hasDraft, int draftItemCount) {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Wrap(
@@ -335,6 +444,67 @@ class _PurchaseRequestListScreenState
                     },
                   );
                 }).toList(),
+          ),
+
+          // Create / Continue Draft Button
+          SizedBox(
+            height: 48,
+            child: hasDraft
+                ? FilledButton.icon(
+                    onPressed: () async {
+                      final result = await context.push('/stock/purchase-requests/create');
+                      if (result == true && context.mounted) {
+                        ref.invalidate(purchaseRequestsProvider);
+                      }
+                    },
+                    icon: const Icon(Icons.edit_note_rounded, size: 20),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Continue Draft'),
+                        if (draftItemCount > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$draftItemCount',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF40826D),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                  )
+                : FilledButton.icon(
+                    onPressed: () async {
+                      final result = await context.push('/stock/purchase-requests/create');
+                      if (result == true && context.mounted) {
+                        ref.invalidate(purchaseRequestsProvider);
+                      }
+                    },
+                    icon: const Icon(Icons.add, size: 20),
+                    label: const Text('Create New Request'),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -565,16 +735,18 @@ class _PurchaseRequestListScreenState
                                       DataCell(Text(item.supplierName)),
                                       DataCell(
                                         Text(
-                                          '${item.requestedQuantity} ${item.unitName}',
+                                          '${_formatQuantity(item.requestedQuantity)} ${item.unitName}',
                                         ),
                                       ),
                                       DataCell(
                                         Text(
-                                          '\$${item.importPrice.toStringAsFixed(2)}',
+                                          NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(item.importPrice),
                                         ),
                                       ),
                                       DataCell(
-                                        Text('\$${total.toStringAsFixed(2)}'),
+                                        Text(
+                                          NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(total),
+                                        ),
                                       ),
                                     ],
                                   );
@@ -597,7 +769,7 @@ class _PurchaseRequestListScreenState
                             ),
                           ),
                           Text(
-                            '\$${totalPrCost.toStringAsFixed(2)}',
+                            NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(totalPrCost),
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.primary,

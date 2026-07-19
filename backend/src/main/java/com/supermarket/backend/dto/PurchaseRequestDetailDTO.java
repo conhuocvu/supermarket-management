@@ -18,5 +18,6 @@ public class PurchaseRequestDetailDTO {
     private String approvedBy;
     private LocalDateTime approvedDate;
     private String status;
+    private java.time.LocalDate expectedDeliveryDate;
     private List<PurchaseRequestItemDTO> items;
 }

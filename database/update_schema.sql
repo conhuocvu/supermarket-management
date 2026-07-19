@@ -47,3 +47,10 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
 
 -- 8. Add internal notes to categories table
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS internal_notes TEXT;
+
+-- 9. Add expected_delivery_date to purchase_requests table
+ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS expected_delivery_date DATE;
+
+-- 10. Add reason and notes to purchase_request_details table
+ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
+ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS notes TEXT;

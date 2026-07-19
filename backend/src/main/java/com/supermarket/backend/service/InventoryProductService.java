@@ -116,7 +116,6 @@ public class InventoryProductService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void createPurchaseRequest(List<Integer> productNumbers) {
         if (productNumbers == null || productNumbers.isEmpty()) {
             throw new IllegalArgumentException("Product list cannot be empty");
@@ -235,21 +234,13 @@ public class InventoryProductService {
             }
 
             List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
-            ProductSupplier supplier;
             if (suppliers.isEmpty()) {
-                BigDecimal importPrice = product.getSellingPrice() != null
-                        ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.75))
-                        : BigDecimal.valueOf(10000);
-                supplier = ProductSupplier.builder()
-                        .productNumber(prodNum)
-                        .supplierNumber(1)
-                        .importPrice(importPrice)
-                        .minimumOrderQuantity(BigDecimal.valueOf(10))
-                        .build();
-                supplier = productSupplierRepository.save(supplier);
-            } else {
-                supplier = suppliers.get(0);
+                throw new IllegalArgumentException(
+                    "Product '" + product.getProductName() + "' has no supplier configured. " +
+                    "Please set up a supplier relationship for this product before creating a purchase request."
+                );
             }
+            ProductSupplier supplier = suppliers.get(0);
 
             if (existingSupplierNumbers.contains(supplier.getProductSupplierNumber())) {
                 continue;
@@ -658,7 +649,6 @@ public class InventoryProductService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public ProductAdjustmentDTO adjustProductQuantity(int productNumber, String adjustmentType, BigDecimal quantity, String reason) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Adjustment quantity must be greater than zero.");
