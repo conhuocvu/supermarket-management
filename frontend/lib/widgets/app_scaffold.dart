@@ -180,7 +180,8 @@ class AppScaffold extends ConsumerWidget {
             {
               'title': 'Product Reports',
               'icon': Icons.assessment_outlined,
-              'active': false,
+              'route': '/stock/product-reports',
+              'active': currentPath.startsWith('/stock/product-reports'),
             },
           ]
         : [
@@ -550,13 +551,13 @@ class AppScaffold extends ConsumerWidget {
           children: [
             if (shellState.subtitle == null && displayBreadcrumbs.isNotEmpty)
               Container(
-                color: Colors.white,
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
                 ),
                 decoration: const BoxDecoration(
+                  color: Colors.white,
                   border: Border(
                     bottom: BorderSide(color: Color(0xFFBFC9C3), width: 0.5),
                   ),

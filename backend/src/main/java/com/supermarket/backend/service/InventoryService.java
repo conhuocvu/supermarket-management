@@ -43,6 +43,8 @@ public class InventoryService {
     private final StockOutRepository stockOutRepository;
     private final StockOutDetailRepository stockOutDetailRepository;
     private final UnitRepository unitRepository;
+    private final ProfileRepository profileRepository;
+    private final CategoryRepository categoryRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
     private String defaultUserIdStr;
@@ -1368,6 +1370,120 @@ public class InventoryService {
                 .reason(fullReason)
                 .build();
         inventoryTransactionRepository.save(tx);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductReportDTO> getProductReports(String search, String issueType, String status) {
+        List<ProductReport> reports = productReportRepository.findAll(
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+
+        Set<Integer> productIds = reports.stream()
+                .map(ProductReport::getProductNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Product> products = productIds.isEmpty() ? java.util.Collections.emptyList() : productRepository.findAllById(productIds);
+        Map<Integer, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
+
+        Set<Integer> categoryIds = products.stream()
+                .map(Product::getCategoryNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Integer, String> categoryMap = categoryIds.isEmpty() ? java.util.Collections.emptyMap() :
+                categoryRepository.findAllById(categoryIds).stream()
+                        .collect(Collectors.toMap(Category::getCategoryNumber, Category::getCategoryName, (c1, c2) -> c1));
+
+        Set<Integer> unitIds = products.stream()
+                .map(Product::getInventoryUnitNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Integer, String> unitMap = unitIds.isEmpty() ? java.util.Collections.emptyMap() :
+                unitRepository.findAllById(unitIds).stream()
+                        .collect(Collectors.toMap(Unit::getUnitNumber, Unit::getUnitName, (u1, u2) -> u1));
+
+        Set<UUID> userIds = new HashSet<>();
+        reports.forEach(r -> {
+            if (r.getReportedBy() != null) userIds.add(r.getReportedBy());
+            if (r.getResolvedBy() != null) userIds.add(r.getResolvedBy());
+        });
+        Map<UUID, String> userMap = userIds.isEmpty() ? java.util.Collections.emptyMap() :
+                profileRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(Profile::getUserId, Profile::getFullName, (u1, u2) -> u1));
+
+        List<ProductReportDTO> dtos = new java.util.ArrayList<>();
+        String query = search != null ? search.toLowerCase().trim() : null;
+
+        for (ProductReport report : reports) {
+            // Stock Controller only views LOW_STOCK and NEAR_EXPIRY / OUT_OF_STOCK reports (UC64)
+            String type = report.getReportType() != null ? report.getReportType().toUpperCase() : "";
+            String issue = report.getIssueType() != null ? report.getIssueType().toUpperCase() : "";
+            boolean isStockControllerReport = type.equals("LOW_STOCK") || issue.equals("LOW_STOCK")
+                    || type.equals("NEAR_EXPIRY") || issue.equals("NEAR_EXPIRY")
+                    || type.equals("OUT_OF_STOCK") || issue.equals("OUT_OF_STOCK");
+
+            if (!isStockControllerReport) {
+                continue;
+            }
+
+            Product p = productMap.get(report.getProductNumber());
+            String productName = p != null ? p.getProductName() : "Unknown Product";
+            String barcode = p != null ? p.getBarcode() : "N/A";
+            String categoryName = (p != null && p.getCategoryNumber() != null) ? categoryMap.getOrDefault(p.getCategoryNumber(), "General") : "General";
+            String unitName = (p != null && p.getInventoryUnitNumber() != null) ? unitMap.getOrDefault(p.getInventoryUnitNumber(), "Pcs") : "Pcs";
+            String reporterName = report.getReportedBy() != null ? userMap.getOrDefault(report.getReportedBy(), "Staff User") : "System";
+            String resolverName = report.getResolvedBy() != null ? userMap.get(report.getResolvedBy()) : null;
+
+            // Apply issueType filter
+            if (issueType != null && !issueType.isBlank() && !issueType.equalsIgnoreCase("All")) {
+                String currentIssue = report.getIssueType() != null ? report.getIssueType() : report.getReportType();
+                if (currentIssue == null || !currentIssue.equalsIgnoreCase(issueType)) {
+                    continue;
+                }
+            }
+
+            // Apply status filter
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase("All")) {
+                if (report.getStatus() == null || !report.getStatus().equalsIgnoreCase(status)) {
+                    continue;
+                }
+            }
+
+            // Apply search filter
+            if (query != null && !query.isEmpty()) {
+                boolean matchesProduct = productName.toLowerCase().contains(query);
+                boolean matchesBarcode = barcode.toLowerCase().contains(query);
+                boolean matchesReporter = reporterName.toLowerCase().contains(query);
+                boolean matchesDesc = report.getDescription() != null && report.getDescription().toLowerCase().contains(query);
+                if (!matchesProduct && !matchesBarcode && !matchesReporter && !matchesDesc) {
+                    continue;
+                }
+            }
+
+            dtos.add(ProductReportDTO.builder()
+                    .reportNumber(report.getReportNumber())
+                    .reportedBy(report.getReportedBy())
+                    .reporterName(reporterName)
+                    .productNumber(report.getProductNumber())
+                    .productName(productName)
+                    .barcode(barcode)
+                    .categoryName(categoryName)
+                    .stockInDetailNumber(report.getStockInDetailNumber())
+                    .reportType(report.getReportType())
+                    .issueType(report.getIssueType())
+                    .quantity(report.getQuantity())
+                    .unitName(unitName)
+                    .description(report.getDescription())
+                    .status(report.getStatus())
+                    .createdAt(report.getCreatedAt())
+                    .resolvedBy(report.getResolvedBy())
+                    .resolverName(resolverName)
+                    .resolvedAt(report.getResolvedAt())
+                    .build());
+        }
+
+        return dtos;
     }
 }
 
