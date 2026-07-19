@@ -47,9 +47,11 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final isManager = currentPath.startsWith('/manager');
-    final bool isInWorkspace = currentPath.startsWith('/stock');
-    final sidebarWidth = isManager ? 220.0 : 256.0;
+    final roleNumber = authState.profile?.roleNumber;
+    final isManager = roleNumber == 2; // UserRoles.manager
+    final isCashier = roleNumber == 5; // UserRoles.cashier
+    final bool isInWorkspace = roleNumber == 3 || roleNumber == 4; // stockController / salesAssociate
+    final sidebarWidth = (isManager || isCashier) ? 220.0 : 256.0;
 
     final List<Map<String, dynamic>> menuItems = isManager
         ? [
@@ -88,6 +90,30 @@ class AppScaffold extends ConsumerWidget {
               'icon': Icons.bar_chart_rounded,
               'route': '/manager/reports',
               'active': currentPath.startsWith('/manager/reports'),
+            },
+          ]
+        : isCashier
+        ? [
+            {
+              'title': 'Dashboard',
+              'icon': Icons.dashboard_outlined,
+              'route': '/cashier',
+              'active': currentPath == '/cashier',
+            },
+            {
+              'title': 'New Invoice',
+              'icon': Icons.receipt_long_outlined,
+              'route': '/cashier/new-invoice',
+              'active': currentPath == '/cashier/new-invoice' ||
+                  currentPath.startsWith('/cashier/pos/') ||
+                  currentPath.startsWith('/cashier/checkout/') ||
+                  currentPath.startsWith('/cashier/receipt/'),
+            },
+            {
+              'title': 'Shift Invoices',
+              'icon': Icons.history_rounded,
+              'route': '/cashier/invoices',
+              'active': currentPath.startsWith('/cashier/invoices'),
             },
           ]
         : isInWorkspace
