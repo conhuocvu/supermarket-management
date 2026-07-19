@@ -10,4 +10,7 @@ import java.util.List;
 public interface ProductSupplierRepository extends JpaRepository<ProductSupplier, Integer> {
     List<ProductSupplier> findByProductNumber(Integer productNumber);
     List<ProductSupplier> findByProductNumberIn(List<Integer> productNumbers);
+    List<ProductSupplier> findBySupplierNumber(Integer supplierNumber);
+    void deleteBySupplierNumber(Integer supplierNumber);
+    void deleteBySupplierNumberAndProductNumber(Integer supplierNumber, Integer productNumber);
 }

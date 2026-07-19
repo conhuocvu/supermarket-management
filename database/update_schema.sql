@@ -125,69 +125,8 @@ ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS expected_delivery_date DA
 ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
 ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS notes TEXT;
 
--- 14. Create staff, scheduling, and invoicing schema tables if they do not exist
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'request_status') THEN
-        CREATE TYPE request_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
-        CREATE TYPE payment_status AS ENUM ('PENDING', 'PAID', 'FAILED', 'REFUNDED');
-    END IF;
-END $$;
-
-CREATE TABLE IF NOT EXISTS public.leave_requests (
-    leave_number SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES public.profiles(user_id) ON DELETE CASCADE,
-    reason VARCHAR(255),
-    start_date DATE,
-    end_date DATE,
-    status request_status DEFAULT 'PENDING',
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    approved_date TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.shift_change_requests (
-    request_number SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES public.profiles(user_id) ON DELETE CASCADE,
-    reason VARCHAR(255),
-    status request_status DEFAULT 'PENDING',
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    approved_date TIMESTAMP,
-    current_shift_date DATE,
-    current_shift_type VARCHAR(50),
-    current_shift_start TIME,
-    current_shift_end TIME,
-    target_shift_date DATE,
-    target_shift_type VARCHAR(50),
-    target_shift_start TIME,
-    target_shift_end TIME
-);
-
-CREATE TABLE IF NOT EXISTS public.invoices (
-    invoice_number SERIAL PRIMARY KEY,
-    cashier_number UUID REFERENCES public.profiles(user_id) ON DELETE SET NULL,
-    customer_number INT REFERENCES public.customers(customer_number) ON DELETE SET NULL,
-    total_amount NUMERIC(12,2) DEFAULT 0,
-    final_amount NUMERIC(12,2) DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'UNPAID',
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.invoice_details (
-    invoice_detail_number SERIAL PRIMARY KEY,
-    invoice_number INT REFERENCES public.invoices(invoice_number) ON DELETE CASCADE,
-    product_number INT REFERENCES public.products(product_number) ON DELETE RESTRICT,
-    quantity NUMERIC(12,3) DEFAULT 0,
-    unit_price_at_sale NUMERIC(12,2) DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS public.payments (
-    payment_number SERIAL PRIMARY KEY,
-    invoice_number INT REFERENCES public.invoices(invoice_number) ON DELETE CASCADE,
-    payment_method VARCHAR(50) NOT NULL,
-    amount NUMERIC(12,2) NOT NULL,
-    status payment_status DEFAULT 'PAID',
-    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
+-- 14. Add columns to suppliers table for contact person, address, category, and notes
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact_person VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS category VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT;
