@@ -49,6 +49,8 @@ import 'screens/staff_detail_screen.dart';
 import 'screens/promotion_list_screen.dart';
 import 'screens/promotion_detail_screen.dart';
 import 'screens/supplier_list_screen.dart';
+import 'screens/supplier_detail_screen.dart';
+import 'screens/create_supplier_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -270,6 +272,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/manager/supplier',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: SupplierListScreen()),
+          ),
+          GoRoute(
+            path: '/manager/supplier/create',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: CreateSupplierScreen()),
+          ),
+          GoRoute(
+            path: '/manager/supplier/:supplierNumber',
+            pageBuilder: (context, state) {
+              final supplierNumberStr = state.pathParameters['supplierNumber']!;
+              final supplierNumber = int.tryParse(supplierNumberStr) ?? 0;
+              return NoTransitionPage(
+                child: SupplierDetailScreen(supplierNumber: supplierNumber),
+              );
+            },
           ),
         ],
       ),

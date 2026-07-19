@@ -28,4 +28,16 @@ public class Supplier {
 
     @Column(name = "status")
     private String status;
+
+    @Column(name = "contact_person")
+    private String contactPerson;
+
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "notes")
+    private String notes;
 }

@@ -12,6 +12,7 @@ import '../models/inventory_transaction.dart';
 import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
 import '../models/low_stock_product.dart';
+import '../models/supplier_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -1346,12 +1347,16 @@ class ApiService {
     }
   }
 
-  Future<void> createSupplier(Map<String, dynamic> data) async {
+  /// Creates a supplier and returns the new supplier number.
+  Future<int> createSupplier(Map<String, dynamic> data) async {
     try {
       final response = await _dio.post('/suppliers', data: data);
-      if (response.statusCode != 201 && response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Failed to create supplier.');
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data['success'] == true) {
+        final supplierData = response.data['data'] as Map<String, dynamic>;
+        return (supplierData['supplierNumber'] as num?)?.toInt() ?? 0;
       }
+      throw Exception(response.data['message'] ?? 'Failed to create supplier.');
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
@@ -1380,6 +1385,47 @@ class ApiService {
       );
       if (response.statusCode != 200 || response.data['success'] != true) {
         throw Exception(response.data['message'] ?? 'Failed to update supplier status.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<SupplierProduct>> fetchSupplierProducts(int supplierNumber) async {
+    try {
+      final response = await _dio.get('/suppliers/$supplierNumber/products');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final list = response.data['data'] as List<dynamic>? ?? [];
+        return list.map((item) => SupplierProduct.fromJson(item as Map<String, dynamic>)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load supplier products.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> assignSupplierProducts(int supplierNumber, List<Map<String, dynamic>> assignments) async {
+    try {
+      final response = await _dio.post('/suppliers/$supplierNumber/products', data: assignments);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to assign products to supplier.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> updateSupplierImportPrices(int supplierNumber, List<Map<String, dynamic>> assignments) async {
+    try {
+      final response = await _dio.put('/suppliers/$supplierNumber/products/prices', data: assignments);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to update import prices.');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));

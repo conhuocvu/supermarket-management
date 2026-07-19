@@ -124,3 +124,9 @@ ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS expected_delivery_date DA
 -- 13. Add reason and notes to purchase_request_details table
 ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
 ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 14. Add columns to suppliers table for contact person, address, category, and notes
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact_person VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS category VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT;

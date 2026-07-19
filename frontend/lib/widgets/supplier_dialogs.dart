@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/supplier.dart';
+import '../models/inventory_product.dart';
+import '../models/supplier_product.dart';
 import '../providers/supplier_provider.dart';
+import '../services/api_service.dart';
+import 'package:flutter/services.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helpers
@@ -90,6 +94,10 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+  final _contactPersonController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _categoryController = TextEditingController();
+  final _notesController = TextEditingController();
   String _status = 'ACTIVE';
 
   @override
@@ -97,6 +105,10 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _contactPersonController.dispose();
+    _addressController.dispose();
+    _categoryController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -111,20 +123,26 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
       'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
       'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
       'status': _status,
+      'contactPerson': _contactPersonController.text.trim().isEmpty ? null : _contactPersonController.text.trim(),
+      'address': _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+      'category': _categoryController.text.trim().isEmpty ? null : _categoryController.text.trim(),
+      'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     };
 
-    final success = await ref
-        .read(supplierListProvider.notifier)
-        .createSupplier(data);
+    try {
+      await ref
+          .read(supplierListProvider.notifier)
+          .createSupplier(data);
 
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
-
-    if (success) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
       Navigator.of(context).pop(true);
-    } else {
-      final errorState = ref.read(supplierListProvider).error;
-      setState(() => _errorMessage = errorState ?? 'An error occurred.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
 
@@ -135,7 +153,7 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 480,
+        width: 520,
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
@@ -168,6 +186,12 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _contactPersonController,
+                  decoration: _fieldDecoration(context, 'Contact Person', Icons.person_outline),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _phoneController,
                   decoration: _fieldDecoration(context, 'Phone Number', Icons.phone),
                   keyboardType: TextInputType.phone,
@@ -188,8 +212,20 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
                   },
                 ),
                 const SizedBox(height: 16),
+                TextFormField(
+                  controller: _addressController,
+                  decoration: _fieldDecoration(context, 'Address', Icons.location_on_outlined),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _categoryController,
+                  decoration: _fieldDecoration(context, 'Category', Icons.category_outlined),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _status,
+                  initialValue: _status,
                   decoration: _fieldDecoration(context, 'Status', Icons.check_circle_outline),
                   items: const [
                     DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
@@ -200,6 +236,12 @@ class _AddSupplierDialogState extends ConsumerState<AddSupplierDialog> {
                       setState(() => _status = val);
                     }
                   },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _notesController,
+                  decoration: _fieldDecoration(context, 'Notes', Icons.notes_outlined),
+                  maxLines: 3,
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -255,6 +297,10 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
+  late final TextEditingController _contactPersonController;
+  late final TextEditingController _addressController;
+  late final TextEditingController _categoryController;
+  late final TextEditingController _notesController;
   late String _status;
 
   @override
@@ -263,6 +309,10 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
     _nameController = TextEditingController(text: widget.supplier.supplierName);
     _phoneController = TextEditingController(text: widget.supplier.phone ?? '');
     _emailController = TextEditingController(text: widget.supplier.email ?? '');
+    _contactPersonController = TextEditingController(text: widget.supplier.contactPerson ?? '');
+    _addressController = TextEditingController(text: widget.supplier.address ?? '');
+    _categoryController = TextEditingController(text: widget.supplier.category ?? '');
+    _notesController = TextEditingController(text: widget.supplier.notes ?? '');
     _status = widget.supplier.status;
   }
 
@@ -271,6 +321,10 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _contactPersonController.dispose();
+    _addressController.dispose();
+    _categoryController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -285,6 +339,10 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
       'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
       'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
       'status': _status,
+      'contactPerson': _contactPersonController.text.trim().isEmpty ? null : _contactPersonController.text.trim(),
+      'address': _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+      'category': _categoryController.text.trim().isEmpty ? null : _categoryController.text.trim(),
+      'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     };
 
     final success = await ref
@@ -309,7 +367,7 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 480,
+        width: 520,
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
@@ -342,6 +400,12 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _contactPersonController,
+                  decoration: _fieldDecoration(context, 'Contact Person', Icons.person_outline),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _phoneController,
                   decoration: _fieldDecoration(context, 'Phone Number', Icons.phone),
                   keyboardType: TextInputType.phone,
@@ -362,8 +426,20 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
                   },
                 ),
                 const SizedBox(height: 16),
+                TextFormField(
+                  controller: _addressController,
+                  decoration: _fieldDecoration(context, 'Address', Icons.location_on_outlined),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _categoryController,
+                  decoration: _fieldDecoration(context, 'Category', Icons.category_outlined),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _status,
+                  initialValue: _status,
                   decoration: _fieldDecoration(context, 'Status', Icons.check_circle_outline),
                   items: const [
                     DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
@@ -374,6 +450,12 @@ class _EditSupplierDialogState extends ConsumerState<EditSupplierDialog> {
                       setState(() => _status = val);
                     }
                   },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _notesController,
+                  decoration: _fieldDecoration(context, 'Notes', Icons.notes_outlined),
+                  maxLines: 3,
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -452,3 +534,549 @@ class ToggleSupplierStatusDialog extends ConsumerWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UC-SM-03: Assign Products Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class AssignSupplierProductsDialog extends StatefulWidget {
+  final int supplierNumber;
+  final List<SupplierProduct> currentlyAssigned;
+
+  const AssignSupplierProductsDialog({
+    super.key,
+    required this.supplierNumber,
+    required this.currentlyAssigned,
+  });
+
+  @override
+  State<AssignSupplierProductsDialog> createState() =>
+      _AssignSupplierProductsDialogState();
+}
+
+class _AssignSupplierProductsDialogState
+    extends State<AssignSupplierProductsDialog> {
+  final ApiService _apiService = ApiService();
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _errorMessage;
+  List<InventoryProduct> _allProducts = [];
+  late Set<int> _selectedProductNumbers;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedProductNumbers =
+        widget.currentlyAssigned.map((p) => p.productNumber).toSet();
+    _loadProducts();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final result = await _apiService.fetchInventoryProducts(size: 200);
+      final list = result['items'] as List<InventoryProduct>? ?? [];
+      setState(() {
+        _allProducts = list;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<InventoryProduct> get _filteredProducts {
+    final q = _searchQuery.toLowerCase().trim();
+    if (q.isEmpty) return _allProducts;
+    return _allProducts.where((p) {
+      return p.productName.toLowerCase().contains(q) ||
+          p.barcode.toLowerCase().contains(q) ||
+          (p.categoryName.toLowerCase().contains(q));
+    }).toList();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Build assignments. For newly assigned products, set importPrice = 0 or keep null/existing
+      final List<Map<String, dynamic>> assignments = [];
+      for (final id in _selectedProductNumbers) {
+        // If it was already assigned, try to keep the old price/moq
+        final existingMatch = widget.currentlyAssigned.firstWhere(
+          (p) => p.productNumber == id,
+          orElse: () => SupplierProduct(
+            productNumber: id,
+            productName: '',
+            sellingPrice: 0.0,
+            status: 'ACTIVE',
+          ),
+        );
+        assignments.add({
+          'productNumber': id,
+          'importPrice': existingMatch.importPrice,
+          'minimumOrderQuantity': existingMatch.minimumOrderQuantity,
+        });
+      }
+
+      await _apiService.assignSupplierProducts(
+          widget.supplierNumber, assignments);
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final filtered = _filteredProducts;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 600,
+        height: 650,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.inventory_2_outlined,
+                    color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Assign Products',
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select the products supplied by this supplier.',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+
+            // Search bar
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search products by name, barcode...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.3),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+            const SizedBox(height: 16),
+
+            // Content
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                      ? _errorBanner(context, _errorMessage!)
+                      : filtered.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No products found.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (ctx, idx) {
+                                final p = filtered[idx];
+                                final isSelected =
+                                    _selectedProductNumbers.contains(p.productNumber);
+
+                                return CheckboxListTile(
+                                  value: isSelected,
+                                  title: Text(
+                                    p.productName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: Text(
+                                    'Category: ${p.categoryName} • Barcode: ${p.barcode}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant),
+                                  ),
+                                  activeColor: theme.colorScheme.primary,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        _selectedProductNumbers.add(p.productNumber);
+                                      } else {
+                                        _selectedProductNumbers.remove(p.productNumber);
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+            ),
+            const SizedBox(height: 16),
+
+            // Footer
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _isSaving || _isLoading ? null : _save,
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Save Changes'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UC-SM-04: Set Import Prices Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PriceMOQEntry {
+  final SupplierProduct product;
+  final TextEditingController priceController;
+  final TextEditingController moqController;
+
+  _PriceMOQEntry({required this.product})
+      : priceController = TextEditingController(
+          text: product.importPrice != null
+              ? product.importPrice!.toStringAsFixed(0)
+              : '',
+        ),
+        moqController = TextEditingController(
+          text: product.minimumOrderQuantity != null
+              ? product.minimumOrderQuantity!.toStringAsFixed(0)
+              : '',
+        );
+
+  void dispose() {
+    priceController.dispose();
+    moqController.dispose();
+  }
+}
+
+class UpdateSupplierImportPricesDialog extends StatefulWidget {
+  final int supplierNumber;
+  final List<SupplierProduct> assignedProducts;
+
+  const UpdateSupplierImportPricesDialog({
+    super.key,
+    required this.supplierNumber,
+    required this.assignedProducts,
+  });
+
+  @override
+  State<UpdateSupplierImportPricesDialog> createState() =>
+      _UpdateSupplierImportPricesDialogState();
+}
+
+class _UpdateSupplierImportPricesDialogState
+    extends State<UpdateSupplierImportPricesDialog> {
+  final ApiService _apiService = ApiService();
+  bool _isSaving = false;
+  String? _errorMessage;
+  late List<_PriceMOQEntry> _entries;
+
+  @override
+  void initState() {
+    super.initState();
+    _entries = widget.assignedProducts
+        .map((p) => _PriceMOQEntry(product: p))
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    for (final entry in _entries) {
+      entry.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    // Validate inputs
+    for (final entry in _entries) {
+      final priceText = entry.priceController.text.trim();
+      final moqText = entry.moqController.text.trim();
+
+      if (priceText.isNotEmpty) {
+        final price = double.tryParse(priceText);
+        if (price == null || price < 0) {
+          setState(() {
+            _errorMessage = 'Invalid import price for ${entry.product.productName}.';
+          });
+          return;
+        }
+      }
+
+      if (moqText.isNotEmpty) {
+        final moq = double.tryParse(moqText);
+        if (moq == null || moq < 0) {
+          setState(() {
+            _errorMessage = 'Invalid Minimum Order Quantity for ${entry.product.productName}.';
+          });
+          return;
+        }
+      }
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final List<Map<String, dynamic>> assignments = _entries.map((entry) {
+        final priceVal = double.tryParse(entry.priceController.text.trim());
+        final moqVal = double.tryParse(entry.moqController.text.trim());
+
+        return {
+          'productNumber': entry.product.productNumber,
+          'importPrice': priceVal,
+          'minimumOrderQuantity': moqVal,
+        };
+      }).toList();
+
+      await _apiService.updateSupplierImportPrices(
+          widget.supplierNumber, assignments);
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 600,
+        height: 550,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.price_change_outlined,
+                    color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Set Import Prices & MOQ',
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Set the import purchase price and minimum order quantity (MOQ) for each product.',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+
+            if (_errorMessage != null) ...[
+              _errorBanner(context, _errorMessage!),
+              const SizedBox(height: 12),
+            ],
+
+            Expanded(
+              child: _entries.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No products assigned. Assign products first.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _entries.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      itemBuilder: (ctx, idx) {
+                        final entry = _entries[idx];
+                        final p = entry.product;
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: theme.colorScheme.outlineVariant
+                                    .withValues(alpha: 0.4)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.productName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              Text(
+                                'Selling Price: ${p.sellingPrice.toStringAsFixed(0)}₫ • Barcode: ${p.barcode ?? "—"}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: entry.priceController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Import Price (₫)',
+                                        prefixIcon: const Icon(
+                                            Icons.price_change_outlined,
+                                            size: 16),
+                                        contentPadding: const EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 12),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                      ),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d*\.?\d*')),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: entry.moqController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Min Order Qty (MOQ)',
+                                        prefixIcon: const Icon(
+                                            Icons.production_quantity_limits_outlined,
+                                            size: 16),
+                                        contentPadding: const EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 12),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
+                                      ),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d*\.?\d*')),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 16),
+
+            // Footer
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _isSaving || _entries.isEmpty ? null : _save,
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Save Changes'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

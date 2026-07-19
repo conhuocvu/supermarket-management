@@ -2,6 +2,8 @@ package com.supermarket.backend.controller;
 
 import com.supermarket.backend.dto.ApiResponse;
 import com.supermarket.backend.dto.SupplierDTO;
+import com.supermarket.backend.dto.SupplierProductDTO;
+import com.supermarket.backend.dto.ProductAssignmentDTO;
 import com.supermarket.backend.service.SupplierService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/suppliers")
@@ -83,6 +86,41 @@ public class SupplierController {
         try {
             SupplierDTO updatedSupplier = supplierService.updateSupplierStatus(supplierNumber, newStatus);
             return ResponseEntity.ok(ApiResponse.success("Supplier status updated successfully.", updatedSupplier));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{supplierNumber}/products")
+    public ResponseEntity<ApiResponse<List<SupplierProductDTO>>> getAssignedProducts(
+            @PathVariable Integer supplierNumber) {
+        try {
+            List<SupplierProductDTO> products = supplierService.getAssignedProducts(supplierNumber);
+            return ResponseEntity.ok(ApiResponse.success("Assigned products loaded successfully.", products));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{supplierNumber}/products")
+    public ResponseEntity<ApiResponse<Void>> assignProducts(
+            @PathVariable Integer supplierNumber,
+            @RequestBody List<ProductAssignmentDTO> assignments) {
+        try {
+            supplierService.assignProducts(supplierNumber, assignments);
+            return ResponseEntity.ok(ApiResponse.success("Products assigned successfully.", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{supplierNumber}/products/prices")
+    public ResponseEntity<ApiResponse<Void>> updateImportPrices(
+            @PathVariable Integer supplierNumber,
+            @RequestBody List<ProductAssignmentDTO> assignments) {
+        try {
+            supplierService.updateImportPrices(supplierNumber, assignments);
+            return ResponseEntity.ok(ApiResponse.success("Import prices updated successfully.", null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

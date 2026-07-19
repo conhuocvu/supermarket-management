@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/supplier.dart';
 import '../providers/supplier_provider.dart';
@@ -464,19 +465,8 @@ class _SearchFilterBar extends StatelessWidget {
         final newSupplierBtn = SizedBox(
           height: 48,
           child: FilledButton.icon(
-            onPressed: () async {
-              final added = await showDialog<bool>(
-                context: context,
-                builder: (_) => const AddSupplierDialog(),
-              );
-              if (added == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Supplier created successfully.'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
+            onPressed: () {
+              context.push('/manager/supplier/create');
             },
             icon: const Icon(Icons.add, size: 20),
             label: const Text('New Supplier'),
@@ -579,197 +569,203 @@ class _SupplierCardState extends State<_SupplierCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        transform: Matrix4.diagonal3Values(_isHovered ? 1.015 : 1.0, _isHovered ? 1.015 : 1.0, 1.0),
-        decoration: BoxDecoration(
-          color: cardBgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _isHovered
-                ? theme.colorScheme.primary.withValues(alpha: 0.8)
-                : (isInactive
-                    ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
-                    : theme.colorScheme.outlineVariant.withValues(alpha: 0.6)),
-            width: _isHovered ? 1.5 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: _isHovered ? 0.08 : 0.04),
-              blurRadius: _isHovered ? 12 : 8,
-              offset: Offset(0, _isHovered ? 4 : 2),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          context.push('/manager/supplier/${widget.supplier.supplierNumber}');
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          transform: Matrix4.diagonal3Values(_isHovered ? 1.015 : 1.0, _isHovered ? 1.015 : 1.0, 1.0),
+          decoration: BoxDecoration(
+            color: cardBgColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isHovered
+                  ? theme.colorScheme.primary.withValues(alpha: 0.8)
+                  : (isInactive
+                      ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.6)),
+              width: _isHovered ? 1.5 : 1.0,
             ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.supplier.supplierName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface.withValues(alpha: textAlpha),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      return PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert_rounded),
-                        onSelected: (value) async {
-                          if (value == 'edit') {
-                            final updated = await showDialog<bool>(
-                              context: context,
-                              builder: (_) => EditSupplierDialog(supplier: widget.supplier),
-                            );
-                            if (updated == true && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Supplier updated successfully.'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          } else if (value == 'toggle_status') {
-                            final toggled = await showDialog<bool>(
-                              context: context,
-                              builder: (_) => ToggleSupplierStatusDialog(supplier: widget.supplier),
-                            );
-                            if (toggled == true && context.mounted) {
-                              final verb = widget.supplier.status == 'ACTIVE' ? 'deactivated' : 'activated';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Supplier $verb successfully.'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit Supplier'),
-                          ),
-                          PopupMenuItem(
-                            value: 'toggle_status',
-                            child: Text(widget.supplier.status == 'ACTIVE' ? 'Deactivate' : 'Activate'),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Icon(
-                    Icons.phone_outlined,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      (widget.supplier.phone != null && widget.supplier.phone!.isNotEmpty)
-                          ? widget.supplier.phone!
-                          : 'No phone number',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: (widget.supplier.phone != null && widget.supplier.phone!.isNotEmpty)
-                            ? theme.colorScheme.onSurface.withValues(alpha: textAlpha)
-                            : theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.email_outlined,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      (widget.supplier.email != null && widget.supplier.email!.isNotEmpty)
-                          ? widget.supplier.email!
-                          : 'No email address',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: (widget.supplier.email != null && widget.supplier.email!.isNotEmpty)
-                            ? theme.colorScheme.onSurface.withValues(alpha: textAlpha)
-                            : theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isInactive
-                          ? theme.colorScheme.errorContainer.withValues(alpha: 0.12)
-                          : const Color(0xFF22C55E).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: isInactive ? theme.colorScheme.error : const Color(0xFF22C55E),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          widget.supplier.status,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isInactive ? theme.colorScheme.error : const Color(0xFF15803D),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    'ID: #${widget.supplier.supplierNumber ?? 0}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.outline.withValues(alpha: textAlpha),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _isHovered ? 0.08 : 0.04),
+                blurRadius: _isHovered ? 12 : 8,
+                offset: Offset(0, _isHovered ? 4 : 2),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.supplier.supplierName,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface.withValues(alpha: textAlpha),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        return PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert_rounded),
+                          onSelected: (value) async {
+                            if (value == 'edit') {
+                              final updated = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => EditSupplierDialog(supplier: widget.supplier),
+                              );
+                              if (updated == true && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Supplier updated successfully.'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            } else if (value == 'toggle_status') {
+                              final toggled = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => ToggleSupplierStatusDialog(supplier: widget.supplier),
+                              );
+                              if (toggled == true && context.mounted) {
+                                final verb = widget.supplier.status == 'ACTIVE' ? 'deactivated' : 'activated';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Supplier $verb successfully.'),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit Supplier'),
+                            ),
+                            PopupMenuItem(
+                              value: 'toggle_status',
+                              child: Text(widget.supplier.status == 'ACTIVE' ? 'Deactivate' : 'Activate'),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.phone_outlined,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        (widget.supplier.phone != null && widget.supplier.phone!.isNotEmpty)
+                            ? widget.supplier.phone!
+                            : 'No phone number',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: (widget.supplier.phone != null && widget.supplier.phone!.isNotEmpty)
+                              ? theme.colorScheme.onSurface.withValues(alpha: textAlpha)
+                              : theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.email_outlined,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        (widget.supplier.email != null && widget.supplier.email!.isNotEmpty)
+                            ? widget.supplier.email!
+                            : 'No email address',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: (widget.supplier.email != null && widget.supplier.email!.isNotEmpty)
+                              ? theme.colorScheme.onSurface.withValues(alpha: textAlpha)
+                              : theme.colorScheme.onSurfaceVariant.withValues(alpha: textAlpha),
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isInactive
+                            ? theme.colorScheme.errorContainer.withValues(alpha: 0.12)
+                            : const Color(0xFF22C55E).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: isInactive ? theme.colorScheme.error : const Color(0xFF22C55E),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.supplier.status,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isInactive ? theme.colorScheme.error : const Color(0xFF15803D),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'ID: #${widget.supplier.supplierNumber ?? 0}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.outline.withValues(alpha: textAlpha),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

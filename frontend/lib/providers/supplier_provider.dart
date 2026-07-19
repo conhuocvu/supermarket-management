@@ -143,20 +143,20 @@ class SupplierListNotifier extends StateNotifier<SupplierListState> {
     loadSuppliers(isRefresh: true);
   }
 
-  Future<bool> createSupplier(Map<String, dynamic> data) async {
+  /// Creates a supplier and returns the new supplierNumber.
+  /// Throws on failure.
+  Future<int> createSupplier(Map<String, dynamic> data) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
-      await _apiService.createSupplier(data);
-      await loadSuppliers(isRefresh: true);
-      return true;
+      final newId = await _apiService.createSupplier(data);
+      state = state.copyWith(isSubmitting: false);
+      return newId;
     } catch (e) {
       state = state.copyWith(
         isSubmitting: false,
         error: e.toString().replaceAll('Exception: ', ''),
       );
-      return false;
-    } finally {
-      state = state.copyWith(isSubmitting: false);
+      rethrow;
     }
   }
 
@@ -192,6 +192,11 @@ class SupplierListNotifier extends StateNotifier<SupplierListState> {
     } finally {
       state = state.copyWith(isSubmitting: false);
     }
+  }
+
+  Future<Supplier> fetchSupplierById(int id) async {
+    final data = await _apiService.fetchSupplierDetail(id);
+    return Supplier.fromJson(data);
   }
 }
 
