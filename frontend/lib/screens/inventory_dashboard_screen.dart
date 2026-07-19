@@ -140,8 +140,9 @@ class InventoryDashboardScreen extends ConsumerWidget {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 900;
-            final sidePadding = isWide ? 24.0 : 16.0;
+            final isDesktop = constraints.maxWidth >= 1200;
+            final isTablet = constraints.maxWidth >= 600;
+            final sidePadding = isDesktop ? 24.0 : 16.0;
 
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -157,7 +158,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
                     LayoutBuilder(
                       builder: (context, gridConstraints) {
                         int columns = 1;
-                        if (gridConstraints.maxWidth >= 900) {
+                        if (gridConstraints.maxWidth >= 1200) {
                           columns = 4;
                         } else if (gridConstraints.maxWidth >= 600) {
                           columns = 2;
@@ -196,8 +197,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
                                   value: data.nearExpiryCount.toString(),
                                   valueColor: theme.colorScheme.secondary,
                                   progressColor: theme.colorScheme.secondary,
-                                  progressPercent:
-                                      0.1, // Custom ratio for representation
+                                  progressPercent: 0.1,
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -208,8 +208,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
                                   valueColor: theme.colorScheme.primary,
                                   progressColor:
                                       theme.colorScheme.primaryContainer,
-                                  progressPercent:
-                                      0.4, // Custom ratio for representation
+                                  progressPercent: 0.4,
                                 ),
                               ),
                             ],
@@ -316,45 +315,50 @@ class InventoryDashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Two Column Layout
-                    isWide
-                        ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: _buildRecentActivitiesSection(
-                                  context,
-                                  data.recentActivities,
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                flex: 1,
-                                child: _buildAlertsAndSnapshotSection(
-                                  context,
-                                  data.lowStockCount,
-                                  data.capacityUsed,
-                                  data.updatedAt,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            children: [
-                              _buildAlertsAndSnapshotSection(
-                                context,
-                                data.lowStockCount,
-                                data.capacityUsed,
-                                data.updatedAt,
-                              ),
-                              const SizedBox(height: 24),
-                              _buildRecentActivitiesSection(
-                                context,
-                                data.recentActivities,
-                              ),
-                            ],
+                    // Content Layout
+                    if (isDesktop)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: _buildRecentActivitiesSection(
+                              context,
+                              data.recentActivities,
+                            ),
                           ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 1,
+                            child: _buildAlertsAndSnapshotSection(
+                              context,
+                              data.lowStockCount,
+                              data.capacityUsed,
+                              data.updatedAt,
+                              isStacked: false,
+                              isTablet: isTablet,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        children: [
+                          _buildAlertsAndSnapshotSection(
+                            context,
+                            data.lowStockCount,
+                            data.capacityUsed,
+                            data.updatedAt,
+                            isStacked: true,
+                            isTablet: isTablet,
+                          ),
+                          const SizedBox(height: 24),
+                          _buildRecentActivitiesSection(
+                            context,
+                            data.recentActivities,
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -526,14 +530,14 @@ class InventoryDashboardScreen extends ConsumerWidget {
     BuildContext context,
     int lowStockCount,
     double capacityUsed,
-    DateTime updatedAt,
-  ) {
+    DateTime updatedAt, {
+    required bool isStacked,
+    required bool isTablet,
+  }) {
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        if (lowStockCount > 0) ...[
-          Container(
+    final warningCard = lowStockCount > 0
+        ? Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
@@ -589,89 +593,107 @@ class InventoryDashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-        ],
+          )
+        : null;
 
-        // Capacity snapshot
-        Card(
-          elevation: 2,
-          shadowColor: Colors.black.withValues(alpha: 0.04),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFBFC9C3), width: 1),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final capacityCard = Card(
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.04),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFBFC9C3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.history,
-                      color: theme.colorScheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'General Status',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.history,
+                  color: theme.colorScheme.primary,
+                  size: 20,
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  height: 16,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF3FF),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: (capacityUsed / 100).clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Capacity Used',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      '${capacityUsed.toStringAsFixed(1)}%',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    'Updated ${_formatTimeAgo(updatedAt)}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
+                const SizedBox(width: 8),
+                Text(
+                  'General Status',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 24),
+            Container(
+              height: 16,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF3FF),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: (capacityUsed / 100).clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Capacity Used',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  '${capacityUsed.toStringAsFixed(1)}%',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                'Updated ${_formatTimeAgo(updatedAt)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+
+    if (isStacked && isTablet && warningCard != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: warningCard),
+          const SizedBox(width: 24),
+          Expanded(child: capacityCard),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        if (warningCard != null) ...[
+          warningCard,
+          const SizedBox(height: 24),
+        ],
+        capacityCard,
       ],
     );
   }
