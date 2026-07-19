@@ -1046,7 +1046,7 @@ public class InventoryService {
     @Transactional
     public PurchaseRequest findOrCreateDraftPurchaseRequest(UUID userId) {
         if (userId == null) {
-            userId = getDefaultUserId();
+            throw new IllegalArgumentException("User ID is required to access or create a draft purchase request. Please log in.");
         }
         final UUID finalUserId = userId;
         return purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
@@ -1063,9 +1063,8 @@ public class InventoryService {
     @Transactional
     public PurchaseRequest saveDraftPurchaseRequest(UUID userId, PurchaseRequestSaveDraftDTO dto) {
         if (userId == null) {
-            userId = getDefaultUserId();
+            throw new IllegalArgumentException("User ID is required to save a draft purchase request. Please log in.");
         }
-
         final UUID finalUserId = userId;
         PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
                 .orElseGet(() -> {
@@ -1089,9 +1088,15 @@ public class InventoryService {
 
             java.util.Set<Integer> incomingSupplierNumbers = new java.util.HashSet<>();
 
+            // Bulk load all relevant ProductSuppliers to avoid N+1 query loop
+            List<Integer> productNumbers = dto.getItems().stream()
+                    .map(PurchaseRequestSaveDraftItemDTO::getProductNumber)
+                    .collect(Collectors.toList());
+            List<ProductSupplier> allSuppliers = productSupplierRepository.findByProductNumberIn(productNumbers);
+
             for (PurchaseRequestSaveDraftItemDTO item : dto.getItems()) {
-                ProductSupplier productSupplier = productSupplierRepository.findByProductNumber(item.getProductNumber()).stream()
-                        .filter(ps -> ps.getSupplierNumber().equals(item.getSupplierNumber()))
+                ProductSupplier productSupplier = allSuppliers.stream()
+                        .filter(ps -> ps.getProductNumber().equals(item.getProductNumber()) && ps.getSupplierNumber().equals(item.getSupplierNumber()))
                         .findFirst()
                         .orElseThrow(() -> new IllegalArgumentException(
                                 "Supplier relationship not found for product " + item.getProductNumber() +

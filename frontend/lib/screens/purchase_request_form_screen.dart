@@ -223,9 +223,8 @@ class _PurchaseRequestFormScreenState
     });
 
     try {
-      final apiService = ref.read(apiServiceProvider);
       final payload = _buildPayload();
-      _draftRequest = await apiService.saveDraftPurchaseRequest(payload);
+      _draftRequest = await ref.read(purchaseRequestOperationsProvider.notifier).saveDraft(payload);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -267,17 +266,14 @@ class _PurchaseRequestFormScreenState
     });
 
     try {
-      final apiService = ref.read(apiServiceProvider);
-      
       // 1. Save draft details first to commit changes
       final payload = _buildPayload();
-      final savedDraft = await apiService.saveDraftPurchaseRequest(payload);
+      final savedDraft = await ref.read(purchaseRequestOperationsProvider.notifier).saveDraft(payload);
 
       // 2. Submit the purchase request for approval
-      final ok = await apiService.submitPurchaseRequestForApproval(savedDraft.purchaseRequestNumber);
+      final ok = await ref.read(purchaseRequestOperationsProvider.notifier).submitForApproval(savedDraft.purchaseRequestNumber);
 
       if (ok) {
-        ref.invalidate(purchaseRequestsProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

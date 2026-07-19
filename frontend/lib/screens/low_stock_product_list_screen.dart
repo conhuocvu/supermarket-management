@@ -6,7 +6,6 @@ import '../models/low_stock_product.dart';
 import '../providers/low_stock_provider.dart';
 import '../providers/purchase_request_provider.dart';
 import '../providers/shell_layout_provider.dart';
-import '../providers/dashboard_provider.dart';
 
 class LowStockProductListScreen extends ConsumerStatefulWidget {
   const LowStockProductListScreen({super.key});
@@ -57,11 +56,8 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
     });
 
     try {
-      final apiService = ref.read(apiServiceProvider);
-      await apiService.createPurchaseRequest(_selectedProductNumbers.toList());
-      
-      // Invalidate the purchase requests list to reload with draft updates
-      ref.invalidate(purchaseRequestsProvider);
+      await ref.read(purchaseRequestOperationsProvider.notifier)
+          .createPurchaseRequestFromLowStock(_selectedProductNumbers.toList());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
