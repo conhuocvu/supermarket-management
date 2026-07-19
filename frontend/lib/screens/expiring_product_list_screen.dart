@@ -24,8 +24,6 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
 
   // Local lists to mock client-side updates (disposals/discounts)
   final Set<int> _dismissedDetailNumbers = {};
-  int _localProposedDiscountsCount = 8;
-  int _localDisposalsCount = 3;
   int _activeTabIndex = 0; // 0: Watchlist, 1: Submitted Proposals
 
   @override
@@ -74,6 +72,11 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
     final theme = Theme.of(context);
     final filterParams = (search: _committedSearch, status: _statusFilter);
     final expiringAsync = ref.watch(expiringProductsProvider(filterParams));
+    final proposalsAsync = ref.watch(submittedClearanceProposalsProvider);
+    final proposedCount = proposalsAsync.maybeWhen(
+      data: (list) => list.length,
+      orElse: () => 0,
+    );
 
     return Scaffold(
       body: expiringAsync.when(
@@ -84,6 +87,7 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
               .toList();
 
           final criticalCount = filteredProducts.where((p) => p.daysRemaining >= 0 && p.daysRemaining <= 7).length;
+          final expiredCount = filteredProducts.where((p) => p.daysRemaining < 0).length;
           final totalNearExpiryCount = filteredProducts.length;
 
           return SingleChildScrollView(
@@ -115,20 +119,20 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
                         _buildStatCard(
                           theme: theme,
                           title: 'PROPOSED DISCOUNTS',
-                          value: _localProposedDiscountsCount.toString().padLeft(2, '0'),
+                          value: proposedCount.toString().padLeft(2, '0'),
                           color: theme.colorScheme.primary,
-                          progress: (_localProposedDiscountsCount / 20.0).clamp(0.0, 1.0),
+                          progress: proposedCount == 0 ? 0.0 : (proposedCount / 20.0).clamp(0.0, 1.0),
                           progressColor: theme.colorScheme.primary,
                           subtitle: 'Loss Mitigation Active',
                         ),
                         _buildStatCard(
                           theme: theme,
-                          title: 'DISPOSALS TODAY',
-                          value: _localDisposalsCount.toString().padLeft(2, '0'),
+                          title: 'EXPIRED BATCHES',
+                          value: expiredCount.toString().padLeft(2, '0'),
                           color: theme.colorScheme.error,
-                          progress: (_localDisposalsCount / 10.0).clamp(0.0, 1.0),
+                          progress: expiredCount == 0 ? 0.0 : (expiredCount / 10.0).clamp(0.0, 1.0),
                           progressColor: theme.colorScheme.error,
-                          subtitle: 'Latest Log: 9942-A',
+                          subtitle: '$expiredCount items past expiration date',
                         ),
                       ],
                     );
