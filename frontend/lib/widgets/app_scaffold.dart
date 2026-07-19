@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
+import 'notification_bell.dart';
 
 class AppScaffold extends ConsumerWidget {
   final Widget body;
@@ -44,6 +45,7 @@ class AppScaffold extends ConsumerWidget {
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
     final isManager = currentPath.startsWith('/manager');
+    final bool isInWorkspace = currentPath.startsWith('/stock');
     final sidebarWidth = isManager ? 220.0 : 256.0;
 
     final List<Map<String, dynamic>> menuItems = isManager
@@ -51,63 +53,82 @@ class AppScaffold extends ConsumerWidget {
             {
               'title': 'Dashboard',
               'icon': Icons.dashboard_rounded,
+              'route': '/manager',
               'active': currentPath == '/manager',
             },
             {
               'title': 'Staff',
               'icon': Icons.people_alt_outlined,
+              'route': '/manager/staff',
               'active': currentPath.startsWith('/manager/staff'),
             },
             {
               'title': 'Requests',
               'icon': Icons.receipt_long_outlined,
+              'route': '/manager/requests',
               'active': currentPath.startsWith('/manager/requests'),
             },
             {
               'title': 'Promotion',
               'icon': Icons.campaign_outlined,
+              'route': '/manager/promotion',
               'active': currentPath.startsWith('/manager/promotion'),
             },
             {
               'title': 'Supplier',
               'icon': Icons.local_shipping_outlined,
+              'route': '/manager/supplier',
               'active': currentPath.startsWith('/manager/supplier'),
             },
             {
               'title': 'Reports',
               'icon': Icons.bar_chart_rounded,
+              'route': '/manager/reports',
               'active': currentPath.startsWith('/manager/reports'),
             },
           ]
-        : [
+        : isInWorkspace
+        ? [
+            {
+              'title': 'Workspace Home',
+              'icon': Icons.home_outlined,
+              'route': '/dashboard',
+              'active': false,
+            },
             {
               'title': 'Dashboard',
               'icon': Icons.dashboard_outlined,
+              'route': '/stock',
               'active': currentPath == '/stock',
             },
             {
               'title': 'Products',
               'icon': Icons.inventory_2_outlined,
+              'route': '/stock/products',
               'active': currentPath.startsWith('/stock/products'),
             },
             {
               'title': 'Categories',
               'icon': Icons.category_outlined,
+              'route': '/stock/categories',
               'active': currentPath.startsWith('/stock/categories'),
             },
             {
               'title': 'Transactions',
               'icon': Icons.swap_horiz_outlined,
+              'route': '/stock/transactions',
               'active': currentPath.startsWith('/stock/transactions'),
             },
             {
               'title': 'Purchase Requests',
               'icon': Icons.shopping_cart_outlined,
+              'route': '/stock/purchase-requests',
               'active': currentPath.startsWith('/stock/purchase-requests'),
             },
             {
               'title': 'Low Stock',
               'icon': Icons.priority_high_outlined,
+              'route': '/stock/low-stock',
               'active': currentPath.startsWith('/stock/low-stock'),
             },
             {
@@ -119,6 +140,50 @@ class AppScaffold extends ConsumerWidget {
               'title': 'Product Reports',
               'icon': Icons.assessment_outlined,
               'active': false,
+            },
+          ]
+        : [
+            {
+              'title': 'Home',
+              'icon': Icons.home_outlined,
+              'route': '/dashboard',
+              'active': currentPath == '/dashboard',
+            },
+            {
+              'title': 'Profile Management',
+              'icon': Icons.person_outline,
+              'route': '/profile',
+              'active': currentPath == '/profile',
+            },
+            {
+              'title': 'Work Schedule Management',
+              'icon': Icons.calendar_month_outlined,
+              'route': '/work-schedule',
+              'active': currentPath == '/work-schedule',
+            },
+            {
+              'title': 'Leave Request Form',
+              'icon': Icons.time_to_leave_outlined,
+              'route': '/leave-request',
+              'active': currentPath == '/leave-request',
+            },
+            {
+              'title': 'Schedule Change Request',
+              'icon': Icons.published_with_changes_outlined,
+              'route': '/schedule-change',
+              'active': currentPath == '/schedule-change',
+            },
+            {
+              'title': 'Manage Request Status',
+              'icon': Icons.rule_folder_outlined,
+              'route': '/manage-requests',
+              'active': currentPath == '/manage-requests',
+            },
+            {
+              'title': 'Notifications',
+              'icon': Icons.notifications_outlined,
+              'route': '/notifications',
+              'active': currentPath == '/notifications',
             },
           ];
 
@@ -229,34 +294,9 @@ class AppScaffold extends ConsumerWidget {
                         if (!isDesktop) {
                           Navigator.pop(context);
                         }
-                        if (isManager) {
-                          if (item['title'] == 'Dashboard') {
-                            context.go('/manager');
-                          } else if (item['title'] == 'Staff') {
-                            context.go('/manager/staff');
-                          } else if (item['title'] == 'Requests') {
-                            context.go('/manager/requests');
-                          } else if (item['title'] == 'Promotion') {
-                            context.go('/manager/promotion');
-                          } else if (item['title'] == 'Supplier') {
-                            context.go('/manager/supplier');
-                          } else if (item['title'] == 'Reports') {
-                            context.go('/manager/reports');
-                          }
-                        } else {
-                          if (item['title'] == 'Dashboard') {
-                            context.go('/stock');
-                          } else if (item['title'] == 'Products') {
-                            context.go('/stock/products');
-                          } else if (item['title'] == 'Categories') {
-                            context.go('/stock/categories');
-                          } else if (item['title'] == 'Transactions') {
-                            context.go('/stock/transactions');
-                          } else if (item['title'] == 'Purchase Requests') {
-                            context.go('/stock/purchase-requests');
-                          } else if (item['title'] == 'Low Stock') {
-                            context.go('/stock/low-stock');
-                          }
+                        final route = item['route'] as String?;
+                        if (route != null) {
+                          context.go(route);
                         }
                       },
                       borderRadius: BorderRadius.circular(12),
@@ -281,15 +321,19 @@ class AppScaffold extends ConsumerWidget {
                                   : theme.colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              item['title'] as String,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: isActive
-                                    ? Colors.white
-                                    : theme.colorScheme.onSurfaceVariant,
-                                fontWeight: isActive
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                            Expanded(
+                              child: Text(
+                                item['title'] as String,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: isActive
+                                      ? Colors.white
+                                      : theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: isActive
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -437,7 +481,12 @@ class AppScaffold extends ConsumerWidget {
                                 color: theme.colorScheme.onSurface,
                               ),
                             ),
-                            Row(children: displayActions),
+                            Row(
+                              children: [
+                                const NotificationBell(),
+                                ...displayActions,
+                              ],
+                            ),
                           ],
                         ),
                         if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty) ...[
@@ -531,7 +580,7 @@ class AppScaffold extends ConsumerWidget {
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
-          actions: displayActions,
+          actions: [const NotificationBell(), ...displayActions],
           iconTheme: IconThemeData(color: theme.colorScheme.primary),
         ),
         drawer: Drawer(child: buildSidebarContent()),
