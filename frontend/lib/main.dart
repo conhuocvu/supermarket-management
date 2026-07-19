@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import 'models/profile.dart';
 import 'models/inventory_product.dart';
+import 'models/cashier_models.dart';
 import 'providers/auth_provider.dart';
 import 'providers/splash_finished_provider.dart';
 import 'providers/router_notifier.dart';
@@ -24,6 +25,13 @@ import 'screens/purchase_request_list_screen.dart';
 import 'screens/purchase_request_form_screen.dart';
 import 'screens/request_management_screen.dart';
 import 'screens/low_stock_product_list_screen.dart';
+import 'screens/cashier_dashboard_screen.dart';
+import 'screens/new_invoice_launcher_screen.dart';
+import 'screens/cashier_pos_screen.dart';
+import 'screens/cashier_checkout_screen.dart';
+import 'screens/cashier_receipt_screen.dart';
+import 'screens/shift_invoices_screen.dart';
+import 'screens/cashier_invoice_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -265,7 +273,69 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/cashier',
-        builder: (context, state) => const CashierScreen(),
+        pageBuilder: (context, state) =>
+            const NoTransitionPage(child: CashierDashboardScreen()),
+        routes: [
+          GoRoute(
+            path: 'new-invoice',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NewInvoiceLauncherScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'pos/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierPosScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'checkout/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierCheckoutScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'receipt/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierReceiptScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+                initialReceipt: state.extra is CashierReceipt
+                    ? state.extra as CashierReceipt
+                    : null,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'invoices',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ShiftInvoicesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'invoices/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierInvoiceDetailScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) {
