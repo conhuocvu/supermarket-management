@@ -163,4 +163,17 @@ public class PromotionController {
                     .body(ApiResponse.error("Clearance proposal cannot be submitted."));
         }
     }
+
+    @GetMapping("/clearance-proposals/submitted")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<java.util.List<PromotionDTO>>> getSubmittedClearanceProposals() {
+        try {
+            java.util.List<PromotionDTO> data = promotionService.getSubmittedClearanceProposals();
+            return ResponseEntity.ok(ApiResponse.success("Submitted clearance proposals loaded successfully.", data));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Unable to load submitted clearance proposals: " + e.getMessage()));
+        }
+    }
 }
+

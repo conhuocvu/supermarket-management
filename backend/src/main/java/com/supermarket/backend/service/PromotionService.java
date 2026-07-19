@@ -286,4 +286,11 @@ public class PromotionService {
 
         promotionProductRepository.save(pp);
     }
+
+    @Transactional(readOnly = true)
+    public List<PromotionDTO> getSubmittedClearanceProposals() {
+        List<Promotion> proposals = promotionRepository.findByCategoryOrderByPromotionNumberDesc("CLEARANCE");
+        return proposals.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
 }
+

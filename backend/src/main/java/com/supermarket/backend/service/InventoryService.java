@@ -18,7 +18,10 @@ import java.util.UUID;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
+import com.supermarket.backend.repository.PromotionProductRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class InventoryService {
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
     private final StockInDetailRepository stockInDetailRepository;
+    private final PromotionProductRepository promotionProductRepository;
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final JdbcTemplate jdbcTemplate;
@@ -1198,6 +1202,9 @@ public class InventoryService {
     public List<ExpiringProductDTO> getExpiringProducts(String search, String status) {
         List<StockInDetail> activeBatches = stockInDetailRepository.findAllActiveStockInDetails();
 
+        List<Integer> proposedNumbers = promotionProductRepository.findProposedStockInDetailNumbers();
+        Set<Integer> proposedSet = proposedNumbers != null ? new HashSet<>(proposedNumbers) : new HashSet<>();
+
         List<Product> products = productRepository.findAll();
         Map<Integer, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
@@ -1206,6 +1213,13 @@ public class InventoryService {
         List<ExpiringProductDTO> dtos = new java.util.ArrayList<>();
 
         for (StockInDetail detail : activeBatches) {
+            if (detail.getRemainingQuantity() == null || detail.getRemainingQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (proposedSet.contains(detail.getStockInDetailNumber())) {
+                continue;
+            }
+
             Product p = productMap.get(detail.getProductNumber());
             if (p == null) continue;
 

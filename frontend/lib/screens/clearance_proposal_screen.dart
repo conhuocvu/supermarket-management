@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/clearance_proposal.dart';
 import '../providers/clearance_proposal_provider.dart';
+import '../providers/expiring_products_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
@@ -57,6 +58,8 @@ class _ClearanceProposalScreenState extends ConsumerState<ClearanceProposalScree
       );
 
       if (mounted) {
+        ref.invalidate(expiringProductsProvider);
+        ref.invalidate(submittedClearanceProposalsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -118,7 +121,7 @@ class _ClearanceProposalScreenState extends ConsumerState<ClearanceProposalScree
 
   Widget _buildForm(ClearanceProposalData data, ThemeData theme) {
     final discountedPrice = data.sellingPrice * (1 - _discountPercentage / 100);
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),

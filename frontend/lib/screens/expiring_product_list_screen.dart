@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/expiring_product.dart';
 import '../providers/expiring_products_provider.dart';
+import '../providers/clearance_proposal_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
 class ExpiringProductListScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
   final Set<int> _dismissedDetailNumbers = {};
   int _localProposedDiscountsCount = 8;
   int _localDisposalsCount = 3;
+  int _activeTabIndex = 0; // 0: Watchlist, 1: Submitted Proposals
 
   @override
   void initState() {
@@ -335,199 +337,33 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
                 ),
                 const SizedBox(height: 24),
 
-                // Search Bar and Filters Area
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search expiring watchlist...',
-                            prefixIcon: const Icon(Icons.search),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _debounce?.cancel();
-                                      setState(() {
-                                        _searchController.clear();
-                                        _searchQuery = '';
-                                        _committedSearch = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                            });
-                            _debounce?.cancel();
-                            _debounce = Timer(const Duration(milliseconds: 500), () {
-                              setState(() {
-                                _committedSearch = val;
-                              });
-                            });
-                          },
-                        ),
-                      ),
+                // Segmented Tab Bar (Watchlist vs Submitted Proposals)
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment<int>(
+                      value: 0,
+                      label: Text('Near-Expiry Watchlist'),
+                      icon: Icon(Icons.warning_amber_rounded),
                     ),
-                    const SizedBox(width: 12),
-                    _buildFilterDropdown(theme),
+                    ButtonSegment<int>(
+                      value: 1,
+                      label: Text('Submitted Proposals'),
+                      icon: Icon(Icons.local_offer_outlined),
+                    ),
                   ],
+                  selected: {_activeTabIndex},
+                  onSelectionChanged: (newSelection) {
+                    setState(() {
+                      _activeTabIndex = newSelection.first;
+                    });
+                  },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // Main Data Table Container
-                Card(
-                  elevation: 2,
-                  shadowColor: Colors.black.withValues(alpha: 0.04),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Active Expiry Watchlist',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Last updated: ${DateFormat('MMM dd, HH:mm').format(DateTime.now())}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (filteredProducts.isEmpty)
-                        _buildEmptyState(theme)
-                      else
-                        Scrollbar(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minWidth: MediaQuery.of(context).size.width - 320,
-                              ),
-                              child: DataTable(
-                                headingRowColor: WidgetStateProperty.all(
-                                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
-                                ),
-                                columnSpacing: 24,
-                                dataRowMinHeight: 60,
-                                dataRowMaxHeight: 72,
-                                columns: const [
-                                  DataColumn(label: Text('Product')),
-                                  DataColumn(label: Text('Status')),
-                                  DataColumn(label: Text('Quantity')),
-                                  DataColumn(label: Text('Batch ID')),
-                                  DataColumn(
-                                    numeric: true,
-                                    label: Padding(
-                                      padding: EdgeInsets.only(right: 16),
-                                      child: Text('Actions'),
-                                    ),
-                                  ),
-                                ],
-                                rows: filteredProducts.map((product) {
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(
-                                        Text(
-                                          product.productName,
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            fontWeight: FontWeight.w500,
-                                            color: theme.colorScheme.onSurface,
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _buildStatusBadge(product, theme),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _formatQuantity(product.quantity, product.productName),
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          product.batchNumber,
-                                          style: TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                            color: theme.colorScheme.primary,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Padding(
-                                          padding: const EdgeInsets.only(right: 8),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.end,
-                                            children: [
-                                              FilledButton(
-                                                onPressed: () => _openDiscountProposalDialog(product),
-                                                style: FilledButton.styleFrom(
-                                                  backgroundColor: theme.colorScheme.primary,
-                                                  foregroundColor: theme.colorScheme.onPrimary,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                ),
-                                                child: const Text('Propose Discount', style: TextStyle(fontSize: 12)),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              OutlinedButton(
-                                                onPressed: () => _openDisposalDialog(product),
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: theme.colorScheme.error,
-                                                  side: BorderSide(color: theme.colorScheme.error),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                ),
-                                                child: const Text('Disposal', style: TextStyle(fontSize: 12)),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                if (_activeTabIndex == 0)
+                  _buildWatchlistSection(theme, filteredProducts)
+                else
+                  _buildSubmittedProposalsSection(theme),
               ],
             ),
           );
@@ -540,6 +376,207 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
         ),
         error: (err, stack) => _buildErrorState(err, theme),
       ),
+    );
+  }
+
+  Widget _buildWatchlistSection(ThemeData theme, List<ExpiringProduct> filteredProducts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Search Bar and Filters Area
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search expiring watchlist...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _debounce?.cancel();
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _committedSearch = '';
+                              });
+                            },
+                          )
+                        : null,
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val;
+                    });
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 500), () {
+                      setState(() {
+                        _committedSearch = val;
+                      });
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildFilterDropdown(theme),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Main Data Table Container
+        Card(
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.04),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Active Expiry Watchlist',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Last updated: ${DateFormat('MMM dd, HH:mm').format(DateTime.now())}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (filteredProducts.isEmpty)
+                _buildEmptyState(theme)
+              else
+                Scrollbar(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: MediaQuery.of(context).size.width - 320,
+                      ),
+                      child: DataTable(
+                        headingRowColor: WidgetStateProperty.all(
+                          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
+                        ),
+                        columnSpacing: 24,
+                        dataRowMinHeight: 60,
+                        dataRowMaxHeight: 72,
+                        columns: const [
+                          DataColumn(label: Text('Product')),
+                          DataColumn(label: Text('Status')),
+                          DataColumn(label: Text('Quantity')),
+                          DataColumn(label: Text('Batch ID')),
+                          DataColumn(
+                            numeric: true,
+                            label: Padding(
+                              padding: EdgeInsets.only(right: 16),
+                              child: Text('Actions'),
+                            ),
+                          ),
+                        ],
+                        rows: filteredProducts.map((product) {
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                Text(
+                                  product.productName,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                _buildStatusBadge(product, theme),
+                              ),
+                              DataCell(
+                                Text(
+                                  _formatQuantity(product.quantity, product.productName),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  product.batchNumber,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      FilledButton(
+                                        onPressed: () => _openDiscountProposalDialog(product),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: theme.colorScheme.primary,
+                                          foregroundColor: theme.colorScheme.onPrimary,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        child: const Text('Propose Discount', style: TextStyle(fontSize: 12)),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      OutlinedButton(
+                                        onPressed: () => _openDisposalDialog(product),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: theme.colorScheme.error,
+                                          side: BorderSide(color: theme.colorScheme.error),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        child: const Text('Disposal', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -777,4 +814,201 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
       ),
     );
   }
+
+  Widget _buildSubmittedProposalsSection(ThemeData theme) {
+    final proposalsAsync = ref.watch(submittedClearanceProposalsProvider);
+
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.04),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Submitted Clearance Proposals',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: () => ref.invalidate(submittedClearanceProposalsProvider),
+                  tooltip: 'Refresh Proposals',
+                ),
+              ],
+            ),
+          ),
+          proposalsAsync.when(
+            data: (proposals) {
+              if (proposals.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(48.0),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 48, color: theme.colorScheme.outline),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No clearance proposals submitted yet.',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return Scrollbar(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: MediaQuery.of(context).size.width - 320,
+                    ),
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(
+                        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
+                      ),
+                      columnSpacing: 24,
+                      dataRowMinHeight: 60,
+                      dataRowMaxHeight: 72,
+                      columns: const [
+                        DataColumn(label: Text('Proposal Name')),
+                        DataColumn(label: Text('Discount')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Start Date')),
+                        DataColumn(label: Text('End Date')),
+                        DataColumn(label: Text('Reason')),
+                      ],
+                      rows: proposals.map((p) {
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              Text(
+                                p.promotionName,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '-${p.discountValue.toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(_buildProposalStatusBadge(p.status, theme)),
+                            DataCell(Text(p.startDate ?? '--')),
+                            DataCell(Text(p.endDate ?? '--')),
+                            DataCell(
+                              Text(
+                                (p.description != null && p.description!.isNotEmpty)
+                                    ? p.description!
+                                    : 'N/A',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.all(48.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (err, stack) => Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: Text(
+                  'Failed to load submitted proposals: $err',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProposalStatusBadge(String status, ThemeData theme) {
+    Color bg;
+    Color fg;
+    String label = status.toUpperCase();
+
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        bg = Colors.amber.withValues(alpha: 0.2);
+        fg = Colors.amber.shade900;
+        label = 'PENDING APPROVAL';
+        break;
+      case 'ACTIVE':
+      case 'APPROVED':
+        bg = theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+        fg = theme.colorScheme.primary;
+        label = 'APPROVED';
+        break;
+      case 'EXPIRED':
+      case 'INACTIVE':
+      case 'REJECTED':
+        bg = theme.colorScheme.errorContainer.withValues(alpha: 0.3);
+        fg = theme.colorScheme.error;
+        label = status.toUpperCase();
+        break;
+      default:
+        bg = theme.colorScheme.surfaceContainerHighest;
+        fg = theme.colorScheme.onSurfaceVariant;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: fg,
+        ),
+      ),
+    );
+  }
 }
+

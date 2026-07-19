@@ -15,6 +15,7 @@ import '../models/low_stock_product.dart';
 import '../models/supplier_product.dart';
 import '../models/expiring_product.dart';
 import '../models/clearance_proposal.dart';
+import '../models/promotion.dart';
 
 class ApiService {
   final Dio _dio;
@@ -1263,6 +1264,26 @@ class ApiService {
         }
       } else {
         throw Exception('Failed to submit proposal: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<Promotion>> fetchSubmittedClearanceProposals() async {
+    try {
+      final response = await _dio.get('/promotions/clearance-proposals/submitted');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((item) => Promotion.fromJson(item)).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Failed to load submitted proposals: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
