@@ -261,11 +261,24 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(
-                      'Last updated: ${DateFormat('MMM dd, HH:mm').format(DateTime.now())}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Last updated: ${DateFormat('MMM dd, HH:mm').format(DateTime.now())}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, size: 18),
+                          tooltip: 'Reload watchlist',
+                          onPressed: () {
+                            ref.invalidate(expiringProductsProvider);
+                            ref.invalidate(submittedClearanceProposalsProvider);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

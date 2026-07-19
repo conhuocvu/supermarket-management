@@ -6,6 +6,7 @@ import '../models/disposal_form_data.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/disposal_provider.dart';
 import '../providers/expiring_products_provider.dart';
+import '../providers/clearance_proposal_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
 class RemoveExpiredProductScreen extends ConsumerStatefulWidget {
@@ -79,6 +80,7 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
 
       if (mounted) {
         ref.invalidate(expiringProductsProvider);
+        ref.invalidate(submittedClearanceProposalsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(

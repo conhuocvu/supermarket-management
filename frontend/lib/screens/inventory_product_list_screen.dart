@@ -653,6 +653,7 @@ class _InventoryProductListScreenState
                       Opacity(
                         opacity: isInactive ? 0.5 : 1.0,
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             if (item.imageUrl.isNotEmpty)
                               Padding(
