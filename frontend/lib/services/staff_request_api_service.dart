@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/staff_request.dart';
 import 'api_service.dart';
@@ -18,7 +19,24 @@ class StaffRequestApiService {
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
         ),
-      );
+      ) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          try {
+            final token =
+                Supabase.instance.client.auth.currentSession?.accessToken;
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (_) {
+            // Supabase not initialized or no session
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+  }
 
   Future<Map<String, dynamic>> fetchStaffRequests({
     int page = 0,

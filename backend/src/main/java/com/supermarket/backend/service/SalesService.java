@@ -212,7 +212,9 @@ public class SalesService {
         }
 
         SalesDTO.Invoice beforePayment = preview.invoice();
-        for (SalesDTO.InvoiceLine line : beforePayment.items()) {
+        List<SalesDTO.InvoiceLine> sortedItems = new java.util.ArrayList<>(beforePayment.items());
+        sortedItems.sort(java.util.Comparator.comparingInt(SalesDTO.InvoiceLine::productNumber));
+        for (SalesDTO.InvoiceLine line : sortedItems) {
             BigDecimal available = repository.lockInventory(line.productNumber());
             if (available.compareTo(line.quantity()) < 0) {
                 throw new ModuleException(HttpStatus.CONFLICT,

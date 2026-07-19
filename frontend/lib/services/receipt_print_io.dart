@@ -1,6 +1,13 @@
 import 'dart:io';
 
 Future<void> printReceipt(String receiptText) async {
+  if (Platform.isAndroid || Platform.isIOS) {
+    throw Exception(
+      'Direct receipt printing is only supported on Desktop (Windows/macOS/Linux). '
+      'Please view/share the invoice details on screen.'
+    );
+  }
+
   final directory = await Directory.systemTemp.createTemp('sms_receipt_');
   final file = File('${directory.path}${Platform.pathSeparator}receipt.txt');
   await file.writeAsString(receiptText);

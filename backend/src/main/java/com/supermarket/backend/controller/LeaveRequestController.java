@@ -1,14 +1,13 @@
 package com.supermarket.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.supermarket.backend.dto.ApiResponse;
 import com.supermarket.backend.dto.LeaveRequestDTO;
 import com.supermarket.backend.service.LeaveRequestService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,10 +23,9 @@ public class LeaveRequestController {
     /** A user's own leave requests. */
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<List<LeaveRequestDTO>>> getUserLeaveRequests(
-            @PathVariable UUID userId,
-            HttpServletRequest request) {
+            @PathVariable UUID userId) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             List<LeaveRequestDTO> records = leaveRequestService.getUserLeaveRequests(userId);
             return ResponseEntity.ok(ApiResponse.success("Leave requests retrieved successfully.", records));
         } catch (SecurityException e) {
@@ -43,10 +41,9 @@ public class LeaveRequestController {
     /** Create a leave request for the authenticated user. */
     @PostMapping
     public ResponseEntity<ApiResponse<LeaveRequestDTO>> createLeaveRequest(
-            @Valid @RequestBody LeaveRequestDTO dto,
-            HttpServletRequest request) {
+            @Valid @RequestBody LeaveRequestDTO dto) {
         try {
-            verifyOwnership(request, UUID.fromString(dto.getUserId()));
+            verifyOwnership(UUID.fromString(dto.getUserId()));
             LeaveRequestDTO created = leaveRequestService.createLeaveRequest(dto);
             return ResponseEntity.ok(ApiResponse.success("Leave request submitted successfully.", created));
         } catch (SecurityException e) {
@@ -63,10 +60,9 @@ public class LeaveRequestController {
     @PutMapping("/{leaveNumber}/cancel")
     public ResponseEntity<ApiResponse<LeaveRequestDTO>> cancelLeaveRequest(
             @PathVariable Integer leaveNumber,
-            @RequestParam UUID userId,
-            HttpServletRequest request) {
+            @RequestParam UUID userId) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             LeaveRequestDTO cancelled = leaveRequestService.cancelLeaveRequest(leaveNumber, userId);
             return ResponseEntity.ok(ApiResponse.success("Leave request cancelled successfully.", cancelled));
         } catch (SecurityException e) {
@@ -82,25 +78,17 @@ public class LeaveRequestController {
     }
 
     /**
-     * Verifies the JWT subject matches the target user (IDOR protection).
-     * Decode only, no signature verification — same approach as AttendanceController.
+     * Verifies the authenticated subject matches the target user (IDOR protection).
+     * Retrieves the validated subject directly from Spring Security Context.
      */
-    private void verifyOwnership(HttpServletRequest request, UUID userId) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    private void verifyOwnership(UUID userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new SecurityException("Authentication required.");
         }
-        try {
-            String token = authHeader.substring(7);
-            DecodedJWT decoded = JWT.decode(token);
-            String sub = decoded.getSubject();
-            if (sub == null || !sub.equals(userId.toString())) {
-                throw new SecurityException("You are not authorised to access this leave request.");
-            }
-        } catch (SecurityException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SecurityException("Invalid authentication token: " + e.getMessage());
+        String principalName = authentication.getName();
+        if (principalName == null || !principalName.equals(userId.toString())) {
+            throw new SecurityException("You are not authorised to access this leave request.");
         }
     }
 }

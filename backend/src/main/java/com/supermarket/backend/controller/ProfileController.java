@@ -1,15 +1,14 @@
 package com.supermarket.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.supermarket.backend.dto.ApiResponse;
 import com.supermarket.backend.dto.ProfileDTO;
 import com.supermarket.backend.dto.ProfileUpdateDTO;
 import com.supermarket.backend.service.ProfileService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -41,10 +40,9 @@ public class ProfileController {
     @PutMapping("/{userId}")
     public ResponseEntity<ApiResponse<ProfileDTO>> updateProfile(
             @PathVariable UUID userId,
-            @Valid @RequestBody ProfileUpdateDTO dto,
-            HttpServletRequest request) {
+            @Valid @RequestBody ProfileUpdateDTO dto) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             ProfileDTO updated = profileService.updateProfile(userId, dto);
             return ResponseEntity.ok(ApiResponse.success("Profile updated successfully.", updated));
         } catch (SecurityException e) {
@@ -60,10 +58,9 @@ public class ProfileController {
     @PutMapping("/{userId}/avatar")
     public ResponseEntity<ApiResponse<ProfileDTO>> updateAvatar(
             @PathVariable UUID userId,
-            @RequestParam("file") MultipartFile file,
-            HttpServletRequest request) {
+            @RequestParam("file") MultipartFile file) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             ProfileDTO profile = profileService.updateAvatar(userId, file);
             return ResponseEntity.ok(ApiResponse.success("Profile photo updated successfully.", profile));
         } catch (SecurityException e) {
@@ -77,30 +74,17 @@ public class ProfileController {
     }
 
     /**
-     * Verifies that the JWT in the Authorization header belongs to the same user as
-     * the path variable, preventing accidental cross-user writes (IDOR).
-     *
-     * Note: Supabase issues RS256-signed tokens. Full signature verification requires
-     * integrating Spring Security with Supabase JWKS endpoint, which is out of scope
-     * here. Decoding without signature verification is sufficient to prevent accidental
-     * misuse while keeping the implementation simple.
+     * Verifies that the JWT belongs to the same user as the path variable (IDOR protection).
+     * Retrieves the validated subject directly from Spring Security Context.
      */
-    private void verifyOwnership(HttpServletRequest request, UUID userId) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    private void verifyOwnership(UUID userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new SecurityException("Authentication required.");
         }
-        try {
-            String token = authHeader.substring(7);
-            DecodedJWT decoded = JWT.decode(token); // Decode only — no signature verification
-            String sub = decoded.getSubject();      // Supabase sets sub = user UUID
-            if (sub == null || !sub.equals(userId.toString())) {
-                throw new SecurityException("You are not authorised to modify this profile.");
-            }
-        } catch (SecurityException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SecurityException("Invalid authentication token: " + e.getMessage());
+        String principalName = authentication.getName();
+        if (principalName == null || !principalName.equals(userId.toString())) {
+            throw new SecurityException("You are not authorised to modify this profile.");
         }
     }
 }

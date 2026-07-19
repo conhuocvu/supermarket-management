@@ -1,13 +1,12 @@
 package com.supermarket.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.supermarket.backend.dto.ApiResponse;
 import com.supermarket.backend.dto.WorkScheduleDTO;
 import com.supermarket.backend.service.WorkScheduleService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,10 +24,9 @@ public class WorkScheduleController {
     public ResponseEntity<ApiResponse<List<WorkScheduleDTO>>> getMonthlySchedule(
             @PathVariable UUID userId,
             @RequestParam int year,
-            @RequestParam int month,
-            HttpServletRequest request) {
+            @RequestParam int month) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             if (month < 1 || month > 12) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("Month must be between 1 and 12."));
@@ -47,24 +45,16 @@ public class WorkScheduleController {
 
     /**
      * Verifies the JWT subject matches the target user (IDOR protection).
-     * Decode only, no signature verification — same approach as AttendanceController.
+     * Retrieves the validated subject directly from Spring Security Context.
      */
-    private void verifyOwnership(HttpServletRequest request, UUID userId) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    private void verifyOwnership(UUID userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new SecurityException("Authentication required.");
         }
-        try {
-            String token = authHeader.substring(7);
-            DecodedJWT decoded = JWT.decode(token);
-            String sub = decoded.getSubject();
-            if (sub == null || !sub.equals(userId.toString())) {
-                throw new SecurityException("You are not authorised to access this schedule.");
-            }
-        } catch (SecurityException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SecurityException("Invalid authentication token: " + e.getMessage());
+        String principalName = authentication.getName();
+        if (principalName == null || !principalName.equals(userId.toString())) {
+            throw new SecurityException("You are not authorised to access this schedule.");
         }
     }
 }
