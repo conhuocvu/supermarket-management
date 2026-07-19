@@ -14,12 +14,12 @@ class RequestManagementScreen extends ConsumerStatefulWidget {
 
 class _RequestManagementScreenState
     extends ConsumerState<RequestManagementScreen> {
-  static const Color _primary = Color(0xFF00503E);
-  static const Color _background = Color(0xFFF8F9FF);
-  static const Color _surface = Colors.white;
-  static const Color _border = Color(0xFFE1E7E5);
-  static const Color _textPrimary = Color(0xFF17201D);
-  static const Color _textSecondary = Color(0xFF66736F);
+  Color get _primary => Theme.of(context).colorScheme.primary;
+  Color get _background => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _border => Theme.of(context).colorScheme.outlineVariant;
+  Color get _textPrimary => Theme.of(context).colorScheme.onSurface;
+  Color get _textSecondary => Theme.of(context).colorScheme.onSurfaceVariant;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -100,7 +100,7 @@ class _RequestManagementScreenState
         label: const Text('Refresh'),
         style: OutlinedButton.styleFrom(
           foregroundColor: _primary,
-          side: const BorderSide(color: _border),
+          side: BorderSide(color: _border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -167,11 +167,11 @@ class _RequestManagementScreenState
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: _border),
+                borderSide: BorderSide(color: _border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: _primary, width: 1.5),
+                borderSide: BorderSide(color: _primary, width: 1.5),
               ),
             ),
           ),
@@ -214,10 +214,7 @@ class _RequestManagementScreenState
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: _textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -250,22 +247,27 @@ class _RequestManagementScreenState
   }
 
   Widget _buildErrorBanner(String message, StaffRequestNotifier notifier) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F0),
+        color: colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFC9C4)),
+        border: Border.all(color: colorScheme.error),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFB42318)),
+          Icon(
+            Icons.error_outline_rounded,
+            color: colorScheme.onErrorContainer,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Color(0xFF7A271A)),
+              style: TextStyle(color: colorScheme.onErrorContainer),
             ),
           ),
           TextButton(onPressed: notifier.refresh, child: const Text('Retry')),
@@ -280,7 +282,7 @@ class _RequestManagementScreenState
     bool isCompact,
   ) {
     if (state.isLoading && state.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: _primary));
+      return Center(child: CircularProgressIndicator(color: _primary));
     }
 
     if (state.items.isEmpty) {
@@ -313,14 +315,14 @@ class _RequestManagementScreenState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _border),
       ),
-      child: const Center(
+      child: Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.inbox_outlined, size: 56, color: _textSecondary),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 'No requests found',
                 style: TextStyle(
@@ -329,7 +331,7 @@ class _RequestManagementScreenState
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'Try changing the search text or filters.',
                 textAlign: TextAlign.center,
@@ -364,13 +366,13 @@ class _RequestManagementScreenState
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 headingRowColor: WidgetStateProperty.all(
-                  const Color(0xFFF0F5F3),
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
-                headingTextStyle: const TextStyle(
+                headingTextStyle: TextStyle(
                   color: _textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
-                dataTextStyle: const TextStyle(color: _textPrimary),
+                dataTextStyle: TextStyle(color: _textPrimary),
                 horizontalMargin: 20,
                 columnSpacing: 28,
                 columns: const [
@@ -413,11 +415,13 @@ class _RequestManagementScreenState
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: const Color(0xFFE2F1EC),
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
                   child: Text(
                     _firstLetter(request.employeeName),
-                    style: const TextStyle(
-                      color: _primary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -470,11 +474,11 @@ class _RequestManagementScreenState
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: const Color(0xFFE2F1EC),
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                 child: Text(
                   _firstLetter(request.employeeName),
-                  style: const TextStyle(
-                    color: _primary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -486,7 +490,7 @@ class _RequestManagementScreenState
                   children: [
                     Text(
                       request.employeeName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
@@ -494,10 +498,7 @@ class _RequestManagementScreenState
                     const SizedBox(height: 2),
                     Text(
                       'Request #${request.requestNumber}',
-                      style: const TextStyle(
-                        color: _textSecondary,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: _textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -510,20 +511,16 @@ class _RequestManagementScreenState
           const SizedBox(height: 14),
           Text(
             _requestDetails(request),
-            style: const TextStyle(color: _textPrimary, height: 1.45),
+            style: TextStyle(color: _textPrimary, height: 1.45),
           ),
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(
-                Icons.schedule_rounded,
-                size: 18,
-                color: _textSecondary,
-              ),
+              Icon(Icons.schedule_rounded, size: 18, color: _textSecondary),
               const SizedBox(width: 6),
               Text(
                 _formatDateTime(request.createdDate),
-                style: const TextStyle(color: _textSecondary, fontSize: 13),
+                style: TextStyle(color: _textSecondary, fontSize: 13),
               ),
             ],
           ),
@@ -551,7 +548,7 @@ class _RequestManagementScreenState
     bool compact = false,
   }) {
     if (request.status.toUpperCase() != 'PENDING') {
-      return const Text(
+      return Text(
         'Processed',
         style: TextStyle(color: _textSecondary, fontSize: 13),
       );
@@ -695,16 +692,14 @@ class _RequestManagementScreenState
   }
 
   Widget _buildTypeChip(StaffRequest request) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isLeave = request.isLeaveRequest;
-
     final backgroundColor = isLeave
-        ? const Color(0xFFE9F2FF)
-        : const Color(0xFFF2EBFF);
-
+        ? colorScheme.secondaryContainer
+        : colorScheme.tertiaryContainer;
     final textColor = isLeave
-        ? const Color(0xFF175CD3)
-        : const Color(0xFF6941C6);
-
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onTertiaryContainer;
     final icon = isLeave
         ? Icons.event_available_rounded
         : Icons.swap_horiz_rounded;
@@ -735,27 +730,28 @@ class _RequestManagementScreenState
   }
 
   Widget _buildStatusChip(String status) {
+    final colorScheme = Theme.of(context).colorScheme;
     final normalized = status.toUpperCase();
 
-    Color backgroundColor;
-    Color textColor;
+    late final Color backgroundColor;
+    late final Color textColor;
 
     switch (normalized) {
       case 'APPROVED':
-        backgroundColor = const Color(0xFFE7F6EC);
-        textColor = const Color(0xFF16794A);
+        backgroundColor = colorScheme.secondaryContainer;
+        textColor = colorScheme.onSecondaryContainer;
         break;
       case 'REJECTED':
-        backgroundColor = const Color(0xFFFFE9E7);
-        textColor = const Color(0xFFB42318);
+        backgroundColor = colorScheme.errorContainer;
+        textColor = colorScheme.onErrorContainer;
         break;
       case 'PENDING':
-        backgroundColor = const Color(0xFFFFF3D6);
-        textColor = const Color(0xFF9A6700);
+        backgroundColor = colorScheme.tertiaryContainer;
+        textColor = colorScheme.onTertiaryContainer;
         break;
       default:
-        backgroundColor = const Color(0xFFEEF1F0);
-        textColor = _textSecondary;
+        backgroundColor = colorScheme.surfaceContainerHighest;
+        textColor = colorScheme.onSurfaceVariant;
     }
 
     final label = normalized.isEmpty
@@ -801,7 +797,7 @@ class _RequestManagementScreenState
         children: [
           Text(
             '${state.totalItems} total requests',
-            style: const TextStyle(
+            style: TextStyle(
               color: _textSecondary,
               fontWeight: FontWeight.w600,
             ),
@@ -826,7 +822,7 @@ class _RequestManagementScreenState
               const SizedBox(width: 12),
               Text(
                 'Page $currentPage of ${state.totalPages}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: _textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
