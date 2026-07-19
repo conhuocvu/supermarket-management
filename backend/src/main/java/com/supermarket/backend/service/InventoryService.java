@@ -1339,18 +1339,19 @@ public class InventoryService {
         stockInDetailRepository.save(detail);
 
         // 4. Update Inventory available quantity
-        Optional<Inventory> invOpt = inventoryRepository.findByProductNumber(product.getProductNumber());
+        Optional<Inventory> invOpt = inventoryRepository.findById(product.getProductNumber());
         if (invOpt.isPresent()) {
             Inventory inv = invOpt.get();
             BigDecimal currentQty = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
             BigDecimal updatedQty = currentQty.subtract(request.getQuantity());
             inv.setAvailableQuantity(updatedQty.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : updatedQty);
+            inv.setLastUpdated(LocalDateTime.now());
             inventoryRepository.save(inv);
         }
 
         // 5. Create InventoryTransaction
         InventoryTransaction tx = InventoryTransaction.builder()
-                .productNumber(product.getProductNumber())
+                .product(product)
                 .stockInDetailNumber(detail.getStockInDetailNumber())
                 .type("OUT")
                 .quantity(request.getQuantity())
