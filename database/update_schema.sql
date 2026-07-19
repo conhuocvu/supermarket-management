@@ -150,3 +150,13 @@ ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
 
 ALTER TABLE purchase_request_details
 ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 14. Create notifications table if it does not exist
+CREATE TABLE IF NOT EXISTS public.notifications (
+    notification_number SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
