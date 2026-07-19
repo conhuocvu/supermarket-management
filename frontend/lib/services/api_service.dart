@@ -1013,8 +1013,6 @@ class ApiService {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Unexpected error: $e');
-=======
-      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -1036,7 +1034,6 @@ class ApiService {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Unexpected error occurred: $e');
->>>>>>> origin/dev
     }
   }
 

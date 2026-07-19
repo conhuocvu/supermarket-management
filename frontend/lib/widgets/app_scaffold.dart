@@ -258,7 +258,6 @@ class AppScaffold extends ConsumerWidget {
                             context.go('/stock/low-stock');
                           }
                         }
-                        }
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
