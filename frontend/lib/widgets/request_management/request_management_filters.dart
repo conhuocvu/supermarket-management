@@ -71,6 +71,8 @@ class RequestManagementFilters extends StatelessWidget {
               'ALL': 'All',
               'LEAVE': 'Leave',
               'SHIFT_CHANGE': 'Shift Change',
+              'CLEARANCE': 'Discount',
+              'PURCHASE': 'Purchase',
             },
             selectedValue: state.requestType,
             onSelected: onRequestTypeSelected,

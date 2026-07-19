@@ -12,4 +12,6 @@ public interface PromotionProductRepository extends JpaRepository<PromotionProdu
 
     @Query("SELECT pp.stockInDetailNumber FROM PromotionProduct pp WHERE pp.stockInDetailNumber IS NOT NULL AND pp.status IN ('PENDING', 'ACTIVE', 'APPROVED')")
     List<Integer> findProposedStockInDetailNumbers();
+
+    List<PromotionProduct> findByPromotionNumber(Integer promotionNumber);
 }

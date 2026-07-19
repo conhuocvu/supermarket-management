@@ -143,6 +143,88 @@ class StaffRequestApiService {
     }
   }
 
+  Future<void> adjustClearanceRequest({
+    required int requestNumber,
+    required double discountPercentage,
+    required String reason,
+    required String status,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/promotions/$requestNumber',
+        data: {
+          'discountValue': discountPercentage,
+          'description': reason,
+          'status': status.toUpperCase(),
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to adjust clearance request: HTTP ${response.statusCode}',
+        );
+      }
+
+      final body = _readResponseBody(response.data);
+
+      if (body['success'] != true) {
+        throw Exception(
+          body['message']?.toString() ?? 'Failed to adjust clearance request.',
+        );
+      }
+    } on DioException catch (error) {
+      throw Exception(
+        _handleDioError(
+          error,
+          fallbackMessage: 'Unable to adjust clearance request.',
+        ),
+      );
+    } catch (error) {
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> adjustPurchaseRequest({
+    required int requestNumber,
+    required String? expectedDeliveryDate,
+    required String status,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/purchase-requests/$requestNumber/adjust',
+        data: {
+          'expectedDeliveryDate': expectedDeliveryDate,
+          'status': status.toUpperCase(),
+          'items': items,
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to adjust purchase request: HTTP ${response.statusCode}',
+        );
+      }
+
+      final body = _readResponseBody(response.data);
+
+      if (body['success'] != true) {
+        throw Exception(
+          body['message']?.toString() ?? 'Failed to adjust purchase request.',
+        );
+      }
+    } on DioException catch (error) {
+      throw Exception(
+        _handleDioError(
+          error,
+          fallbackMessage: 'Unable to adjust purchase request.',
+        ),
+      );
+    } catch (error) {
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   Map<String, dynamic> _readResponseBody(dynamic responseData) {
     if (responseData is! Map) {
       throw Exception('Invalid response from the server.');

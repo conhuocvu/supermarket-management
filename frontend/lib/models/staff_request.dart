@@ -10,6 +10,14 @@ class StaffRequest {
   final DateTime? createdDate;
   final DateTime? approvedDate;
 
+  // Clearance specific fields
+  final String? productName;
+  final double? discountPercentage;
+  final String? batchNumber;
+  final double? remainingQuantity;
+  final double? sellingPrice;
+  final double? importPrice;
+
   const StaffRequest({
     required this.requestNumber,
     required this.requestType,
@@ -21,6 +29,12 @@ class StaffRequest {
     required this.status,
     required this.createdDate,
     required this.approvedDate,
+    this.productName,
+    this.discountPercentage,
+    this.batchNumber,
+    this.remainingQuantity,
+    this.sellingPrice,
+    this.importPrice,
   });
 
   factory StaffRequest.fromJson(Map<String, dynamic> json) {
@@ -35,6 +49,12 @@ class StaffRequest {
       status: (json['status'] ?? 'PENDING').toString(),
       createdDate: _parseDateTime(json['createdDate']),
       approvedDate: _parseDateTime(json['approvedDate']),
+      productName: json['productName']?.toString(),
+      discountPercentage: _parseDouble(json['discountPercentage']),
+      batchNumber: json['batchNumber']?.toString(),
+      remainingQuantity: _parseDouble(json['remainingQuantity']),
+      sellingPrice: _parseDouble(json['sellingPrice']),
+      importPrice: _parseDouble(json['importPrice']),
     );
   }
 
@@ -42,12 +62,20 @@ class StaffRequest {
 
   bool get isShiftChangeRequest => requestType.toUpperCase() == 'SHIFT_CHANGE';
 
+  bool get isClearanceRequest => requestType.toUpperCase() == 'CLEARANCE';
+
+  bool get isPurchaseRequest => requestType.toUpperCase() == 'PURCHASE';
+
   String get requestTypeLabel {
     switch (requestType.toUpperCase()) {
       case 'LEAVE':
         return 'Leave';
       case 'SHIFT_CHANGE':
         return 'Shift Change';
+      case 'CLEARANCE':
+        return 'Discount';
+      case 'PURCHASE':
+        return 'Purchase';
       default:
         return requestType;
     }
@@ -76,6 +104,16 @@ class StaffRequest {
     }
 
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString());
   }
 
   static DateTime? _parseDateTime(dynamic value) {

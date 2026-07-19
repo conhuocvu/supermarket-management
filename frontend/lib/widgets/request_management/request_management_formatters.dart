@@ -5,6 +5,18 @@ String requestDetails(StaffRequest request) {
       ? 'No reason provided.'
       : request.reason.trim();
 
+  if (request.isClearanceRequest) {
+    final prodName = request.productName ?? 'Unknown Product';
+    final discount = request.discountPercentage != null
+        ? '${request.discountPercentage!.toStringAsFixed(0)}%'
+        : '0%';
+    return 'Product: $prodName\nProposed Discount: $discount · Reason: $reason';
+  }
+
+  if (request.isPurchaseRequest) {
+    return reason;
+  }
+
   if (!request.isLeaveRequest) {
     return reason;
   }
