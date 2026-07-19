@@ -8,7 +8,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class CashierPosScreen extends ConsumerStatefulWidget {
   final int? invoiceNumber;
@@ -52,14 +52,14 @@ class _CashierPosScreenState extends ConsumerState<CashierPosScreen> {
       final api = ref.read(cashierApiServiceProvider);
       final invoiceNumber = widget.invoiceNumber;
       final values = await Future.wait([
-        if (invoiceNumber != null) api.invoice(invoiceNumber),
+        if (invoiceNumber != null && invoiceNumber > 0) api.invoice(invoiceNumber),
         api.categories(),
         api.products(),
       ]);
       if (!mounted) return;
       setState(() {
         var index = 0;
-        if (invoiceNumber != null) {
+        if (invoiceNumber != null && invoiceNumber > 0) {
           _invoice = values[index++] as CashierInvoice;
         }
         _categories = values[index++] as List<CashierCategory>;
@@ -146,27 +146,36 @@ class _CashierPosScreenState extends ConsumerState<CashierPosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'POS / Current Invoice',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: Chip(
-            label: Text(
-              _invoice == null
-                  ? 'Draft · not saved'
-                  : 'Invoice #${_invoice!.invoiceNumber}',
-            ),
-          ),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _content(),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'POS / Current Invoice',
+            breadcrumbs: ['Cashier', 'POS'],
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Chip(
+                  label: Text(
+                    _invoice == null
+                        ? 'Draft · not saved'
+                        : 'Invoice #${_invoice!.invoiceNumber}',
+                  ),
+                ),
+              ),
+            ],
+          );
+    });
+
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _errorView()
+                : _content(),
+      ),
     );
   }
 

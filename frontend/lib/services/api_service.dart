@@ -13,6 +13,10 @@ import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
 import '../models/low_stock_product.dart';
 import '../models/supplier_product.dart';
+import '../models/expiring_product.dart';
+import '../models/clearance_proposal.dart';
+import '../models/promotion.dart';
+import '../models/disposal_form_data.dart';
 
 class ApiService {
   final Dio _dio;
@@ -1190,6 +1194,152 @@ class ApiService {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<ExpiringProduct>> fetchExpiringProducts({String? search, String? status}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (status != null && status.isNotEmpty && status != 'All') {
+        queryParams['status'] = status;
+      }
+      final response = await _dio.get('/inventory/expiring-products', queryParameters: queryParams);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => ExpiringProduct.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load expiring products.');
+        }
+      } else {
+        throw Exception('Failed to load expiring products: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<ClearanceProposalData> fetchClearanceProposalData(int stockInDetailNumber) async {
+    try {
+      final response = await _dio.get('/promotions/clearance-proposals/$stockInDetailNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return ClearanceProposalData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load proposal data.');
+        }
+      } else {
+        throw Exception('Failed to load proposal data: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> submitClearanceProposal({
+    required int stockInDetailNumber,
+    required int productNumber,
+    required double discountPercentage,
+    String? reason,
+  }) async {
+    try {
+      final response = await _dio.post('/promotions/clearance-proposals', data: {
+        'stockInDetailNumber': stockInDetailNumber,
+        'productNumber': productNumber,
+        'discountPercentage': discountPercentage,
+        'reason': reason,
+      });
+      if (response.statusCode == 201) {
+        final body = response.data;
+        if (body['success'] != true) {
+          throw Exception(body['message'] ?? 'Failed to submit proposal.');
+        }
+      } else {
+        throw Exception('Failed to submit proposal: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<Promotion>> fetchSubmittedClearanceProposals() async {
+    try {
+      final response = await _dio.get('/promotions/clearance-proposals/submitted');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((item) => Promotion.fromJson(item)).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Failed to load submitted proposals: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<DisposalFormData> fetchDisposalFormData(int stockInDetailNumber) async {
+    try {
+      final response = await _dio.get('/inventory/disposals/$stockInDetailNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return DisposalFormData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Expired product information cannot be loaded.');
+        }
+      } else {
+        throw Exception('Expired product information cannot be loaded.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Expired product information cannot be loaded.');
+    }
+  }
+
+  Future<void> recordDisposal({
+    required int stockInDetailNumber,
+    required int productNumber,
+    required double quantity,
+    required String reason,
+    String? observations,
+  }) async {
+    try {
+      final response = await _dio.post('/stock-outs/disposals', data: {
+        'stockInDetailNumber': stockInDetailNumber,
+        'productNumber': productNumber,
+        'quantity': quantity,
+        'reason': reason,
+        'observations': observations,
+      });
+      if (response.statusCode == 201) {
+        final body = response.data;
+        if (body['success'] != true) {
+          throw Exception(body['message'] ?? 'Expired product cannot be disposed.');
+        }
+      } else {
+        throw Exception('Expired product cannot be disposed.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Expired product cannot be disposed.');
     }
   }
 

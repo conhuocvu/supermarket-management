@@ -6,8 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
-
+import '../providers/shell_layout_provider.dart';
 class CashierCheckoutScreen extends ConsumerStatefulWidget {
   final int invoiceNumber;
 
@@ -373,31 +372,40 @@ class _CashierCheckoutScreenState
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = _clean(error);
+        _error = error.toString().replaceFirst('Exception: ', '');
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'Checkout',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        TextButton.icon(
-          onPressed: _busy
-              ? null
-              : () => context.go('/cashier/pos/${widget.invoiceNumber}'),
-          icon: const Icon(Icons.arrow_back_rounded),
-          label: const Text('Back to POS'),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null && _invoice == null
-              ? _fatalError()
-              : _content(),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Checkout',
+            breadcrumbs: ['Cashier', 'POS', 'Checkout'],
+            actions: [
+              TextButton.icon(
+                onPressed: _busy
+                    ? null
+                    : () => context.go('/cashier/pos/${widget.invoiceNumber}'),
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('Back to POS'),
+              ),
+            ],
+          );
+    });
+
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null && _invoice == null
+                ? _fatalError()
+                : _content(),
+      ),
     );
   }
 

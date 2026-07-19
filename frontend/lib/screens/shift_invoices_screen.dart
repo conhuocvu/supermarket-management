@@ -8,8 +8,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
-
+import '../providers/shell_layout_provider.dart';
 class ShiftInvoicesScreen extends ConsumerStatefulWidget {
   const ShiftInvoicesScreen({super.key});
 
@@ -86,34 +85,43 @@ class _ShiftInvoicesScreenState extends ConsumerState<ShiftInvoicesScreen> {
       }
     });
 
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'Shift Invoices',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(),
-            const SizedBox(height: 18),
-            _filters(),
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              _errorBanner(),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Shift Invoices',
+            breadcrumbs: ['Cashier', 'Invoices'],
+            actions: [
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _loading ? null : () => _load(),
+                icon: const Icon(Icons.refresh_rounded),
+              ),
             ],
-            const SizedBox(height: 18),
-            Expanded(child: _body()),
-            const SizedBox(height: 14),
-            _pagination(),
-          ],
+          );
+    });
+
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(),
+              const SizedBox(height: 18),
+              _filters(),
+              if (_error != null) ...[
+                const SizedBox(height: 14),
+                _errorBanner(),
+              ],
+              const SizedBox(height: 18),
+              Expanded(child: _body()),
+              const SizedBox(height: 14),
+              _pagination(),
+            ],
+          ),
         ),
       ),
     );

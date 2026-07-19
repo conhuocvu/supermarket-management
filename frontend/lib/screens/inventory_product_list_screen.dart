@@ -298,7 +298,9 @@ class _InventoryProductListScreenState
         final List<Widget> actionButtons = [
           IconButton.filled(
             onPressed: () async {
-              final hasChanged = await context.push<bool>('/stock/products/add');
+              final hasChanged = await context.push<bool>(
+                '/stock/products/add',
+              );
               if (!context.mounted) return;
               _setProductListHeader();
               if (hasChanged == true) {
@@ -653,6 +655,7 @@ class _InventoryProductListScreenState
                       Opacity(
                         opacity: isInactive ? 0.5 : 1.0,
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             if (item.imageUrl.isNotEmpty)
                               Padding(
@@ -678,28 +681,33 @@ class _InventoryProductListScreenState
                                   color: Colors.grey,
                                 ),
                               ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  item.productName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 240),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    item.productName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                Text(
-                                  item.barcode,
-                                  style: theme.textTheme.labelSmall,
-                                ),
-                                _buildWarningBadges(
-                                  context,
-                                  item,
-                                  isLowStock,
-                                  isNearExpiry,
-                                  isExpired,
-                                ),
-                              ],
+                                  Text(
+                                    item.barcode,
+                                    style: theme.textTheme.labelSmall,
+                                  ),
+                                  _buildWarningBadges(
+                                    context,
+                                    item,
+                                    isLowStock,
+                                    isNearExpiry,
+                                    isExpired,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),

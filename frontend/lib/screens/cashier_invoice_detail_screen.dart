@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class CashierInvoiceDetailScreen extends ConsumerStatefulWidget {
   final int invoiceNumber;
@@ -22,14 +22,14 @@ class CashierInvoiceDetailScreen extends ConsumerStatefulWidget {
 
 class _CashierInvoiceDetailScreenState
     extends ConsumerState<CashierInvoiceDetailScreen> {
-  CashierInvoice? _invoice;
   bool _loading = true;
   String? _error;
+  CashierInvoice? _invoice;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _load();
   }
 
   Future<void> _load() async {
@@ -58,24 +58,34 @@ class _CashierInvoiceDetailScreenState
   @override
   Widget build(BuildContext context) {
     final invoice = _invoice;
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: invoice == null
-          ? 'Invoice Details'
-          : 'Invoice #${invoice.invoiceNumber}',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _content(invoice!),
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: invoice == null
+                ? 'Invoice Details'
+                : 'Invoice #${invoice.invoiceNumber}',
+            breadcrumbs: ['Cashier', 'Invoices', 'Detail'],
+            actions: [
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          );
+    });
+
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _errorView()
+                : _content(invoice!),
+      ),
     );
   }
 

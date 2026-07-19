@@ -6,7 +6,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/cashier_provider.dart';
 import '../services/receipt_print_service.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class CashierReceiptScreen extends ConsumerStatefulWidget {
   final int invoiceNumber;
@@ -24,26 +24,24 @@ class CashierReceiptScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
-  CashierReceipt? _receipt;
   bool _loading = true;
   bool _printing = false;
   String? _error;
+  CashierReceipt? _receipt;
 
   @override
   void initState() {
     super.initState();
-    _receipt = widget.initialReceipt;
-    _loading = _receipt == null;
-    if (_receipt == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    final initial = widget.initialReceipt;
+    if (initial != null) {
+      _receipt = initial;
+      _loading = false;
+    } else {
+      _load();
     }
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
     try {
       final receipt = await ref
           .read(cashierApiServiceProvider)
@@ -53,11 +51,11 @@ class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
         _receipt = receipt;
         _loading = false;
       });
-    } catch (error) {
+    } catch (err) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _clean(error);
+        _error = err.toString();
       });
     }
   }
@@ -84,28 +82,37 @@ class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'Receipt',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        OutlinedButton.icon(
-          onPressed: _receipt == null || _printing ? null : _print,
-          icon: _printing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.print_outlined),
-          label: const Text('Print'),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _content(_receipt!),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Receipt',
+            breadcrumbs: ['Cashier', 'POS', 'Receipt'],
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _receipt == null || _printing ? null : _print,
+                icon: _printing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.print_outlined),
+                label: const Text('Print'),
+              ),
+            ],
+          );
+    });
+
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _errorView()
+                : _content(_receipt!),
+      ),
     );
   }
 
