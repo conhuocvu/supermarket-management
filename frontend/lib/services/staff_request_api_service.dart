@@ -45,11 +45,7 @@ class StaffRequestApiService {
         );
       }
 
-      if (response.data is! Map) {
-        throw Exception('Invalid response from the server.');
-      }
-
-      final body = Map<String, dynamic>.from(response.data as Map);
+      final body = _readResponseBody(response.data);
 
       if (body['success'] != true) {
         throw Exception(
@@ -79,10 +75,62 @@ class StaffRequestApiService {
         'totalPages': _parseInt(data['totalPages'], 0),
       };
     } on DioException catch (error) {
-      throw Exception(_handleDioError(error));
+      throw Exception(
+        _handleDioError(
+          error,
+          fallbackMessage: 'Unable to load staff requests.',
+        ),
+      );
     } catch (error) {
       throw Exception(error.toString().replaceFirst('Exception: ', ''));
     }
+  }
+
+  Future<void> updateStaffRequestStatus({
+    required int requestNumber,
+    required String requestType,
+    required String status,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/manager/staff-requests/$requestNumber/status',
+        data: {
+          'requestType': requestType.toUpperCase(),
+          'status': status.toUpperCase(),
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to update staff request: HTTP ${response.statusCode}',
+        );
+      }
+
+      final body = _readResponseBody(response.data);
+
+      if (body['success'] != true) {
+        throw Exception(
+          body['message']?.toString() ?? 'Failed to update staff request.',
+        );
+      }
+    } on DioException catch (error) {
+      throw Exception(
+        _handleDioError(
+          error,
+          fallbackMessage: 'Unable to update staff request.',
+        ),
+      );
+    } catch (error) {
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Map<String, dynamic> _readResponseBody(dynamic responseData) {
+    if (responseData is! Map) {
+      throw Exception('Invalid response from the server.');
+    }
+
+    return Map<String, dynamic>.from(responseData);
   }
 
   int _parseInt(dynamic value, int fallback) {
@@ -93,7 +141,10 @@ class StaffRequestApiService {
     return int.tryParse(value?.toString() ?? '') ?? fallback;
   }
 
-  String _handleDioError(DioException error) {
+  String _handleDioError(
+    DioException error, {
+    required String fallbackMessage,
+  }) {
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||
         error.type == DioExceptionType.connectionError) {
@@ -110,6 +161,6 @@ class StaffRequestApiService {
       return 'Server error: HTTP ${error.response!.statusCode}.';
     }
 
-    return 'Unable to load staff requests.';
+    return fallbackMessage;
   }
 }

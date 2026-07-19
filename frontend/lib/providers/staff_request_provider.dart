@@ -19,6 +19,7 @@ class StaffRequestState {
   final List<StaffRequest> items;
   final bool isLoading;
   final String? errorMessage;
+  final String? processingRequestKey;
 
   final int page;
   final int size;
@@ -33,6 +34,7 @@ class StaffRequestState {
     this.items = const [],
     this.isLoading = true,
     this.errorMessage,
+    this.processingRequestKey,
     this.page = 0,
     this.size = 10,
     this.totalItems = 0,
@@ -46,11 +48,24 @@ class StaffRequestState {
 
   bool get hasNextPage => page + 1 < totalPages;
 
+  bool isProcessingRequest(StaffRequest request) {
+    final prefix =
+        '${request.requestType.toUpperCase()}:${request.requestNumber}:';
+    return processingRequestKey?.startsWith(prefix) ?? false;
+  }
+
+  bool isProcessingStatus(StaffRequest request, String targetStatus) {
+    return processingRequestKey ==
+        '${request.requestType.toUpperCase()}:${request.requestNumber}:${targetStatus.toUpperCase()}';
+  }
+
   StaffRequestState copyWith({
     List<StaffRequest>? items,
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
+    String? processingRequestKey,
+    bool clearProcessing = false,
     int? page,
     int? size,
     int? totalItems,
@@ -63,6 +78,9 @@ class StaffRequestState {
       items: items ?? this.items,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      processingRequestKey: clearProcessing
+          ? null
+          : processingRequestKey ?? this.processingRequestKey,
       page: page ?? this.page,
       size: size ?? this.size,
       totalItems: totalItems ?? this.totalItems,
@@ -99,7 +117,7 @@ class StaffRequestNotifier extends StateNotifier<StaffRequestState> {
         keyword: state.keyword,
       );
 
-      // Bỏ qua kết quả cũ nếu người dùng vừa đổi bộ lọc.
+      // Ignore stale results when the user changes a filter quickly.
       if (currentRequest != _requestSequence) {
         return;
       }
@@ -133,6 +151,36 @@ class StaffRequestNotifier extends StateNotifier<StaffRequestState> {
 
   Future<void> refresh() async {
     await loadRequests();
+  }
+
+  Future<void> updateRequestStatus({
+    required StaffRequest request,
+    required String status,
+  }) async {
+    if (state.processingRequestKey != null) {
+      return;
+    }
+
+    final normalizedStatus = status.toUpperCase();
+    final requestKey =
+        '${request.requestType.toUpperCase()}:${request.requestNumber}:$normalizedStatus';
+
+    state = state.copyWith(processingRequestKey: requestKey, clearError: true);
+
+    try {
+      await _apiService.updateStaffRequestStatus(
+        requestNumber: request.requestNumber,
+        requestType: request.requestType,
+        status: normalizedStatus,
+      );
+
+      await loadRequests();
+    } catch (error) {
+      state = state.copyWith(errorMessage: _cleanError(error));
+      rethrow;
+    } finally {
+      state = state.copyWith(clearProcessing: true);
+    }
   }
 
   Future<void> updateRequestType(String requestType) async {

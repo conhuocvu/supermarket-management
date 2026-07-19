@@ -296,7 +296,7 @@ class _RequestManagementScreenState
           itemCount: state.items.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            return _buildRequestCard(state.items[index]);
+            return _buildRequestCard(state.items[index], state, notifier);
           },
         ),
       );
@@ -380,8 +380,11 @@ class _RequestManagementScreenState
                   DataColumn(label: Text('Request details')),
                   DataColumn(label: Text('Submitted')),
                   DataColumn(label: Text('Status')),
+                  DataColumn(label: Text('Actions')),
                 ],
-                rows: state.items.map(_buildDataRow).toList(),
+                rows: state.items
+                    .map((request) => _buildDataRow(request, state, notifier))
+                    .toList(),
               ),
             ),
           ],
@@ -390,7 +393,11 @@ class _RequestManagementScreenState
     );
   }
 
-  DataRow _buildDataRow(StaffRequest request) {
+  DataRow _buildDataRow(
+    StaffRequest request,
+    StaffRequestState state,
+    StaffRequestNotifier notifier,
+  ) {
     return DataRow(
       cells: [
         DataCell(
@@ -439,11 +446,16 @@ class _RequestManagementScreenState
         ),
         DataCell(Text(_formatDateTime(request.createdDate))),
         DataCell(_buildStatusChip(request.status)),
+        DataCell(_buildActionButtons(request, state, notifier)),
       ],
     );
   }
 
-  Widget _buildRequestCard(StaffRequest request) {
+  Widget _buildRequestCard(
+    StaffRequest request,
+    StaffRequestState state,
+    StaffRequestNotifier notifier,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -515,9 +527,171 @@ class _RequestManagementScreenState
               ),
             ],
           ),
+          if (request.status.toUpperCase() == 'PENDING') ...[
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _buildActionButtons(
+                request,
+                state,
+                notifier,
+                compact: true,
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildActionButtons(
+    StaffRequest request,
+    StaffRequestState state,
+    StaffRequestNotifier notifier, {
+    bool compact = false,
+  }) {
+    if (request.status.toUpperCase() != 'PENDING') {
+      return const Text(
+        'Processed',
+        style: TextStyle(color: _textSecondary, fontSize: 13),
+      );
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final isBusy = state.isProcessingRequest(request);
+    final isRejecting = state.isProcessingStatus(request, 'REJECTED');
+    final isApproving = state.isProcessingStatus(request, 'APPROVED');
+
+    final rejectButton = SizedBox(
+      height: 40,
+      child: OutlinedButton.icon(
+        onPressed: isBusy
+            ? null
+            : () => _confirmAndUpdateStatus(request, 'REJECTED', notifier),
+        icon: isRejecting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.close_rounded, size: 18),
+        label: const Text('Reject'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.error,
+          side: BorderSide(color: colorScheme.error),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+
+    final approveButton = SizedBox(
+      height: 40,
+      child: FilledButton.icon(
+        onPressed: isBusy
+            ? null
+            : () => _confirmAndUpdateStatus(request, 'APPROVED', notifier),
+        icon: isApproving
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.onPrimary,
+                ),
+              )
+            : const Icon(Icons.check_rounded, size: 18),
+        label: const Text('Approve'),
+        style: FilledButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+
+    if (compact) {
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [rejectButton, approveButton],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [rejectButton, const SizedBox(width: 8), approveButton],
+    );
+  }
+
+  Future<void> _confirmAndUpdateStatus(
+    StaffRequest request,
+    String targetStatus,
+    StaffRequestNotifier notifier,
+  ) async {
+    final isApprove = targetStatus == 'APPROVED';
+    final actionLabel = isApprove ? 'approve' : 'reject';
+    final title = isApprove ? 'Approve request?' : 'Reject request?';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(
+            'Are you sure you want to $actionLabel request '
+            '#${request.requestNumber} from ${request.employeeName}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(isApprove ? 'Approve' : 'Reject'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      await notifier.updateRequestStatus(
+        request: request,
+        status: targetStatus,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Request #${request.requestNumber} was '
+            '${isApprove ? 'approved' : 'rejected'} successfully.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final message = error.toString().replaceFirst('Exception: ', '');
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Widget _buildTypeChip(StaffRequest request) {
