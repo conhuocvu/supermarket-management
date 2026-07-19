@@ -38,6 +38,7 @@ public class InventoryService {
     private final SupplierRepository supplierRepository;
     private final StockOutRepository stockOutRepository;
     private final StockOutDetailRepository stockOutDetailRepository;
+    private final UnitRepository unitRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
     private String defaultUserIdStr;
@@ -912,6 +913,9 @@ public class InventoryService {
         Map<Integer, String> supplierNameMap = supplierRepository.findAllById(supplierIds).stream()
                 .collect(Collectors.toMap(Supplier::getSupplierNumber, Supplier::getSupplierName));
 
+        Map<Integer, String> unitNameMap = unitRepository.findAll().stream()
+                .collect(Collectors.toMap(Unit::getUnitNumber, Unit::getUnitName));
+
         List<PurchaseRequestItemDTO> items = details.stream().map(d -> {
             ProductSupplier prodSupplier = psMap.get(d.getProductSupplierNumber());
             if (prodSupplier == null) return null;
@@ -919,7 +923,7 @@ public class InventoryService {
             Product p = productMap.get(prodSupplier.getProductNumber());
             if (p == null) return null;
 
-            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+            String unitName = unitNameMap.getOrDefault(p.getInventoryUnitNumber(), "Unit");
             String supplierName = supplierNameMap.getOrDefault(prodSupplier.getSupplierNumber(), "Unknown");
             Inventory inv = inventoryMap.get(p.getProductNumber());
             BigDecimal stock = inv != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
@@ -979,9 +983,7 @@ public class InventoryService {
                         .build())
                 .collect(Collectors.toList());
 
-        List<Product> activeProducts = productRepository.findAll().stream()
-                .filter(p -> "ACTIVE".equals(p.getStatus()))
-                .collect(Collectors.toList());
+        List<Product> activeProducts = productRepository.findByStatusWithRelationships("ACTIVE");
 
         // Bulk load all product-supplier mappings and group by productNumber
         Map<Integer, List<ProductSupplier>> productSupplierMap = productSupplierRepository.findAll().stream()
@@ -990,6 +992,10 @@ public class InventoryService {
         // Bulk load all inventories and index by productNumber
         Map<Integer, Inventory> inventoryMap = inventoryRepository.findAll().stream()
                 .collect(Collectors.toMap(Inventory::getProductNumber, inv -> inv));
+
+        // Bulk load all units and index by unitNumber
+        Map<Integer, String> unitNameMap = unitRepository.findAll().stream()
+                .collect(Collectors.toMap(Unit::getUnitNumber, Unit::getUnitName));
 
         List<PurchaseRequestFormProductDTO> productDTOs = new java.util.ArrayList<>();
         for (Product p : activeProducts) {
@@ -1011,7 +1017,7 @@ public class InventoryService {
                     })
                     .collect(Collectors.toList());
 
-            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+            String unitName = unitNameMap.getOrDefault(p.getInventoryUnitNumber(), "Unit");
             Inventory inv = inventoryMap.get(p.getProductNumber());
             BigDecimal stock = inv != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
 
@@ -1107,5 +1113,65 @@ public class InventoryService {
         }
 
         return pr;
+    }
+
+    @Transactional(readOnly = true)
+    public List<LowStockProductDTO> getLowStockProducts() {
+        List<Inventory> lowStockInventories = inventoryRepository.findLowStockProducts();
+
+        // Bulk load all product-supplier mappings and group by productNumber
+        Map<Integer, List<ProductSupplier>> productSupplierMap = productSupplierRepository.findAll().stream()
+                .collect(Collectors.groupingBy(ProductSupplier::getProductNumber));
+
+        List<LowStockProductDTO> dtos = new java.util.ArrayList<>();
+        for (Inventory inv : lowStockInventories) {
+            Product p = inv.getProduct();
+            if (p == null) continue;
+
+            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+            
+            // Get minimum order quantity from product suppliers
+            List<ProductSupplier> prodSuppliers = productSupplierMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
+            BigDecimal minOrderQty = BigDecimal.valueOf(10); // default fallback
+            BigDecimal importPrice = BigDecimal.ZERO; // default fallback
+            if (!prodSuppliers.isEmpty()) {
+                minOrderQty = prodSuppliers.get(0).getMinimumOrderQuantity();
+                importPrice = prodSuppliers.get(0).getImportPrice();
+            }
+
+            BigDecimal stock = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal reorderLevel = p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO;
+            BigDecimal needed = reorderLevel.subtract(stock);
+            
+            BigDecimal suggestedQty = needed;
+            if (suggestedQty.compareTo(minOrderQty) < 0) {
+                suggestedQty = minOrderQty;
+            }
+
+            boolean isCritical = stock.compareTo(BigDecimal.ZERO) == 0 || 
+                    stock.compareTo(reorderLevel.multiply(BigDecimal.valueOf(0.3))) <= 0;
+
+            String suggestion;
+            if (isCritical) {
+                suggestion = "Critical - Restock " + suggestedQty.stripTrailingZeros().toPlainString() + " " + unitName;
+            } else {
+                suggestion = "Order " + suggestedQty.stripTrailingZeros().toPlainString() + "+ " + unitName;
+            }
+
+            dtos.add(LowStockProductDTO.builder()
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .sku(p.getBarcode())
+                    .currentStock(stock)
+                    .reorderLevel(reorderLevel)
+                    .unitName(unitName)
+                    .suggestedQuantity(suggestedQty)
+                    .minOrderQuantity(minOrderQty)
+                    .importPrice(importPrice)
+                    .suggestion(suggestion)
+                    .critical(isCritical)
+                    .build());
+        }
+        return dtos;
     }
 }

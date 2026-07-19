@@ -22,6 +22,7 @@ import 'screens/stock_in_form_screen.dart';
 import 'screens/stock_out_form_screen.dart';
 import 'screens/purchase_request_list_screen.dart';
 import 'screens/purchase_request_form_screen.dart';
+import 'screens/low_stock_product_list_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -329,6 +330,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                         const NoTransitionPage(child: PurchaseRequestFormScreen()),
                   ),
                 ],
+              ),
+              GoRoute(
+                path: 'low-stock',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: LowStockProductListScreen()),
               ),
             ],
           ),

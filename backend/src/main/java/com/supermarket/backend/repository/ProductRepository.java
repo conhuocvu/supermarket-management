@@ -36,6 +36,19 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     Product findByBarcode(String barcode);
 
     boolean existsByBarcode(String barcode);
+
+    @Query("SELECT p FROM Product p " +
+           "LEFT JOIN FETCH p.unit u " +
+           "LEFT JOIN FETCH p.inventory i " +
+           "WHERE p.status = :status")
+    java.util.List<Product> findByStatusWithRelationships(@Param("status") String status);
+
+    @Override
+    @Query("SELECT p FROM Product p " +
+           "LEFT JOIN FETCH p.unit u " +
+           "LEFT JOIN FETCH p.inventory i " +
+           "WHERE p.productNumber IN :ids")
+    java.util.List<Product> findAllById(@Param("ids") Iterable<Integer> ids);
 }
 
 

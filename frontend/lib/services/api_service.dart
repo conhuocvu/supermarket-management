@@ -9,6 +9,7 @@ import '../models/product_adjustment.dart';
 import '../models/inventory_transaction.dart';
 import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
+import '../models/low_stock_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -675,6 +676,27 @@ class ApiService {
         }
       } else {
         throw Exception('Failed to save draft: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<LowStockProduct>> fetchLowStockProducts() async {
+    try {
+      final response = await _dio.get('/inventory/low-stock');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => LowStockProduct.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load low stock products.');
+        }
+      } else {
+        throw Exception('Failed to load low stock products: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
