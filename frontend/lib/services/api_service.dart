@@ -633,4 +633,223 @@ class ApiService {
       throw Exception('Unexpected error occurred: $e');
     }
   }
+
+  // ==========================================
+  // Work Schedule Methods
+  // ==========================================
+
+  /// A user's assigned shifts for a month
+  /// (GET /api/work-schedules/{userId}?year=&month=).
+  /// Each item: scheduleNumber, workDate, status (ASSIGNED | COMPLETED |
+  /// CANCELLED | MISSED), shiftNumber, shiftName, startTime, endTime.
+  Future<List<Map<String, dynamic>>> fetchWorkSchedules(
+      String userId, int year, int month) async {
+    try {
+      final response = await _dio.get(
+        '/work-schedules/$userId',
+        queryParameters: {'year': year, 'month': month},
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load work schedule.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Leave Request Methods
+  // ==========================================
+
+  /// A user's own leave requests (GET /api/leave-requests/{userId}).
+  Future<List<Map<String, dynamic>>> fetchLeaveRequests(String userId) async {
+    try {
+      final response = await _dio.get('/leave-requests/$userId');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load leave requests.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Create a leave request (POST /api/leave-requests). Dates as ISO yyyy-MM-dd.
+  Future<Map<String, dynamic>> createLeaveRequest({
+    required String userId,
+    required String reason,
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final response = await _dio.post('/leave-requests', data: {
+        'userId': userId,
+        'reason': reason,
+        'startDate': startDate,
+        'endDate': endDate,
+      });
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create leave request.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Cancel a pending leave request
+  /// (PUT /api/leave-requests/{leaveNumber}/cancel — sets status to CANCELLED).
+  Future<void> cancelLeaveRequest(int leaveNumber, String userId) async {
+    try {
+      final response = await _dio.put(
+        '/leave-requests/$leaveNumber/cancel',
+        queryParameters: {'userId': userId},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to cancel leave request.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Shift Change Request Methods
+  // ==========================================
+
+  /// A user's shift change requests (GET /api/shift-change-requests/{userId}).
+  Future<List<Map<String, dynamic>>> fetchShiftChangeRequests(String userId) async {
+    try {
+      final response = await _dio.get('/shift-change-requests/$userId');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load shift change requests.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Create a shift change request (POST /api/shift-change-requests).
+  /// Sends structured fields for both current (from) and target (to) shift.
+  Future<Map<String, dynamic>> createShiftChangeRequest({
+    required String userId,
+    String? reason,
+    // Current shift
+    required String currentShiftDate,
+    required String currentShiftType,
+    required String currentShiftStart,
+    required String currentShiftEnd,
+    // Target shift
+    required String targetShiftDate,
+    required String targetShiftType,
+    required String targetShiftStart,
+    required String targetShiftEnd,
+  }) async {
+    try {
+      final response = await _dio.post('/shift-change-requests', data: {
+        'userId': userId,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+        'currentShiftDate': currentShiftDate,
+        'currentShiftType': currentShiftType,
+        'currentShiftStart': currentShiftStart,
+        'currentShiftEnd': currentShiftEnd,
+        'targetShiftDate': targetShiftDate,
+        'targetShiftType': targetShiftType,
+        'targetShiftStart': targetShiftStart,
+        'targetShiftEnd': targetShiftEnd,
+      });
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create shift change request.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+
+  /// Cancel a pending shift change request
+  /// (PUT /api/shift-change-requests/{requestNumber}/cancel).
+  Future<void> cancelShiftChangeRequest(int requestNumber, String userId) async {
+    try {
+      final response = await _dio.put(
+        '/shift-change-requests/$requestNumber/cancel',
+        queryParameters: {'userId': userId},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to cancel shift change request.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Attendance Methods
+  // ==========================================
+
+  /// Fetch today's attendance record (GET /api/attendance/{userId}/today).
+  /// Returns null if no record exists for today.
+  Future<Map<String, dynamic>?> fetchTodayAttendance(String userId) async {
+    try {
+      final response = await _dio.get('/attendance/$userId/today');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>?;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load attendance.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Check in to shift (POST /api/attendance/{userId}/check-in).
+  Future<Map<String, dynamic>> checkIn(String userId) async {
+    try {
+      final response = await _dio.post('/attendance/$userId/check-in');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to check in.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Check out from shift (POST /api/attendance/{userId}/check-out).
+  Future<Map<String, dynamic>> checkOut(String userId) async {
+    try {
+      final response = await _dio.post('/attendance/$userId/check-out');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to check out.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
 }

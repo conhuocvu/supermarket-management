@@ -25,6 +25,9 @@ import 'screens/profile_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/personal_screens.dart';
+import 'screens/work_schedule_screen.dart';
+import 'screens/leave_request_form.dart';
+import 'screens/schedule_request_form.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -233,12 +236,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/leave-request',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: LeaveRequestScreen()),
+                const NoTransitionPage(child: LeaveRequestForm()),
           ),
           GoRoute(
             path: '/schedule-change',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ScheduleChangeRequestScreen()),
+                const NoTransitionPage(child: ScheduleRequestForm()),
           ),
           GoRoute(
             path: '/manage-requests',
@@ -355,7 +358,7 @@ class CorsTestHomePage extends StatefulWidget {
 }
 
 class _CorsTestHomePageState extends State<CorsTestHomePage> {
-  String _status = 'Chưa kiểm tra kết nối';
+  String _status = 'Connection not tested yet';
   String _responseDetails = '';
   bool _isLoading = false;
   bool _isSuccess = false;
@@ -368,7 +371,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
   Future<void> _testBackendConnection() async {
     setState(() {
       _isLoading = true;
-      _status = 'Đang gọi API backend ($apiBaseUrl/test)...';
+      _status = 'Calling backend API ($apiBaseUrl/test)...';
       _responseDetails = '';
     });
 
@@ -381,21 +384,21 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
         final data = jsonDecode(response.body);
         setState(() {
           _isSuccess = true;
-          _status = 'Kết nối thành công! (HTTP 200 OK)';
+          _status = 'Connection successful! (HTTP 200 OK)';
           _responseDetails = 'Response: ${data["message"]}';
         });
       } else {
         setState(() {
           _isSuccess = false;
-          _status = 'Lỗi kết nối! HTTP Status: ${response.statusCode}';
+          _status = 'Connection error! HTTP Status: ${response.statusCode}';
           _responseDetails = response.body;
         });
       }
     } catch (e) {
       setState(() {
         _isSuccess = false;
-        _status = 'Thất bại khi gọi API!';
-        _responseDetails = 'Chi tiết lỗi (có thể do CORS hoặc BE chưa bật): $e';
+        _status = 'API call failed!';
+        _responseDetails = 'Error details (possibly CORS or backend not running): $e';
       });
     } finally {
       setState(() {
@@ -408,7 +411,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kiểm tra kết nối FE + BE (CORS Test)'),
+        title: const Text('FE + BE Connection Check (CORS Test)'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
       ),
@@ -434,7 +437,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Bấm nút bên dưới để thử gửi request HTTP GET từ Frontend đến Backend localhost:8080',
+                'Press the button below to send an HTTP GET request from the Frontend to the Backend at localhost:8080',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
@@ -460,7 +463,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                       )
                     : const Icon(Icons.cloud_sync),
                 label: Text(
-                  _isLoading ? 'Đang gửi request...' : 'Test Kết Nối Backend',
+                  _isLoading ? 'Sending request...' : 'Test Backend Connection',
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
@@ -470,14 +473,14 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _status.contains('Chưa')
+                  color: _status.contains('not tested')
                       ? Colors.grey.shade100
                       : (_isSuccess
                             ? Colors.green.shade50
                             : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _status.contains('Chưa')
+                    color: _status.contains('not tested')
                         ? Colors.grey.shade300
                         : (_isSuccess ? Colors.green : Colors.red),
                   ),
@@ -490,7 +493,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: _status.contains('Chưa')
+                        color: _status.contains('not tested')
                             ? Colors.black87
                             : (_isSuccess
                                   ? Colors.green.shade800

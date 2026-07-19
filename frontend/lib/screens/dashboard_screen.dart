@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../models/profile.dart';
+import '../providers/attendance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import '../widgets/bento_card.dart';
@@ -32,9 +33,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  bool _isCheckedIn = false;
-  String _checkInTime = '--:--';
-  String _checkOutTime = '--:--';
+  bool _attendanceActionInProgress = false;
 
   final List<_DashboardNotification> _notifications = [
     _DashboardNotification(
@@ -72,30 +71,64 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  void _toggleCheckIn(ThemeData theme) {
-    final now = DateFormat('hh:mm a').format(DateTime.now());
-    setState(() {
-      _isCheckedIn = !_isCheckedIn;
-      if (_isCheckedIn) {
-        _checkInTime = now;
-        _checkOutTime = '--:--';
-      } else {
-        _checkOutTime = now;
+  @override
+  void initState() {
+    super.initState();
+    // Load today's attendance from the backend once the first frame is built
+    // (auth state is already available at this point via the router guard).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = ref.read(authProvider).user?.id;
+      if (userId != null) {
+        ref.read(attendanceProvider.notifier).loadTodayAttendance(userId);
       }
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isCheckedIn
-              ? 'Successfully Checked-In to Shift!'
-              : 'Successfully Checked-Out of Shift!',
+  }
+
+  Future<void> _handleAttendanceAction(ThemeData theme, bool isCheckedIn) async {
+    final userId = ref.read(authProvider).user?.id;
+    if (userId == null || _attendanceActionInProgress) return;
+
+    setState(() => _attendanceActionInProgress = true);
+    try {
+      if (isCheckedIn) {
+        await ref.read(attendanceProvider.notifier).checkOut(userId);
+      } else {
+        await ref.read(attendanceProvider.notifier).checkIn(userId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isCheckedIn
+                ? 'Successfully Checked-Out of Shift!'
+                : 'Successfully Checked-In to Shift!',
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor:
+              isCheckedIn ? theme.colorScheme.primary : Colors.green,
         ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor:
-            _isCheckedIn ? Colors.green : theme.colorScheme.primary,
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: theme.colorScheme.error,
+        ),
+      );
+      // Re-sync with the backend in case local state drifted
+      // (e.g. already checked in from another device).
+      ref.read(attendanceProvider.notifier).loadTodayAttendance(userId);
+    } finally {
+      if (mounted) {
+        setState(() => _attendanceActionInProgress = false);
+      }
+    }
   }
 
   @override
@@ -709,6 +742,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildCheckInCard(BuildContext context) {
     final theme = Theme.of(context);
+    final attendanceAsync = ref.watch(attendanceProvider);
+
+    final attendance = attendanceAsync.valueOrNull;
+    final isLoading = attendanceAsync.isLoading;
+    final isCheckedIn = attendance?.isCheckedIn ?? false;
+    final checkInTime = attendance?.checkInTime != null
+        ? DateFormat('hh:mm a').format(attendance!.checkInTime!.toLocal())
+        : '--:--';
+    final checkOutTime = attendance?.checkOutTime != null
+        ? DateFormat('hh:mm a').format(attendance!.checkOutTime!.toLocal())
+        : '--:--';
+
     return BentoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,12 +774,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _isCheckedIn
+                  color: isCheckedIn
                       ? Colors.green.withValues(alpha: 0.1)
                       : theme.colorScheme.onSurface.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _isCheckedIn
+                    color: isCheckedIn
                         ? Colors.green.withValues(alpha: 0.3)
                         : theme.colorScheme.outlineVariant
                             .withValues(alpha: 0.3),
@@ -744,17 +789,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _isCheckedIn ? Icons.circle : Icons.circle_outlined,
+                      isCheckedIn ? Icons.circle : Icons.circle_outlined,
                       size: 8,
-                      color: _isCheckedIn ? Colors.green : Colors.grey,
+                      color: isCheckedIn ? Colors.green : Colors.grey,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _isCheckedIn ? 'ON DUTY' : 'OFF DUTY',
+                      isCheckedIn ? 'ON DUTY' : 'OFF DUTY',
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: _isCheckedIn ? Colors.green : Colors.grey,
+                        color: isCheckedIn ? Colors.green : Colors.grey,
                       ),
                     ),
                   ],
@@ -766,24 +811,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildTimeBox(context, 'CHECK-IN TIME', _checkInTime,
+                child: _buildTimeBox(context, 'CHECK-IN TIME', checkInTime,
                     highlight: true),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child:
-                    _buildTimeBox(context, 'CHECK-OUT TIME', _checkOutTime),
+                    _buildTimeBox(context, 'CHECK-OUT TIME', checkOutTime),
               ),
             ],
           ),
+          if (attendanceAsync.hasError) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Could not load attendance. Pull to refresh or try again.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              icon: Icon(_isCheckedIn ? Icons.logout : Icons.login),
-              label: Text(_isCheckedIn ? 'Check-Out Shift' : 'Check-In Now'),
+              icon: _attendanceActionInProgress || isLoading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                    )
+                  : Icon(isCheckedIn ? Icons.logout : Icons.login),
+              label: Text(isCheckedIn ? 'Check-Out Shift' : 'Check-In Now'),
               style: FilledButton.styleFrom(
-                backgroundColor: _isCheckedIn
+                backgroundColor: isCheckedIn
                     ? theme.colorScheme.error.withValues(alpha: 0.9)
                     : theme.colorScheme.primary,
                 foregroundColor: Colors.white,
@@ -792,7 +855,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => _toggleCheckIn(theme),
+              onPressed: _attendanceActionInProgress || isLoading
+                  ? null
+                  : () => _handleAttendanceAction(theme, isCheckedIn),
             ),
           ),
         ],
