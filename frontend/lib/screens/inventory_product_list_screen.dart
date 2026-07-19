@@ -461,9 +461,6 @@ class _InventoryProductListScreenState
         ),
       );
     } else if (isNearExpiry) {
-      final dateStr = item.expiryDate != null
-          ? DateFormat('yyyy-MM-dd').format(item.expiryDate!)
-          : 'Unknown';
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final expiry = DateTime(
@@ -472,9 +469,9 @@ class _InventoryProductListScreenState
         item.expiryDate!.day,
       );
       final daysRemaining = expiry.difference(today).inDays;
-      final labelStr = daysRemaining == 0
+      final labelStr = daysRemaining <= 0
           ? 'Expiring today'
-          : 'Expiring in $daysRemaining d ($dateStr)';
+          : 'Expiring in ${daysRemaining}d';
 
       badges.add(
         _buildSmallBadge(
@@ -492,8 +489,7 @@ class _InventoryProductListScreenState
         _buildSmallBadge(
           context: context,
           icon: Icons.unfold_more_double_rounded,
-          label:
-              'Low Stock (${item.stock.toStringAsFixed(0)} < ${item.reorderLevel.toStringAsFixed(0)})',
+          label: 'Low Stock',
           backgroundColor: theme.colorScheme.primaryContainer.withValues(
             alpha: 0.8,
           ),
@@ -526,15 +522,16 @@ class _InventoryProductListScreenState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: textColor),
-          const SizedBox(width: 3),
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
               color: textColor,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
