@@ -451,6 +451,13 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
                             }
                           },
                         ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Defaulted to Past Expiration Date. Change if disposing due to physical damage or quality issue.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                          ),
+                        ),
                         const SizedBox(height: 24),
 
                         // Additional Observations (Optional)
