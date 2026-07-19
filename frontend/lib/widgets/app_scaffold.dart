@@ -35,6 +35,9 @@ class AppScaffold extends ConsumerWidget {
     } else if (currentPath == '/manager/promotion') {
       displayTitle = 'Promotions';
       displayBreadcrumbs = ['Manager', 'Promotions'];
+    } else if (currentPath == '/manager/supplier') {
+      displayTitle = 'Supplier Management';
+      displayBreadcrumbs = ['Manager', 'Suppliers'];
     }
 
     final authState = ref.watch(authProvider);

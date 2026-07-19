@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import 'models/profile.dart';
 import 'models/inventory_product.dart';
+import 'models/cashier_models.dart';
 import 'providers/auth_provider.dart';
 import 'providers/splash_finished_provider.dart';
 import 'providers/router_notifier.dart';
@@ -22,7 +23,15 @@ import 'screens/stock_in_form_screen.dart';
 import 'screens/stock_out_form_screen.dart';
 import 'screens/purchase_request_list_screen.dart';
 import 'screens/purchase_request_form_screen.dart';
+import 'screens/request_management_screen.dart';
 import 'screens/low_stock_product_list_screen.dart';
+import 'screens/cashier_dashboard_screen.dart';
+import 'screens/new_invoice_launcher_screen.dart';
+import 'screens/cashier_pos_screen.dart';
+import 'screens/cashier_checkout_screen.dart';
+import 'screens/cashier_receipt_screen.dart';
+import 'screens/shift_invoices_screen.dart';
+import 'screens/cashier_invoice_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -40,6 +49,9 @@ import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
 import 'screens/promotion_list_screen.dart';
 import 'screens/promotion_detail_screen.dart';
+import 'screens/supplier_list_screen.dart';
+import 'screens/supplier_detail_screen.dart';
+import 'screens/create_supplier_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -225,6 +237,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: ManagerDashboardScreen()),
           ),
           GoRoute(
+            path: '/manager/requests',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: RequestManagementScreen()),
+          ),
+          GoRoute(
             path: '/manager/staff',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: StaffListScreen()),
@@ -253,6 +270,26 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            path: '/manager/supplier',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SupplierListScreen()),
+          ),
+          GoRoute(
+            path: '/manager/supplier/create',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: CreateSupplierScreen()),
+          ),
+          GoRoute(
+            path: '/manager/supplier/:supplierNumber',
+            pageBuilder: (context, state) {
+              final supplierNumberStr = state.pathParameters['supplierNumber']!;
+              final supplierNumber = int.tryParse(supplierNumberStr) ?? 0;
+              return NoTransitionPage(
+                child: SupplierDetailScreen(supplierNumber: supplierNumber),
+              );
+            },
+          ),
         ],
       ),
       GoRoute(
@@ -261,7 +298,69 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/cashier',
-        builder: (context, state) => const CashierScreen(),
+        pageBuilder: (context, state) =>
+            const NoTransitionPage(child: CashierDashboardScreen()),
+        routes: [
+          GoRoute(
+            path: 'new-invoice',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NewInvoiceLauncherScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'pos/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierPosScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'checkout/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierCheckoutScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'receipt/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierReceiptScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+                initialReceipt: state.extra is CashierReceipt
+                    ? state.extra as CashierReceipt
+                    : null,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'invoices',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ShiftInvoicesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'invoices/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierInvoiceDetailScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) {
