@@ -22,6 +22,7 @@ import 'screens/stock_in_form_screen.dart';
 import 'screens/stock_out_form_screen.dart';
 import 'screens/purchase_request_list_screen.dart';
 import 'screens/purchase_request_form_screen.dart';
+import 'screens/request_management_screen.dart';
 import 'screens/low_stock_product_list_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -221,6 +222,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/manager',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: ManagerDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/manager/requests',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: RequestManagementScreen()),
           ),
           GoRoute(
             path: '/manager/staff',
