@@ -11,8 +11,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Handles filtering and pagination for the Manager
- * Staff Request Management screen.
+ * Handles filtering, pagination and manager decisions
+ * for staff leave and shift change requests.
  */
 @Service
 public class StaffRequestService {
@@ -32,6 +32,14 @@ public class StaffRequestService {
             "APPROVED",
             "REJECTED");
 
+    private static final Set<String> ACTION_REQUEST_TYPES = Set.of(
+            "LEAVE",
+            "SHIFT_CHANGE");
+
+    private static final Set<String> ACTION_STATUSES = Set.of(
+            "APPROVED",
+            "REJECTED");
+
     private final StaffRequestRepository staffRequestRepository;
 
     public StaffRequestService(
@@ -39,10 +47,6 @@ public class StaffRequestService {
         this.staffRequestRepository = staffRequestRepository;
     }
 
-    /**
-     * Gets a unified paginated list containing leave requests
-     * and shift change requests.
-     */
     public Map<String, Object> getStaffRequests(
             Integer page,
             Integer size,
@@ -81,6 +85,47 @@ public class StaffRequestService {
         result.put("size", safeSize);
         result.put("totalItems", totalItems);
         result.put("totalPages", totalPages);
+
+        return result;
+    }
+
+    public Map<String, Object> updateStaffRequestStatus(
+            Integer requestNumber,
+            String requestType,
+            String status) {
+
+        if (requestNumber == null || requestNumber <= 0) {
+            throw new IllegalArgumentException(
+                    "Request number must be greater than zero.");
+        }
+
+        String safeRequestType = normalizeUppercaseValue(requestType);
+        String safeStatus = normalizeUppercaseValue(status);
+
+        if (!ACTION_REQUEST_TYPES.contains(safeRequestType)) {
+            throw new IllegalArgumentException(
+                    "Request type must be LEAVE or SHIFT_CHANGE.");
+        }
+
+        if (!ACTION_STATUSES.contains(safeStatus)) {
+            throw new IllegalArgumentException(
+                    "Status must be APPROVED or REJECTED.");
+        }
+
+        int updatedRows = staffRequestRepository.updateRequestStatus(
+                safeRequestType,
+                requestNumber,
+                safeStatus);
+
+        if (updatedRows == 0) {
+            throw new IllegalStateException(
+                    "Request was not found or has already been processed.");
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("requestNumber", requestNumber);
+        result.put("requestType", safeRequestType);
+        result.put("status", safeStatus);
 
         return result;
     }

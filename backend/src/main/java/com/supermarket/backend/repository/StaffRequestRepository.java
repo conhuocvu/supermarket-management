@@ -90,6 +90,48 @@ public class StaffRequestRepository {
         return result == null ? 0L : result;
     }
 
+
+    public int updateRequestStatus(
+            String requestType,
+            int requestNumber,
+            String status) {
+
+        String sql;
+
+        if ("LEAVE".equals(requestType)) {
+            sql = """
+                    UPDATE public.leave_requests
+                    SET status = CAST(:status AS public.request_status),
+                        approved_date = CASE
+                            WHEN :status = 'APPROVED' THEN CURRENT_TIMESTAMP
+                            ELSE NULL
+                        END
+                    WHERE leave_number = :requestNumber
+                      AND status = CAST('PENDING' AS public.request_status)
+                    """;
+        } else if ("SHIFT_CHANGE".equals(requestType)) {
+            sql = """
+                    UPDATE public.shift_change_requests
+                    SET status = CAST(:status AS public.request_status),
+                        approved_date = CASE
+                            WHEN :status = 'APPROVED' THEN CURRENT_TIMESTAMP
+                            ELSE NULL
+                        END
+                    WHERE request_number = :requestNumber
+                      AND status = CAST('PENDING' AS public.request_status)
+                    """;
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported request type: " + requestType);
+        }
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("requestNumber", requestNumber)
+                .addValue("status", status);
+
+        return jdbcTemplate.update(sql, parameters);
+    }
+
     private String buildListUnion(String requestType, String status) {
         List<String> branches = new ArrayList<>();
 
