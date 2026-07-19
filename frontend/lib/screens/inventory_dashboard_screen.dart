@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import '../widgets/statistic_card.dart';
-import '../widgets/attendance_card.dart';
-import '../widgets/bento_card.dart';
 import 'package:intl/intl.dart';
 
 class InventoryDashboardScreen extends ConsumerWidget {
@@ -156,36 +153,6 @@ class InventoryDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    LayoutBuilder(
-                      builder: (context, actionConstraints) {
-                        final isWideAction = actionConstraints.maxWidth >= 750;
-                        if (isWideAction) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Expanded(
-                                flex: 3,
-                                child: AttendanceCard(),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 2,
-                                child: _buildPersonalActions(context),
-                              ),
-                            ],
-                          );
-                        } else {
-                          return Column(
-                            children: [
-                              const AttendanceCard(),
-                              const SizedBox(height: 16),
-                              _buildPersonalActions(context),
-                            ],
-                          );
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 24),
                     // KPI Grid
                     LayoutBuilder(
                       builder: (context, gridConstraints) {
@@ -733,94 +700,5 @@ class InventoryDashboardScreen extends ConsumerWidget {
     } else {
       return '${difference.inHours}h ago';
     }
-  }
-
-  Widget _buildPersonalActions(BuildContext context) {
-    final theme = Theme.of(context);
-    return BentoCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Personal Actions',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildActionButton(
-            context,
-            icon: Icons.calendar_month_outlined,
-            label: 'Work Schedule',
-            route: '/work-schedule',
-          ),
-          const SizedBox(height: 10),
-          _buildActionButton(
-            context,
-            icon: Icons.time_to_leave_outlined,
-            label: 'Request Leave',
-            route: '/leave-request',
-          ),
-          const SizedBox(height: 10),
-          _buildActionButton(
-            context,
-            icon: Icons.published_with_changes_outlined,
-            label: 'Shift Change Request',
-            route: '/schedule-change',
-          ),
-          const SizedBox(height: 10),
-          _buildActionButton(
-            context,
-            icon: Icons.rule_folder_outlined,
-            label: 'Manage My Requests',
-            route: '/manage-requests',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String route,
-  }) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: () => context.go(route),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.15),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.colorScheme.primary, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: theme.colorScheme.primary.withValues(alpha: 0.7),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

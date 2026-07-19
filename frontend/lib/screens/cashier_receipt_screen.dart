@@ -24,26 +24,24 @@ class CashierReceiptScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
-  CashierReceipt? _receipt;
   bool _loading = true;
   bool _printing = false;
   String? _error;
+  CashierReceipt? _receipt;
 
   @override
   void initState() {
     super.initState();
-    _receipt = widget.initialReceipt;
-    _loading = _receipt == null;
-    if (_receipt == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    final initial = widget.initialReceipt;
+    if (initial != null) {
+      _receipt = initial;
+      _loading = false;
+    } else {
+      _load();
     }
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
     try {
       final receipt = await ref
           .read(cashierApiServiceProvider)
@@ -53,11 +51,11 @@ class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
         _receipt = receipt;
         _loading = false;
       });
-    } catch (error) {
+    } catch (err) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _clean(error);
+        _error = err.toString();
       });
     }
   }
@@ -88,7 +86,7 @@ class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
       if (!mounted) return;
       ref.read(shellLayoutProvider.notifier).update(
             title: 'Receipt',
-            breadcrumbs: ['Cashier', 'Receipt'],
+            breadcrumbs: ['Cashier', 'POS', 'Receipt'],
             actions: [
               OutlinedButton.icon(
                 onPressed: _receipt == null || _printing ? null : _print,
@@ -105,11 +103,17 @@ class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
           );
     });
 
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
-            ? _errorView()
-            : _content(_receipt!);
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _errorView()
+                : _content(_receipt!),
+      ),
+    );
   }
 
   Widget _content(CashierReceipt receipt) {

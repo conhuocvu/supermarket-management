@@ -47,14 +47,19 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final roleNumber = authState.profile?.roleNumber;
-    final isManager = roleNumber == 2; // UserRoles.manager
-    final isCashier = roleNumber == 5; // UserRoles.cashier
-    final bool isInWorkspace = roleNumber == 3 || roleNumber == 4; // stockController / salesAssociate
+    final isManager = currentPath.startsWith('/manager');
+    final bool isInWorkspace = currentPath.startsWith('/stock');
+    final bool isCashier = currentPath.startsWith('/cashier');
     final sidebarWidth = (isManager || isCashier) ? 220.0 : 256.0;
 
     final List<Map<String, dynamic>> menuItems = isManager
         ? [
+            {
+              'title': 'Workspace Home',
+              'icon': Icons.home_outlined,
+              'route': '/dashboard',
+              'active': false,
+            },
             {
               'title': 'Dashboard',
               'icon': Icons.dashboard_rounded,
@@ -94,6 +99,12 @@ class AppScaffold extends ConsumerWidget {
           ]
         : isCashier
         ? [
+            {
+              'title': 'Workspace Home',
+              'icon': Icons.home_outlined,
+              'route': '/dashboard',
+              'active': false,
+            },
             {
               'title': 'Dashboard',
               'icon': Icons.dashboard_outlined,
@@ -222,92 +233,39 @@ class AppScaffold extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            isManager
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 36, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.store_rounded,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Viridian Ops',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          fullName,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Store Manager',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 36, 24, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'SMS',
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                            color: theme.colorScheme.primary,
-                            letterSpacing: -1.5,
-                            height: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Supermarket Management',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 36, 24, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'SMS',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: theme.colorScheme.primary,
+                      letterSpacing: -1.5,
+                      height: 1,
                     ),
                   ),
-            isManager
-                ? const Divider(color: Color(0xFFBFC9C3), height: 1)
-                : const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Divider(),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Supermarket Management',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.7),
+                      letterSpacing: 0.3,
+                    ),
                   ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Divider(),
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: ListView.builder(
@@ -374,88 +332,62 @@ class AppScaffold extends ConsumerWidget {
               ),
             ),
             const Divider(color: Color(0xFFBFC9C3), height: 1),
-            isManager
-                ? InkWell(
-                    onTap: () => ref.read(authProvider.notifier).signOut(),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.logout,
-                            color: theme.colorScheme.error,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Logout',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.error,
-                            ),
-                          ),
-                        ],
-                      ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: theme.colorScheme.primary
+                        .withValues(alpha: 0.12),
+                    child: Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: theme.colorScheme.primary,
                     ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: Row(
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: theme.colorScheme.primary
-                              .withValues(alpha: 0.12),
-                          child: Icon(
-                            Icons.person_outline,
-                            size: 20,
-                            color: theme.colorScheme.primary,
+                        Text(
+                          fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                fullName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                              Text(
-                                roleName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.7),
-                                ),
-                              ),
-                            ],
+                        Text(
+                          isManager
+                              ? 'Store Manager'
+                              : (isCashier ? 'Cashier' : roleName),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
                           ),
-                        ),
-                        IconButton(
-                          tooltip: 'Logout',
-                          icon: Icon(
-                            Icons.logout_outlined,
-                            color: theme.colorScheme.error,
-                            size: 20,
-                          ),
-                          onPressed: () =>
-                              ref.read(authProvider.notifier).signOut(),
                         ),
                       ],
                     ),
                   ),
-            if (isManager) const SizedBox(height: 8),
+                  IconButton(
+                    tooltip: 'Logout',
+                    icon: Icon(
+                      Icons.logout_outlined,
+                      color: theme.colorScheme.error,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        ref.read(authProvider.notifier).signOut(),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );

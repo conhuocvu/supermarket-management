@@ -52,14 +52,14 @@ class _CashierPosScreenState extends ConsumerState<CashierPosScreen> {
       final api = ref.read(cashierApiServiceProvider);
       final invoiceNumber = widget.invoiceNumber;
       final values = await Future.wait([
-        if (invoiceNumber != null) api.invoice(invoiceNumber),
+        if (invoiceNumber != null && invoiceNumber > 0) api.invoice(invoiceNumber),
         api.categories(),
         api.products(),
       ]);
       if (!mounted) return;
       setState(() {
         var index = 0;
-        if (invoiceNumber != null) {
+        if (invoiceNumber != null && invoiceNumber > 0) {
           _invoice = values[index++] as CashierInvoice;
         }
         _categories = values[index++] as List<CashierCategory>;
@@ -150,7 +150,7 @@ class _CashierPosScreenState extends ConsumerState<CashierPosScreen> {
       if (!mounted) return;
       ref.read(shellLayoutProvider.notifier).update(
             title: 'POS / Current Invoice',
-            breadcrumbs: ['Cashier', 'POS / Current Invoice'],
+            breadcrumbs: ['Cashier', 'POS'],
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 12),
@@ -166,11 +166,17 @@ class _CashierPosScreenState extends ConsumerState<CashierPosScreen> {
           );
     });
 
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
-            ? _errorView()
-            : _content();
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _errorView()
+                : _content(),
+      ),
+    );
   }
 
   Widget _content() {

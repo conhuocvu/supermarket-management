@@ -22,14 +22,14 @@ class CashierInvoiceDetailScreen extends ConsumerStatefulWidget {
 
 class _CashierInvoiceDetailScreenState
     extends ConsumerState<CashierInvoiceDetailScreen> {
-  CashierInvoice? _invoice;
   bool _loading = true;
   String? _error;
+  CashierInvoice? _invoice;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _load();
   }
 
   Future<void> _load() async {
@@ -58,13 +58,14 @@ class _CashierInvoiceDetailScreenState
   @override
   Widget build(BuildContext context) {
     final invoice = _invoice;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(shellLayoutProvider.notifier).update(
             title: invoice == null
                 ? 'Invoice Details'
                 : 'Invoice #${invoice.invoiceNumber}',
-            breadcrumbs: ['Cashier', 'Invoices', 'Details'],
+            breadcrumbs: ['Cashier', 'Invoices', 'Detail'],
             actions: [
               IconButton(
                 tooltip: 'Refresh',
@@ -75,11 +76,17 @@ class _CashierInvoiceDetailScreenState
           );
     });
 
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
-            ? _errorView()
-            : _content(invoice!);
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _errorView()
+                : _content(invoice!),
+      ),
+    );
   }
 
   Widget _content(CashierInvoice invoice) {

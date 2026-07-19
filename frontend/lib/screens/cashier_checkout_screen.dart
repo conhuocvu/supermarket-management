@@ -7,7 +7,6 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/cashier_provider.dart';
 import '../providers/shell_layout_provider.dart';
-
 class CashierCheckoutScreen extends ConsumerStatefulWidget {
   final int invoiceNumber;
 
@@ -373,7 +372,7 @@ class _CashierCheckoutScreenState
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = _clean(error);
+        _error = error.toString().replaceFirst('Exception: ', '');
       });
     }
   }
@@ -384,7 +383,7 @@ class _CashierCheckoutScreenState
       if (!mounted) return;
       ref.read(shellLayoutProvider.notifier).update(
             title: 'Checkout',
-            breadcrumbs: ['Cashier', 'Checkout'],
+            breadcrumbs: ['Cashier', 'POS', 'Checkout'],
             actions: [
               TextButton.icon(
                 onPressed: _busy
@@ -397,11 +396,17 @@ class _CashierCheckoutScreenState
           );
     });
 
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null && _invoice == null
-            ? _fatalError()
-            : _content();
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null && _invoice == null
+                ? _fatalError()
+                : _content(),
+      ),
+    );
   }
 
   Widget _content() {

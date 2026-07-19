@@ -6,8 +6,9 @@ import '../providers/staff_request_provider.dart';
 import '../widgets/request_management/request_error_banner.dart';
 import '../widgets/request_management/request_management_content.dart';
 import '../widgets/request_management/request_management_filters.dart';
-import '../widgets/request_management/request_management_header.dart';
 import '../widgets/request_management/request_management_pagination.dart';
+
+import '../providers/shell_layout_provider.dart';
 
 class RequestManagementScreen extends ConsumerStatefulWidget {
   const RequestManagementScreen({super.key});
@@ -33,6 +34,22 @@ class _RequestManagementScreenState
     final notifier = ref.read(staffRequestProvider.notifier);
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Request Management',
+            subtitle: 'Review leave and shift change requests submitted by staff.',
+            breadcrumbs: ['Manager', 'Requests'],
+            actions: [
+              IconButton(
+                onPressed: state.isLoading ? null : notifier.refresh,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Refresh',
+              ),
+            ],
+          );
+    });
+
     return ColoredBox(
       color: backgroundColor,
       child: SafeArea(
@@ -45,12 +62,6 @@ class _RequestManagementScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RequestManagementHeader(
-                    isCompact: isCompact,
-                    isLoading: state.isLoading,
-                    onRefresh: notifier.refresh,
-                  ),
-                  const SizedBox(height: 20),
                   RequestManagementFilters(
                     searchController: _searchController,
                     state: state,
