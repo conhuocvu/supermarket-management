@@ -1513,4 +1513,57 @@ class ApiService {
       throw Exception('Unexpected error occurred: $e');
     }
   }
+
+  // ==========================================
+  // Notification Methods (Feature 5.1)
+  // ==========================================
+
+  /// A user's notifications, newest first (GET /api/notifications/{userId}).
+  Future<List<Map<String, dynamic>>> fetchNotifications(String userId) async {
+    try {
+      final response = await _dio.get('/notifications/$userId');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load notifications.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Marks one notification as read
+  /// (PUT /api/notifications/{notificationNumber}/read).
+  Future<void> markNotificationRead(int notificationNumber, String userId) async {
+    try {
+      final response = await _dio.put(
+        '/notifications/$notificationNumber/read',
+        queryParameters: {'userId': userId},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to mark notification as read.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Marks all of the user's notifications as read
+  /// (PUT /api/notifications/{userId}/read-all).
+  Future<void> markAllNotificationsRead(String userId) async {
+    try {
+      final response = await _dio.put('/notifications/$userId/read-all');
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to mark notifications as read.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
 }

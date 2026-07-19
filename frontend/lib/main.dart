@@ -34,6 +34,7 @@ import 'screens/personal_screens.dart';
 import 'screens/work_schedule_screen.dart';
 import 'screens/leave_request_form.dart';
 import 'screens/schedule_request_form.dart';
+import 'screens/notification_screen.dart';
 import 'screens/manager_dashboard_screen.dart';
 import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
@@ -173,6 +174,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           path == '/leave-request' ||
           path == '/schedule-change' ||
           path == '/manage-requests' ||
+          path == '/notifications' ||
           path == '/change-password') {
         return null;
       }
@@ -295,6 +297,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/manage-requests',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: ManageRequestStatusScreen()),
+          ),
+          GoRoute(
+            path: '/notifications',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: NotificationScreen()),
           ),
           GoRoute(
             path: '/stock',

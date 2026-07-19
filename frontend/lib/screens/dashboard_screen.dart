@@ -6,24 +6,9 @@ import 'package:intl/intl.dart';
 import '../models/profile.dart';
 import '../providers/attendance_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/notification_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import '../widgets/bento_card.dart';
-
-enum _NotificationType { alert, schedule, info }
-
-class _DashboardNotification {
-  final String title;
-  final String description;
-  final _NotificationType type;
-  bool isRead;
-
-  _DashboardNotification({
-    required this.title,
-    required this.description,
-    required this.type,
-    this.isRead = false,
-  });
-}
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -34,25 +19,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _attendanceActionInProgress = false;
-
-  final List<_DashboardNotification> _notifications = [
-    _DashboardNotification(
-      title: 'Low stock alert',
-      description: 'Some products are near their minimum stock level.',
-      type: _NotificationType.alert,
-    ),
-    _DashboardNotification(
-      title: 'Schedule updated',
-      description: 'Your shift schedule for next week is now available.',
-      type: _NotificationType.schedule,
-    ),
-    _DashboardNotification(
-      title: 'Welcome back',
-      description: 'Use the quick actions below to get started.',
-      type: _NotificationType.info,
-      isRead: true,
-    ),
-  ];
 
   String _workspacePath(int role) {
     switch (role) {
@@ -80,6 +46,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final userId = ref.read(authProvider).user?.id;
       if (userId != null) {
         ref.read(attendanceProvider.notifier).loadTodayAttendance(userId);
+        ref.read(notificationProvider.notifier).load(userId);
       }
     });
   }
@@ -519,7 +486,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildNotificationsCard(BuildContext context) {
     final theme = Theme.of(context);
-    final unreadCount = _notifications.where((n) => !n.isRead).length;
+    final notificationsAsync = ref.watch(notificationProvider);
+    final notifications = notificationsAsync.valueOrNull ?? [];
+    final unreadCount = notifications.where((n) => !n.isRead).length;
 
     return BentoCard(
       child: Column(
@@ -534,80 +503,136 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (unreadCount > 0)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      for (final n in _notifications) {
-                        n.isRead = true;
-                      }
-                    });
-                  },
-                  child: Text(
-                    'Mark read',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.bold,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (unreadCount > 0)
+                    TextButton(
+                      onPressed: () async {
+                        final userId = ref.read(authProvider).user?.id;
+                        if (userId == null) return;
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await ref
+                              .read(notificationProvider.notifier)
+                              .markAllRead(userId);
+                        } catch (e) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(e
+                                  .toString()
+                                  .replaceFirst('Exception: ', '')),
+                              backgroundColor: theme.colorScheme.error,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(
+                        'Mark read',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: () => context.go('/notifications'),
+                    child: Text(
+                      'View all',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _notifications.take(3).length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final notif = _notifications[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _getNotificationColor(notif.type, theme)
-                            .withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _getNotificationIcon(notif.type),
-                        color: _getNotificationColor(notif.type, theme),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            notif.title,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: notif.isRead
-                                  ? FontWeight.normal
-                                  : FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            notif.description,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+          if (notificationsAsync.isLoading && notifications.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (notificationsAsync.hasError && notifications.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Could not load notifications.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
                 ),
-              );
-            },
-          ),
+              ),
+            )
+          else if (notifications.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'No notifications yet.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: notifications.take(3).length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final notif = notifications[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          notif.isRead
+                              ? Icons.notifications_none_outlined
+                              : Icons.notifications_active_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              notif.title,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: notif.isRead
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              notif.content,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -716,28 +741,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ],
     );
-  }
-
-  IconData _getNotificationIcon(_NotificationType type) {
-    switch (type) {
-      case _NotificationType.alert:
-        return Icons.error_outline;
-      case _NotificationType.schedule:
-        return Icons.calendar_today;
-      case _NotificationType.info:
-        return Icons.info_outline;
-    }
-  }
-
-  Color _getNotificationColor(_NotificationType type, ThemeData theme) {
-    switch (type) {
-      case _NotificationType.alert:
-        return theme.colorScheme.error;
-      case _NotificationType.schedule:
-        return theme.colorScheme.secondary;
-      case _NotificationType.info:
-        return theme.colorScheme.primary;
-    }
   }
 
   Widget _buildCheckInCard(BuildContext context) {
