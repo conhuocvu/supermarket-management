@@ -55,6 +55,7 @@ import 'screens/create_supplier_screen.dart';
 import 'screens/expiring_product_list_screen.dart';
 import 'screens/clearance_proposal_screen.dart';
 import 'screens/remove_expired_product_screen.dart';
+import 'screens/product_report_list_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -551,6 +552,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     },
                   ),
                 ],
+              ),
+              GoRoute(
+                path: 'product-reports',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: ProductReportListScreen()),
               ),
             ],
           ),
