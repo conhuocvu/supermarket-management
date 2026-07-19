@@ -264,8 +264,7 @@ class _InventoryProductListScreenState
         Widget warningDropdown = SizedBox(
           height: 48,
           child: DropdownButtonFormField<String>(
-            initialValue: state.warningFilter ?? 'NONE',
-            isExpanded: true,
+            value: state.warningFilter ?? 'NONE',
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -299,7 +298,9 @@ class _InventoryProductListScreenState
         final List<Widget> actionButtons = [
           IconButton.filled(
             onPressed: () async {
-              final hasChanged = await context.push<bool>('/stock/products/add');
+              final hasChanged = await context.push<bool>(
+                '/stock/products/add',
+              );
               if (!context.mounted) return;
               _setProductListHeader();
               if (hasChanged == true) {
@@ -462,6 +463,9 @@ class _InventoryProductListScreenState
         ),
       );
     } else if (isNearExpiry) {
+      final dateStr = item.expiryDate != null
+          ? DateFormat('yyyy-MM-dd').format(item.expiryDate!)
+          : 'Unknown';
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final expiry = DateTime(
@@ -470,9 +474,9 @@ class _InventoryProductListScreenState
         item.expiryDate!.day,
       );
       final daysRemaining = expiry.difference(today).inDays;
-      final labelStr = daysRemaining <= 0
+      final labelStr = daysRemaining == 0
           ? 'Expiring today'
-          : 'Expiring in ${daysRemaining}d';
+          : 'Expiring in $daysRemaining d ($dateStr)';
 
       badges.add(
         _buildSmallBadge(
@@ -490,7 +494,8 @@ class _InventoryProductListScreenState
         _buildSmallBadge(
           context: context,
           icon: Icons.unfold_more_double_rounded,
-          label: 'Low Stock',
+          label:
+              'Low Stock (${item.stock.toStringAsFixed(0)} < ${item.reorderLevel.toStringAsFixed(0)})',
           backgroundColor: theme.colorScheme.primaryContainer.withValues(
             alpha: 0.8,
           ),
@@ -523,16 +528,15 @@ class _InventoryProductListScreenState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: textColor),
-          const SizedBox(width: 4),
+          Icon(icon, size: 11, color: textColor),
+          const SizedBox(width: 3),
           Text(
             label,
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: textColor,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -677,28 +681,33 @@ class _InventoryProductListScreenState
                                   color: Colors.grey,
                                 ),
                               ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  item.productName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 240),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    item.productName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                Text(
-                                  item.barcode,
-                                  style: theme.textTheme.labelSmall,
-                                ),
-                                _buildWarningBadges(
-                                  context,
-                                  item,
-                                  isLowStock,
-                                  isNearExpiry,
-                                  isExpired,
-                                ),
-                              ],
+                                  Text(
+                                    item.barcode,
+                                    style: theme.textTheme.labelSmall,
+                                  ),
+                                  _buildWarningBadges(
+                                    context,
+                                    item,
+                                    isLowStock,
+                                    isNearExpiry,
+                                    isExpired,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
