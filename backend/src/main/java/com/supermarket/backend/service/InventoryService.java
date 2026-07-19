@@ -47,15 +47,7 @@ public class InventoryService {
     @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
     private String defaultUserIdStr;
 
-    private UUID getCurrentUserId() {
-        try {
-            org.springframework.security.core.Authentication auth =
-                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated() && auth.getName() != null && !auth.getName().equalsIgnoreCase("anonymousUser")) {
-                return UUID.fromString(auth.getName());
-            }
-        } catch (Exception ignored) {
-        }
+    private UUID getDefaultUserId() {
         return UUID.fromString(defaultUserIdStr);
     }
 
@@ -400,7 +392,7 @@ public class InventoryService {
         if (request.getReportedBy() != null && !request.getReportedBy().trim().isEmpty()) {
             reportedBy = UUID.fromString(request.getReportedBy());
         } else {
-            reportedBy = getCurrentUserId();
+            reportedBy = getDefaultUserId();
         }
 
         String prefixedDescription = "[PR-" + request.getPurchaseRequestNumber() + "] " + request.getDescription();
@@ -545,7 +537,7 @@ public class InventoryService {
         if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
             createdBy = UUID.fromString(request.getCreatedBy());
         } else {
-            createdBy = getCurrentUserId();
+            createdBy = getDefaultUserId();
         }
 
         StockIn stockIn = StockIn.builder()
@@ -744,7 +736,7 @@ public class InventoryService {
         if (request.getCreatedBy() != null && !request.getCreatedBy().trim().isEmpty()) {
             createdBy = UUID.fromString(request.getCreatedBy());
         } else {
-            createdBy = getCurrentUserId();
+            createdBy = getDefaultUserId();
         }
 
         StockOut stockOut = StockOut.builder()
@@ -1332,7 +1324,7 @@ public class InventoryService {
 
         // 1. Create StockOut
         StockOut stockOut = StockOut.builder()
-                .createdBy(getCurrentUserId())
+                .createdBy(getDefaultUserId())
                 .reason(fullReason)
                 .createdDate(LocalDateTime.now())
                 .build();
@@ -1371,7 +1363,7 @@ public class InventoryService {
                 .quantity(request.getQuantity())
                 .referenceType("DISPOSAL")
                 .referenceId(savedStockOut.getStockOutNumber())
-                .createdBy(getCurrentUserId())
+                .createdBy(getDefaultUserId())
                 .createdAt(LocalDateTime.now())
                 .reason(fullReason)
                 .build();

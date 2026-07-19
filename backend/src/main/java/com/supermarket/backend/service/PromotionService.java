@@ -272,7 +272,6 @@ public class PromotionService {
                 .description(request.getReason())
                 .category("CLEARANCE")
                 .isFeatured(false)
-                .createdBy(getCurrentUserId())
                 .build();
 
         Promotion saved = promotionRepository.save(promotion);
@@ -292,18 +291,6 @@ public class PromotionService {
     public List<PromotionDTO> getSubmittedClearanceProposals() {
         List<Promotion> proposals = promotionRepository.findByCategoryOrderByPromotionNumberDesc("CLEARANCE");
         return proposals.stream().map(this::mapToDTO).collect(Collectors.toList());
-    }
-
-    private UUID getCurrentUserId() {
-        try {
-            org.springframework.security.core.Authentication auth =
-                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated() && auth.getName() != null && !auth.getName().equalsIgnoreCase("anonymousUser")) {
-                return UUID.fromString(auth.getName());
-            }
-        } catch (Exception ignored) {
-        }
-        return UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
     }
 }
 
