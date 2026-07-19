@@ -44,7 +44,7 @@ class RoleModuleScaffold extends ConsumerWidget {
           );
     });
 
-    return Material(
+    return ColoredBox(
       color: const Color(0xFFF8F9FF),
       child: body,
     );

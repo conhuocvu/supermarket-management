@@ -7,6 +7,8 @@ import '../models/cashier_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cashier_provider.dart';
 import '../widgets/role_module_scaffold.dart';
+import '../widgets/attendance_card.dart';
+import '../widgets/bento_card.dart';
 
 class CashierDashboardScreen extends ConsumerStatefulWidget {
   const CashierDashboardScreen({super.key});
@@ -72,6 +74,36 @@ class _CashierDashboardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              LayoutBuilder(
+                builder: (context, actionConstraints) {
+                  final isWideAction = actionConstraints.maxWidth >= 750;
+                  if (isWideAction) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Expanded(
+                          flex: 3,
+                          child: AttendanceCard(),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: _buildPersonalActions(context),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        const AttendanceCard(),
+                        const SizedBox(height: 16),
+                        _buildPersonalActions(context),
+                      ],
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 24),
               Wrap(
                 spacing: 12,
                 runSpacing: 8,
@@ -280,6 +312,95 @@ class _CashierDashboardScreenState
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalActions(BuildContext context) {
+    final theme = Theme.of(context);
+    return BentoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Personal Actions',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildActionButton(
+            context,
+            icon: Icons.calendar_month_outlined,
+            label: 'Work Schedule',
+            route: '/work-schedule',
+          ),
+          const SizedBox(height: 10),
+          _buildActionButton(
+            context,
+            icon: Icons.time_to_leave_outlined,
+            label: 'Request Leave',
+            route: '/leave-request',
+          ),
+          const SizedBox(height: 10),
+          _buildActionButton(
+            context,
+            icon: Icons.published_with_changes_outlined,
+            label: 'Shift Change Request',
+            route: '/schedule-change',
+          ),
+          const SizedBox(height: 10),
+          _buildActionButton(
+            context,
+            icon: Icons.rule_folder_outlined,
+            label: 'Manage My Requests',
+            route: '/manage-requests',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String route,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () => context.go(route),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+              size: 20,
+            ),
+          ],
         ),
       ),
     );

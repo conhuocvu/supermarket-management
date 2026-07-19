@@ -165,7 +165,18 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 4. If logged in and profile loaded:
       final role = auth.profile!.roleNumber;
-      const landingPage = '/dashboard';
+      final String landingPage;
+      if (role == UserRoles.stockController || role == UserRoles.salesAssociate) {
+        landingPage = '/stock';
+      } else if (role == UserRoles.cashier) {
+        landingPage = '/cashier';
+      } else if (role == UserRoles.manager) {
+        landingPage = '/manager';
+      } else if (role == UserRoles.admin) {
+        landingPage = '/admin';
+      } else {
+        landingPage = '/dashboard';
+      }
 
       // Redirect if on a public/splash route
       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
@@ -179,9 +190,20 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final path = state.uri.path;
 
+      if (path == '/dashboard') {
+        if (role == UserRoles.stockController || role == UserRoles.salesAssociate) {
+          return '/stock';
+        } else if (role == UserRoles.cashier) {
+          return '/cashier';
+        } else if (role == UserRoles.manager) {
+          return '/manager';
+        } else if (role == UserRoles.admin) {
+          return '/admin';
+        }
+      }
+
       // Routes shared by all authenticated roles
-      if (path == '/dashboard' ||
-          path == '/profile' ||
+      if (path == '/profile' ||
           path == '/work-schedule' ||
           path == '/leave-request' ||
           path == '/schedule-change' ||
