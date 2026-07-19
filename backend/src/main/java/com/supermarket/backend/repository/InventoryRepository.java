@@ -20,5 +20,12 @@ public interface InventoryRepository extends JpaRepository<Inventory, Integer> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT i FROM Inventory i WHERE i.productNumber = ?1")
     Optional<Inventory> findByIdForUpdate(Integer productNumber);
+
+    @Query("SELECT i FROM Inventory i " +
+           "JOIN FETCH i.product p " +
+           "LEFT JOIN FETCH p.unit u " +
+           "WHERE i.availableQuantity <= p.reorderLevel " +
+           "AND p.status = 'ACTIVE'")
+    java.util.List<Inventory> findLowStockProducts();
 }
 

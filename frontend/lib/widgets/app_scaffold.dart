@@ -20,8 +20,21 @@ class AppScaffold extends ConsumerWidget {
     ).routeInformationProvider.value.uri.path;
 
     final shellState = ref.watch(shellLayoutProvider);
-    final displayTitle = title ?? shellState.title;
+    
+    String displayTitle = title ?? shellState.title;
+    List<String> displayBreadcrumbs = shellState.breadcrumbs;
     final displayActions = actions ?? shellState.actions;
+
+    if (currentPath == '/manager/staff') {
+      displayTitle = 'Staff Management';
+      displayBreadcrumbs = ['Manager', 'Staff'];
+    } else if (currentPath.startsWith('/manager/staff/') && currentPath != '/manager/staff') {
+      displayTitle = 'Staff Details';
+      displayBreadcrumbs = ['Manager', 'Staff', 'Details'];
+    } else if (currentPath == '/manager/promotion') {
+      displayTitle = 'Promotions';
+      displayBreadcrumbs = ['Manager', 'Promotions'];
+    }
 
     final authState = ref.watch(authProvider);
     final fullName =
@@ -30,9 +43,50 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
+    final isManager = currentPath.startsWith('/manager');
     final bool isInWorkspace = currentPath.startsWith('/stock');
+    final sidebarWidth = isManager ? 220.0 : 256.0;
 
-    final List<Map<String, dynamic>> menuItems = isInWorkspace
+    final List<Map<String, dynamic>> menuItems = isManager
+        ? [
+            {
+              'title': 'Dashboard',
+              'icon': Icons.dashboard_rounded,
+              'route': '/manager',
+              'active': currentPath == '/manager',
+            },
+            {
+              'title': 'Staff',
+              'icon': Icons.people_alt_outlined,
+              'route': '/manager/staff',
+              'active': currentPath.startsWith('/manager/staff'),
+            },
+            {
+              'title': 'Requests',
+              'icon': Icons.receipt_long_outlined,
+              'route': '/manager/requests',
+              'active': currentPath.startsWith('/manager/requests'),
+            },
+            {
+              'title': 'Promotion',
+              'icon': Icons.campaign_outlined,
+              'route': '/manager/promotion',
+              'active': currentPath.startsWith('/manager/promotion'),
+            },
+            {
+              'title': 'Supplier',
+              'icon': Icons.local_shipping_outlined,
+              'route': '/manager/supplier',
+              'active': currentPath.startsWith('/manager/supplier'),
+            },
+            {
+              'title': 'Reports',
+              'icon': Icons.bar_chart_rounded,
+              'route': '/manager/reports',
+              'active': currentPath.startsWith('/manager/reports'),
+            },
+          ]
+        : isInWorkspace
         ? [
             {
               'title': 'Workspace Home',
@@ -62,30 +116,28 @@ class AppScaffold extends ConsumerWidget {
               'title': 'Transactions',
               'icon': Icons.swap_horiz_outlined,
               'route': '/stock/transactions',
-              'active': false,
+              'active': currentPath.startsWith('/stock/transactions'),
+            },
+            {
+              'title': 'Purchase Requests',
+              'icon': Icons.shopping_cart_outlined,
+              'route': '/stock/purchase-requests',
+              'active': currentPath.startsWith('/stock/purchase-requests'),
             },
             {
               'title': 'Low Stock',
               'icon': Icons.priority_high_outlined,
               'route': '/stock/low-stock',
-              'active': false,
-            },
-            {
-              'title': 'Purchase Requests',
-              'icon': Icons.shopping_cart_outlined,
-              'route': '/stock/purchases',
-              'active': false,
+              'active': currentPath.startsWith('/stock/low-stock'),
             },
             {
               'title': 'Expiring Products',
               'icon': Icons.event_busy_outlined,
-              'route': '/stock/expiring',
               'active': false,
             },
             {
               'title': 'Product Reports',
               'icon': Icons.assessment_outlined,
-              'route': '/stock/reports',
               'active': false,
             },
           ]
@@ -134,33 +186,92 @@ class AppScaffold extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fullName,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: fullName.contains('@') ? 16 : 20,
+            isManager
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 36, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.store_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Viridian Ops',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          fullName,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Store Manager',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    roleName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: const Color(0xFF3F4945).withValues(alpha: 0.7),
-                      fontWeight: FontWeight.w500,
+                  )
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 36, 24, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SMS',
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w900,
+                            color: theme.colorScheme.primary,
+                            letterSpacing: -1.5,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Supermarket Management',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+            isManager
+                ? const Divider(color: Color(0xFFBFC9C3), height: 1)
+                : const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Divider(),
+                  ),
             const SizedBox(height: 16),
             Expanded(
               child: ListView.builder(
@@ -176,7 +287,10 @@ class AppScaffold extends ConsumerWidget {
                         if (!isDesktop) {
                           Navigator.pop(context);
                         }
-                        context.go(item['route'] as String);
+                        final route = item['route'] as String?;
+                        if (route != null) {
+                          context.go(route);
+                        }
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -224,34 +338,88 @@ class AppScaffold extends ConsumerWidget {
               ),
             ),
             const Divider(color: Color(0xFFBFC9C3), height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: InkWell(
-                onTap: () {
-                  ref.read(authProvider.notifier).signOut();
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, color: theme.colorScheme.error),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Logout',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.error,
-                          fontWeight: FontWeight.bold,
-                        ),
+            isManager
+                ? InkWell(
+                    onTap: () => ref.read(authProvider.notifier).signOut(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.logout,
+                            color: theme.colorScheme.error,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Logout',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: theme.colorScheme.primary
+                              .withValues(alpha: 0.12),
+                          child: Icon(
+                            Icons.person_outline,
+                            size: 20,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                fullName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              Text(
+                                roleName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Logout',
+                          icon: Icon(
+                            Icons.logout_outlined,
+                            color: theme.colorScheme.error,
+                            size: 20,
+                          ),
+                          onPressed: () =>
+                              ref.read(authProvider.notifier).signOut(),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
+            if (isManager) const SizedBox(height: 8),
           ],
         ),
       );
@@ -262,7 +430,7 @@ class AppScaffold extends ConsumerWidget {
         body: Row(
           children: [
             SizedBox(
-              width: 256,
+              width: sidebarWidth,
               child: Drawer(
                 elevation: 0,
                 shape: const RoundedRectangleBorder(
@@ -309,17 +477,25 @@ class AppScaffold extends ConsumerWidget {
                             Row(children: displayActions),
                           ],
                         ),
-                        if (shellState.breadcrumbs.isNotEmpty) ...[
+                        if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            shellState.subtitle!,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ] else if (displayBreadcrumbs.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Row(
-                            children: shellState.breadcrumbs
+                            children: displayBreadcrumbs
                                 .asMap()
                                 .entries
                                 .map((entry) {
                                   final idx = entry.key;
                                   final label = entry.value;
                                   final isLast =
-                                      idx == shellState.breadcrumbs.length - 1;
+                                      idx == displayBreadcrumbs.length - 1;
                                   return Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -375,7 +551,20 @@ class AppScaffold extends ConsumerWidget {
     } else {
       return Scaffold(
         appBar: AppBar(
-          title: Text(displayTitle, style: theme.textTheme.titleLarge),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(displayTitle, style: theme.textTheme.titleLarge),
+              if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty)
+                Text(
+                  shellState.subtitle!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
@@ -385,7 +574,7 @@ class AppScaffold extends ConsumerWidget {
         drawer: Drawer(child: buildSidebarContent()),
         body: Column(
           children: [
-            if (shellState.breadcrumbs.isNotEmpty)
+            if (shellState.subtitle == null && displayBreadcrumbs.isNotEmpty)
               Container(
                 color: Colors.white,
                 width: double.infinity,
@@ -401,12 +590,12 @@ class AppScaffold extends ConsumerWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: shellState.breadcrumbs.asMap().entries.map((
+                    children: displayBreadcrumbs.asMap().entries.map((
                       entry,
                     ) {
                       final idx = entry.key;
                       final label = entry.value;
-                      final isLast = idx == shellState.breadcrumbs.length - 1;
+                      final isLast = idx == displayBreadcrumbs.length - 1;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

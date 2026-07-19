@@ -26,7 +26,7 @@ public class CategoryService {
         } else {
             categories = categoryRepository.findAll(pageable);
         }
-        
+
         return categories.map(this::mapToDTO);
     }
 
@@ -45,7 +45,7 @@ public class CategoryService {
                 .description(categoryDTO.getDescription())
                 .internalNotes(categoryDTO.getInternalNotes())
                 .build();
-        
+
         category = categoryRepository.save(category);
         return mapToDTO(category);
     }
@@ -54,21 +54,21 @@ public class CategoryService {
     public CategoryDTO updateCategory(Integer categoryNumber, CategoryDTO categoryDTO) {
         Category category = categoryRepository.findById(categoryNumber)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
-        
+
         category.setCategoryName(categoryDTO.getCategoryName());
-        
+
         if (categoryDTO.getParentCategoryNumber() != null) {
             validateParentCategory(categoryNumber, categoryDTO.getParentCategoryNumber());
         }
         category.setParentCategoryNumber(categoryDTO.getParentCategoryNumber());
-        
+
         category.setDescription(categoryDTO.getDescription());
         category.setInternalNotes(categoryDTO.getInternalNotes());
-        
+
         if (categoryDTO.getStatus() != null && !categoryDTO.getStatus().equals(category.getStatus())) {
             updateStatusRecursive(category, categoryDTO.getStatus());
         }
-        
+
         category = categoryRepository.save(category);
         return mapToDTO(category);
     }
@@ -78,7 +78,7 @@ public class CategoryService {
         if (newStatus == null || newStatus.trim().isEmpty()) {
             throw new IllegalArgumentException("Status is required");
         }
-        
+
         newStatus = newStatus.trim().toUpperCase();
         if (!newStatus.equals("ACTIVE") && !newStatus.equals("INACTIVE")) {
             throw new IllegalArgumentException("Invalid status value. Allowed values are ACTIVE or INACTIVE.");
@@ -86,21 +86,21 @@ public class CategoryService {
 
         Category category = categoryRepository.findById(categoryNumber)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
-        
+
         updateStatusRecursive(category, newStatus);
-        
+
         return mapToDTO(category);
     }
-    
+
     private void updateStatusRecursive(Category category, String newStatus) {
         List<Category> allCategories = categoryRepository.findAll();
         List<Integer> idsToUpdate = new java.util.ArrayList<>();
         idsToUpdate.add(category.getCategoryNumber());
         collectDescendantIds(category.getCategoryNumber(), allCategories, idsToUpdate);
-        
+
         categoryRepository.updateStatusForIds(idsToUpdate, newStatus);
     }
-    
+
     private void collectDescendantIds(Integer parentId, List<Category> allCategories, List<Integer> idsToUpdate) {
         for (Category c : allCategories) {
             if (parentId.equals(c.getParentCategoryNumber())) {
@@ -128,7 +128,7 @@ public class CategoryService {
             }
             visited.add(currentParent);
             currentParent = categoryRepository.findById(currentParent)
-                    .map(Category::getParentCategoryNumber)
+                    .map(c -> c.getParentCategoryNumber())
                     .orElse(null);
         }
     }
@@ -137,10 +137,10 @@ public class CategoryService {
         String parentName = null;
         if (category.getParentCategoryNumber() != null) {
             parentName = categoryRepository.findById(category.getParentCategoryNumber())
-                    .map(Category::getCategoryName)
+                    .map(c -> c.getCategoryName())
                     .orElse(null);
         }
-        
+
         return CategoryDTO.builder()
                 .categoryNumber(category.getCategoryNumber())
                 .parentCategoryNumber(category.getParentCategoryNumber())

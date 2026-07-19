@@ -15,7 +15,7 @@ public class BackendApplication {
 		SpringApplication.run(BackendApplication.class, args);
 	}
 
-	private static void loadDotEnv() {
+	static void loadDotEnv() {
 		File envFile = new File(".env");
 		if (!envFile.exists()) {
 			envFile = new File("../.env");

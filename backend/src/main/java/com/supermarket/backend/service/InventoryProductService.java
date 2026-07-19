@@ -41,6 +41,13 @@ public class InventoryProductService {
     private final SupplierRepository supplierRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
+    private String defaultUserIdStr;
+
+    private UUID getDefaultUserId() {
+        return UUID.fromString(defaultUserIdStr);
+    }
+
     @Transactional(readOnly = true)
     public Page<InventoryProductDTO> getProducts(String keyword, Integer categoryNumber, Pageable pageable) {
         Page<Product> productsPage = productRepository.findProducts(keyword, categoryNumber, pageable);
@@ -114,6 +121,24 @@ public class InventoryProductService {
             throw new IllegalArgumentException("Product list cannot be empty");
         }
 
+        // Validate all products belong to the same supplier
+        Integer commonSupplierNumber = null;
+        for (Integer prodNum : productNumbers) {
+            Product product = productRepository.findById(prodNum)
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + prodNum));
+
+            List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
+            if (suppliers.isEmpty()) {
+                throw new IllegalArgumentException("Product '" + product.getProductName() + "' has no mapped supplier configuration.");
+            }
+            Integer supplierNumber = suppliers.get(0).getSupplierNumber();
+            if (commonSupplierNumber == null) {
+                commonSupplierNumber = supplierNumber;
+            } else if (!commonSupplierNumber.equals(supplierNumber)) {
+                throw new IllegalArgumentException("All products in a purchase request must belong to the same supplier.");
+            }
+        }
+
         // 1. Create a new PurchaseRequest
         PurchaseRequest pr = PurchaseRequest.builder()
                 .status("PENDING")
@@ -123,8 +148,8 @@ public class InventoryProductService {
 
         // 2. Add details for each selected product
         for (Integer prodNum : productNumbers) {
-            Product product = productRepository.findById(prodNum)
-                    .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + prodNum));
+            Product product = productRepository.findById(prodNum).orElse(null);
+            if (product == null) continue;
 
             if (!"ACTIVE".equals(product.getStatus())) {
                 throw new IllegalArgumentException("Cannot create purchase request for inactive product: " + product.getProductName());
@@ -180,14 +205,14 @@ public class InventoryProductService {
         }
 
         if (userId == null) {
-            userId = UUID.fromString("e3b3ec4a-da0b-40f5-9747-29361993892b");
+            userId = getDefaultUserId();
         }
 
         final UUID finalUserId = userId;
-        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "PENDING")
+        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
                 .orElseGet(() -> {
                     PurchaseRequest newPr = PurchaseRequest.builder()
-                            .status("PENDING")
+                            .status("DRAFT")
                             .createdBy(finalUserId)
                             .createdDate(LocalDateTime.now())
                             .build();
@@ -199,6 +224,7 @@ public class InventoryProductService {
                 .map(PurchaseRequestDetail::getProductSupplierNumber)
                 .collect(Collectors.toSet());
 
+
         for (Integer prodNum : productNumbers) {
             Product product = productRepository.findById(prodNum)
                     .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm có mã: " + prodNum));
@@ -208,21 +234,13 @@ public class InventoryProductService {
             }
 
             List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
-            ProductSupplier supplier;
             if (suppliers.isEmpty()) {
-                BigDecimal importPrice = product.getSellingPrice() != null
-                        ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.75))
-                        : BigDecimal.valueOf(10000);
-                supplier = ProductSupplier.builder()
-                        .productNumber(prodNum)
-                        .supplierNumber(1)
-                        .importPrice(importPrice)
-                        .minimumOrderQuantity(BigDecimal.valueOf(10))
-                        .build();
-                supplier = productSupplierRepository.save(supplier);
-            } else {
-                supplier = suppliers.get(0);
+                throw new IllegalArgumentException(
+                    "Product '" + product.getProductName() + "' has no supplier configured. " +
+                    "Please set up a supplier relationship for this product before creating a purchase request."
+                );
             }
+            ProductSupplier supplier = suppliers.get(0);
 
             if (existingSupplierNumbers.contains(supplier.getProductSupplierNumber())) {
                 continue;

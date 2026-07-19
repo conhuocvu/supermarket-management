@@ -33,5 +33,8 @@ public class PurchaseRequest {
 
     @Column(name = "approved_date")
     private LocalDateTime approvedDate;
+
+    @Column(name = "expected_delivery_date")
+    private java.time.LocalDate expectedDeliveryDate;
 }
 

@@ -17,6 +17,12 @@ import 'screens/inventory_product_list_screen.dart';
 import 'screens/inventory_product_detail_screen.dart';
 import 'screens/category_list_screen.dart';
 import 'screens/category_form_screen.dart';
+import 'screens/inventory_transaction_list_screen.dart';
+import 'screens/stock_in_form_screen.dart';
+import 'screens/stock_out_form_screen.dart';
+import 'screens/purchase_request_list_screen.dart';
+import 'screens/purchase_request_form_screen.dart';
+import 'screens/low_stock_product_list_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -28,6 +34,11 @@ import 'screens/personal_screens.dart';
 import 'screens/work_schedule_screen.dart';
 import 'screens/leave_request_form.dart';
 import 'screens/schedule_request_form.dart';
+import 'screens/manager_dashboard_screen.dart';
+import 'screens/staff_list_screen.dart';
+import 'screens/staff_detail_screen.dart';
+import 'screens/promotion_list_screen.dart';
+import 'screens/promotion_detail_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -201,9 +212,46 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),
-      GoRoute(
-        path: '/manager',
-        builder: (context, state) => const ManagerScreen(),
+      ShellRoute(
+        builder: (context, state, child) {
+          return AppScaffold(body: child);
+        },
+        routes: [
+          GoRoute(
+            path: '/manager',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ManagerDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/manager/staff',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: StaffListScreen()),
+          ),
+          GoRoute(
+            path: '/manager/staff/:userId',
+            pageBuilder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return NoTransitionPage(
+                child: StaffDetailScreen(userId: userId),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/manager/promotion',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PromotionListScreen()),
+          ),
+          GoRoute(
+            path: '/manager/promotion/:promotionNumber',
+            pageBuilder: (context, state) {
+              final promotionNumberStr = state.pathParameters['promotionNumber']!;
+              final promotionNumber = int.tryParse(promotionNumberStr) ?? 0;
+              return NoTransitionPage(
+                child: PromotionDetailScreen(promotionNumber: promotionNumber),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/sales',
@@ -315,6 +363,55 @@ final routerProvider = Provider<GoRouter>((ref) {
                     },
                   ),
                 ],
+              ),
+              GoRoute(
+                path: 'transactions',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: InventoryTransactionListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'record-stock-in/:prNumber',
+                    pageBuilder: (context, state) {
+                      final prNumberStr = state.pathParameters['prNumber'] ?? '';
+                      final prNumber = int.tryParse(prNumberStr) ?? 0;
+                      final supplierNumberStr = state.uri.queryParameters['supplierNumber'];
+                      final supplierNumber = supplierNumberStr != null ? int.tryParse(supplierNumberStr) : null;
+                      return NoTransitionPage(
+                        child: StockInFormScreen(
+                          purchaseRequestNumber: prNumber,
+                          supplierNumber: supplierNumber,
+                        ),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'record-stock-out/:reportNumber',
+                    pageBuilder: (context, state) {
+                      final reportNumberStr = state.pathParameters['reportNumber'] ?? '';
+                      final reportNumber = int.tryParse(reportNumberStr) ?? 0;
+                      return NoTransitionPage(
+                        child: StockOutFormScreen(reportNumber: reportNumber),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'purchase-requests',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: PurchaseRequestListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'create',
+                    pageBuilder: (context, state) =>
+                        const NoTransitionPage(child: PurchaseRequestFormScreen()),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'low-stock',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: LowStockProductListScreen()),
               ),
             ],
           ),
