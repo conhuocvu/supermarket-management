@@ -13,6 +13,7 @@ import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
 import '../models/low_stock_product.dart';
 import '../models/supplier_product.dart';
+import '../models/expiring_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -1185,6 +1186,34 @@ class ApiService {
         }
       } else {
         throw Exception('Failed to load low stock products: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<ExpiringProduct>> fetchExpiringProducts({String? search, String? status}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (status != null && status.isNotEmpty && status != 'All') {
+        queryParams['status'] = status;
+      }
+      final response = await _dio.get('/inventory/expiring-products', queryParameters: queryParams);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => ExpiringProduct.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load expiring products.');
+        }
+      } else {
+        throw Exception('Failed to load expiring products: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));

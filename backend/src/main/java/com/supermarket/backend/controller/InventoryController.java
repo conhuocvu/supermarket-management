@@ -86,4 +86,23 @@ public class InventoryController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    @GetMapping("/expiring-products")
+    public ResponseEntity<Map<String, Object>> getExpiringProducts(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status) {
+        try {
+            java.util.List<com.supermarket.backend.dto.ExpiringProductDTO> expiringProducts = inventoryService.getExpiringProducts(search, status);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Expiring products retrieved successfully.");
+            response.put("data", expiringProducts);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Expiring product data cannot be loaded.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }

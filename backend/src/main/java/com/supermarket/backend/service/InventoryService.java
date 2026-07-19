@@ -1193,4 +1193,66 @@ public class InventoryService {
         }
         return dtos;
     }
+
+    @Transactional(readOnly = true)
+    public List<ExpiringProductDTO> getExpiringProducts(String search, String status) {
+        List<StockInDetail> activeBatches = stockInDetailRepository.findAllActiveStockInDetails();
+
+        List<Product> products = productRepository.findAll();
+        Map<Integer, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
+
+        LocalDate now = LocalDate.now();
+        List<ExpiringProductDTO> dtos = new java.util.ArrayList<>();
+
+        for (StockInDetail detail : activeBatches) {
+            Product p = productMap.get(detail.getProductNumber());
+            if (p == null) continue;
+
+            LocalDate expiryDate = detail.getExpiryDate();
+            if (expiryDate == null) continue;
+
+            int warningDays = p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30;
+            LocalDate warningThreshold = now.plusDays(warningDays);
+
+            if (expiryDate.isAfter(warningThreshold)) {
+                continue;
+            }
+
+            long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(now, expiryDate);
+            boolean isCritical = daysRemaining <= 7;
+
+            // Apply status filter
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase("All")) {
+                if (status.equalsIgnoreCase("Expired") && daysRemaining >= 0) continue;
+                if (status.equalsIgnoreCase("Critical") && (daysRemaining < 0 || daysRemaining > 7)) continue;
+                if (status.equalsIgnoreCase("Warning") && (daysRemaining <= 7 || daysRemaining > warningDays)) continue;
+            }
+
+            // Apply search filter
+            if (search != null && !search.isBlank()) {
+                String query = search.toLowerCase();
+                boolean matchesName = p.getProductName() != null && p.getProductName().toLowerCase().contains(query);
+                boolean matchesBatch = detail.getBatchNumber() != null && detail.getBatchNumber().toLowerCase().contains(query);
+                if (!matchesName && !matchesBatch) continue;
+            }
+
+            dtos.add(ExpiringProductDTO.builder()
+                    .stockInDetailNumber(detail.getStockInDetailNumber())
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .barcode(p.getBarcode())
+                    .batchNumber(detail.getBatchNumber())
+                    .quantity(detail.getRemainingQuantity())
+                    .expiryDate(expiryDate)
+                    .daysRemaining(daysRemaining)
+                    .critical(isCritical)
+                    .expiryWarningDays(warningDays)
+                    .importPrice(detail.getImportPrice())
+                    .build());
+        }
+
+        dtos.sort((d1, d2) -> d1.getExpiryDate().compareTo(d2.getExpiryDate()));
+        return dtos;
+    }
 }

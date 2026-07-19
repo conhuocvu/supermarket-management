@@ -52,6 +52,7 @@ import 'screens/promotion_detail_screen.dart';
 import 'screens/supplier_list_screen.dart';
 import 'screens/supplier_detail_screen.dart';
 import 'screens/create_supplier_screen.dart';
+import 'screens/expiring_product_list_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -527,6 +528,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'low-stock',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: LowStockProductListScreen()),
+              ),
+              GoRoute(
+                path: 'expiring-products',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: ExpiringProductListScreen()),
               ),
             ],
           ),
