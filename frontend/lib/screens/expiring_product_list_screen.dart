@@ -167,10 +167,22 @@ class _ExpiringProductListScreenState extends ConsumerState<ExpiringProductListS
             ),
           );
         },
-        loading: () => const Center(
+        loading: () => Center(
           child: Padding(
-            padding: EdgeInsets.all(100.0),
-            child: CircularProgressIndicator(),
+            padding: const EdgeInsets.all(48.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading expiring products...',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         error: (err, stack) => _buildErrorState(err, theme),

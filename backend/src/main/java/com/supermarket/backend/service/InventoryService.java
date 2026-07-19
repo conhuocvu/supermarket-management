@@ -1200,16 +1200,22 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public List<ExpiringProductDTO> getExpiringProducts(String search, String status) {
-        List<StockInDetail> activeBatches = stockInDetailRepository.findAllActiveStockInDetails();
+        LocalDate now = LocalDate.now();
+        // Look ahead 90 days for any near-expiry warning
+        List<StockInDetail> activeBatches = stockInDetailRepository.findExpiringStockInDetails(now.plusDays(90));
 
         List<Integer> proposedNumbers = promotionProductRepository.findProposedStockInDetailNumbers();
         Set<Integer> proposedSet = proposedNumbers != null ? new HashSet<>(proposedNumbers) : new HashSet<>();
 
-        List<Product> products = productRepository.findAll();
+        Set<Integer> productNumbers = activeBatches.stream()
+                .map(StockInDetail::getProductNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Product> products = productNumbers.isEmpty() ? java.util.Collections.emptyList() : productRepository.findAllById(productNumbers);
         Map<Integer, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
 
-        LocalDate now = LocalDate.now();
         List<ExpiringProductDTO> dtos = new java.util.ArrayList<>();
 
         for (StockInDetail detail : activeBatches) {
