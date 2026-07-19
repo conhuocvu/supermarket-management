@@ -234,21 +234,13 @@ public class InventoryProductService {
             }
 
             List<ProductSupplier> suppliers = productSupplierRepository.findByProductNumber(prodNum);
-            ProductSupplier supplier;
             if (suppliers.isEmpty()) {
-                BigDecimal importPrice = product.getSellingPrice() != null
-                        ? product.getSellingPrice().multiply(BigDecimal.valueOf(0.75))
-                        : BigDecimal.valueOf(10000);
-                supplier = ProductSupplier.builder()
-                        .productNumber(prodNum)
-                        .supplierNumber(1)
-                        .importPrice(importPrice)
-                        .minimumOrderQuantity(BigDecimal.valueOf(10))
-                        .build();
-                supplier = productSupplierRepository.save(supplier);
-            } else {
-                supplier = suppliers.get(0);
+                throw new IllegalArgumentException(
+                    "Product '" + product.getProductName() + "' has no supplier configured. " +
+                    "Please set up a supplier relationship for this product before creating a purchase request."
+                );
             }
+            ProductSupplier supplier = suppliers.get(0);
 
             if (existingSupplierNumbers.contains(supplier.getProductSupplierNumber())) {
                 continue;

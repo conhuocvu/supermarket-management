@@ -186,6 +186,13 @@ class _PurchaseRequestFormScreenState
     return total;
   }
 
+  String _formatQuantity(double quantity) {
+    if (quantity == quantity.toInt()) {
+      return quantity.toInt().toString();
+    }
+    return quantity.toString();
+  }
+
   Map<String, dynamic> _buildPayload() {
     final List<Map<String, dynamic>> itemsPayload = [];
     for (var row in _rows) {
@@ -534,8 +541,9 @@ class _PurchaseRequestFormScreenState
                                     ),
                                     Text(
                                       NumberFormat.currency(
-                                        symbol: r'$',
-                                        decimalDigits: 2,
+                                        locale: 'vi_VN',
+                                        symbol: '₫',
+                                        decimalDigits: 0,
                                       ).format(_calculateEstimatedTotal()),
                                       style: theme.textTheme.titleMedium?.copyWith(
                                         color: theme.colorScheme.primary,
@@ -696,7 +704,7 @@ class _PurchaseRequestFormScreenState
                       if (prod != null && prod.suppliers.isNotEmpty) {
                         row.selectedSupplier = prod.suppliers.first;
                         row.quantityController.text =
-                            prod.suppliers.first.minimumOrderQuantity.toStringAsFixed(0);
+                            _formatQuantity(prod.suppliers.first.minimumOrderQuantity);
                       }
                     });
                   },
@@ -723,9 +731,10 @@ class _PurchaseRequestFormScreenState
                     ),
                   ),
                   items: row.selectedProduct?.suppliers.map((s) {
+                    final formattedPrice = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(s.importPrice);
                     return DropdownMenuItem<ProductSupplierInfo>(
                       value: s,
-                      child: Text(s.supplierName, overflow: TextOverflow.ellipsis),
+                      child: Text('${s.supplierName} ($formattedPrice)', overflow: TextOverflow.ellipsis),
                     );
                   }).toList() ?? [],
                   onChanged: (supp) {
@@ -733,7 +742,7 @@ class _PurchaseRequestFormScreenState
                       row.selectedSupplier = supp;
                       if (supp != null) {
                         row.quantityController.text =
-                            supp.minimumOrderQuantity.toStringAsFixed(0);
+                            _formatQuantity(supp.minimumOrderQuantity);
                       }
                     });
                   },
@@ -759,7 +768,7 @@ class _PurchaseRequestFormScreenState
                       const SizedBox(height: 8),
                       Text(
                         row.selectedProduct != null
-                            ? '${row.selectedProduct!.currentStock.toStringAsFixed(0)} ${row.selectedProduct!.unitName}'
+                            ? '${_formatQuantity(row.selectedProduct!.currentStock)} ${row.selectedProduct!.unitName}'
                             : 'N/A',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -796,7 +805,7 @@ class _PurchaseRequestFormScreenState
                     if (qty == null || qty <= 0) return 'Must be > 0';
                     if (row.selectedSupplier != null &&
                         qty < row.selectedSupplier!.minimumOrderQuantity) {
-                      return 'Min is ${row.selectedSupplier!.minimumOrderQuantity.toStringAsFixed(0)}';
+                      return 'Min is ${_formatQuantity(row.selectedSupplier!.minimumOrderQuantity)}';
                     }
                     return null;
                   },

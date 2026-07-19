@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class PurchaseRequestListDTO {
     private Integer purchaseRequestNumber;
-    private String createdBy;
+    private String createdById;   // UUID of the creator — used for exact ownership checks
+    private String createdBy;     // Display name of the creator
     private String status;
     private LocalDateTime createdDate;
     private String approvedBy;

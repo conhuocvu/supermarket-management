@@ -810,6 +810,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public List<PurchaseRequestListDTO> getPurchaseRequests() {
         String sql = "SELECT pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, " +
+                "pr.created_by as creator_id, " +
                 "p1.full_name as creator_name, p2.full_name as approver_name, " +
                 "MAX(s.supplier_name) as supplier_name, " +
                 "COALESCE(SUM(prd.requested_quantity), 0) as total_quantity, " +
@@ -820,12 +821,12 @@ public class InventoryService {
                 "LEFT JOIN purchase_request_details prd ON pr.purchase_request_number = prd.purchase_request_number " +
                 "LEFT JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
                 "LEFT JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
-                "GROUP BY pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, p1.full_name, p2.full_name "
-                +
+                "GROUP BY pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, pr.created_by, p1.full_name, p2.full_name " +
                 "ORDER BY pr.created_date DESC";
 
         return jdbcTemplate.query(sql, (rs, rowNum) -> PurchaseRequestListDTO.builder()
                 .purchaseRequestNumber(rs.getInt("purchase_request_number"))
+                .createdById(rs.getString("creator_id"))
                 .createdBy(rs.getString("creator_name") != null ? rs.getString("creator_name") : "System")
                 .status(rs.getString("status"))
                 .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime()
@@ -1079,37 +1080,50 @@ public class InventoryService {
         pr.setExpectedDeliveryDate(dto.getExpectedDeliveryDate());
         purchaseRequestRepository.save(pr);
 
-        purchaseRequestDetailRepository.deleteByPurchaseRequestNumber(pr.getPurchaseRequestNumber());
-
         if (dto.getItems() != null) {
+            // Load existing details indexed by productSupplierNumber for upsert
+            List<PurchaseRequestDetail> existingDetails =
+                    purchaseRequestDetailRepository.findByPurchaseRequestNumber(pr.getPurchaseRequestNumber());
+            java.util.Map<Integer, PurchaseRequestDetail> existingBySupplierNum = existingDetails.stream()
+                    .collect(Collectors.toMap(PurchaseRequestDetail::getProductSupplierNumber, d -> d));
+
+            java.util.Set<Integer> incomingSupplierNumbers = new java.util.HashSet<>();
+
             for (PurchaseRequestSaveDraftItemDTO item : dto.getItems()) {
                 ProductSupplier productSupplier = productSupplierRepository.findByProductNumber(item.getProductNumber()).stream()
                         .filter(ps -> ps.getSupplierNumber().equals(item.getSupplierNumber()))
                         .findFirst()
-                        .orElseGet(() -> {
-                            Product p = productRepository.findById(item.getProductNumber())
-                                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + item.getProductNumber()));
-                            BigDecimal importPrice = p.getSellingPrice() != null
-                                    ? p.getSellingPrice().multiply(BigDecimal.valueOf(0.75))
-                                    : BigDecimal.valueOf(10000);
-                            ProductSupplier newPs = ProductSupplier.builder()
-                                    .productNumber(item.getProductNumber())
-                                    .supplierNumber(item.getSupplierNumber())
-                                    .importPrice(importPrice)
-                                    .minimumOrderQuantity(BigDecimal.valueOf(1))
-                                    .build();
-                            return productSupplierRepository.save(newPs);
-                        });
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Supplier relationship not found for product " + item.getProductNumber() +
+                                " and supplier " + item.getSupplierNumber() +
+                                ". Please configure a supplier for this product first."));
 
-                PurchaseRequestDetail detail = PurchaseRequestDetail.builder()
-                        .purchaseRequestNumber(pr.getPurchaseRequestNumber())
-                        .productSupplierNumber(productSupplier.getProductSupplierNumber())
-                        .requestedQuantity(item.getRequestedQuantity())
-                        .reason(item.getReason())
-                        .notes(item.getNotes())
-                        .build();
-                purchaseRequestDetailRepository.save(detail);
+                incomingSupplierNumbers.add(productSupplier.getProductSupplierNumber());
+
+                PurchaseRequestDetail existing = existingBySupplierNum.get(productSupplier.getProductSupplierNumber());
+                if (existing != null) {
+                    // Update existing detail — do NOT delete and recreate
+                    existing.setRequestedQuantity(item.getRequestedQuantity());
+                    existing.setReason(item.getReason());
+                    existing.setNotes(item.getNotes());
+                    purchaseRequestDetailRepository.save(existing);
+                } else {
+                    // Insert new detail
+                    PurchaseRequestDetail detail = PurchaseRequestDetail.builder()
+                            .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                            .productSupplierNumber(productSupplier.getProductSupplierNumber())
+                            .requestedQuantity(item.getRequestedQuantity())
+                            .reason(item.getReason())
+                            .notes(item.getNotes())
+                            .build();
+                    purchaseRequestDetailRepository.save(detail);
+                }
             }
+
+            // Remove details that were explicitly removed from the form (not in incoming list)
+            existingDetails.stream()
+                    .filter(d -> !incomingSupplierNumbers.contains(d.getProductSupplierNumber()))
+                    .forEach(purchaseRequestDetailRepository::delete);
         }
 
         return pr;

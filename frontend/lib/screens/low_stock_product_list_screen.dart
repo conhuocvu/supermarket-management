@@ -42,6 +42,13 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
     return products.fold(0.0, (sum, p) => sum + (p.suggestedQuantity * p.importPrice));
   }
 
+  String _formatQuantity(double quantity) {
+    if (quantity == quantity.toInt()) {
+      return quantity.toInt().toString();
+    }
+    return quantity.toString();
+  }
+
   Future<void> _createPurchaseRequest() async {
     if (_selectedProductNumbers.isEmpty) return;
 
@@ -53,6 +60,9 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
       final apiService = ref.read(apiServiceProvider);
       await apiService.createPurchaseRequest(_selectedProductNumbers.toList());
       
+      // Invalidate the purchase requests list to reload with draft updates
+      ref.invalidate(purchaseRequestsProvider);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -78,13 +88,14 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
       }
     } catch (e) {
       if (mounted) {
+        String errMsg = e.toString().replaceAll('Exception: ', '').trim();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Failed to initiate purchase request: $e')),
+                Expanded(child: Text('Failed to initiate purchase request: $errMsg')),
               ],
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
@@ -105,17 +116,10 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lowStockAsync = ref.watch(lowStockProductsProvider);
-    final prAsync = ref.watch(purchaseRequestsProvider);
 
     return Scaffold(
       body: lowStockAsync.when(
         data: (products) {
-          final pendingCount = prAsync.when(
-            data: (list) => list.where((pr) => pr.status.toUpperCase() == 'PENDING').length,
-            loading: () => 0,
-            error: (err, stack) => 0,
-          );
-
           final filteredProducts = products.where((p) {
             final query = _searchQuery.toLowerCase();
             return p.productName.toLowerCase().contains(query) ||
@@ -152,18 +156,18 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                         ),
                         _buildStatCard(
                           theme: theme,
-                          title: 'PENDING REQUESTS',
-                          value: pendingCount.toString().padLeft(2, '0'),
+                          title: 'TOTAL LOW STOCK',
+                          value: products.length.toString().padLeft(2, '0'),
                           color: theme.colorScheme.secondary,
-                          progress: pendingCount == 0 ? 0.0 : (pendingCount / 10.0).clamp(0.0, 1.0),
+                          progress: products.isEmpty ? 0.0 : (products.length / 20.0).clamp(0.0, 1.0),
                           progressColor: theme.colorScheme.secondary,
                         ),
                         _buildStatCard(
                           theme: theme,
                           title: 'EST. REORDER COST',
-                          value: NumberFormat.compactSimpleCurrency(locale: 'en_US').format(estCost),
+                          value: NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(estCost),
                           color: theme.colorScheme.primary,
-                          progress: estCost == 0 ? 0.0 : (estCost / 5000.0).clamp(0.0, 1.0),
+                          progress: estCost == 0 ? 0.0 : (estCost / 5000000.0).clamp(0.0, 1.0),
                           progressColor: theme.colorScheme.primary,
                         ),
                       ],
@@ -327,13 +331,13 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                                       ),
                                       DataCell(
                                         Text(
-                                          '${p.currentStock.toStringAsFixed(0)} ${p.unitName}',
+                                          '${_formatQuantity(p.currentStock)} ${p.unitName}',
                                           style: theme.textTheme.bodyMedium,
                                         ),
                                       ),
                                       DataCell(
                                         Text(
-                                          '${p.reorderLevel.toStringAsFixed(0)} ${p.unitName}',
+                                          '${_formatQuantity(p.reorderLevel)} ${p.unitName}',
                                           style: theme.textTheme.bodyMedium?.copyWith(
                                             color: p.critical ? theme.colorScheme.error : null,
                                             fontWeight: p.critical ? FontWeight.bold : null,

@@ -1,5 +1,6 @@
 class PurchaseRequestList {
   final int purchaseRequestNumber;
+  final String? createdById;
   final String createdBy;
   final String status;
   final DateTime? createdDate;
@@ -11,6 +12,7 @@ class PurchaseRequestList {
 
   PurchaseRequestList({
     required this.purchaseRequestNumber,
+    this.createdById,
     required this.createdBy,
     required this.status,
     this.createdDate,
@@ -24,6 +26,7 @@ class PurchaseRequestList {
   factory PurchaseRequestList.fromJson(Map<String, dynamic> json) {
     return PurchaseRequestList(
       purchaseRequestNumber: json['purchaseRequestNumber'] ?? 0,
+      createdById: json['createdById'],
       createdBy: json['createdBy'] ?? 'System',
       status: json['status'] ?? 'PENDING',
       createdDate: json['createdDate'] != null ? DateTime.parse(json['createdDate']) : null,

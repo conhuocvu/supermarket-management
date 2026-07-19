@@ -104,6 +104,14 @@ public class InventoryServiceStockOutTests {
                 .remainingQuantity(BigDecimal.valueOf(40))
                 .expiryDate(LocalDate.now().plusDays(10))
                 .build();
+
+        try {
+            java.lang.reflect.Field field = InventoryService.class.getDeclaredField("defaultUserIdStr");
+            field.setAccessible(true);
+            field.set(inventoryService, "e3b3ec4a-da0b-40f5-9747-29361993892b");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -282,7 +290,7 @@ public class InventoryServiceStockOutTests {
 
         Inventory inv = Inventory.builder().productNumber(6).availableQuantity(BigDecimal.ZERO).totalQuantity(BigDecimal.ZERO).build();
         when(inventoryRepository.findByIdForUpdate(6)).thenReturn(Optional.of(inv));
-        when(productRepository.findById(6)).thenReturn(Optional.of(Product.builder().productNumber(6).build()));
+        when(productRepository.findAllById(any())).thenReturn(Collections.singletonList(Product.builder().productNumber(6).build()));
 
         ProductReport reportMatching = ProductReport.builder()
                 .reportNumber(1)
@@ -308,16 +316,21 @@ public class InventoryServiceStockOutTests {
                 .stockInDetailNumber(null)
                 .build();
 
-        when(productReportRepository.findAll()).thenReturn(Arrays.asList(reportMatching, reportOtherPR, reportOtherProduct));
+        when(productReportRepository.findDeliveryDiscrepancies(eq(6), contains("[PR-12]")))
+                .thenReturn(Collections.singletonList(reportMatching));
 
         PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
         when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
 
-        ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
-        when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
+        ProductSupplier ps = ProductSupplier.builder().productSupplierNumber(5).productNumber(6).supplierNumber(30).build();
+        when(productSupplierRepository.findAllById(any())).thenReturn(Collections.singletonList(ps));
 
-        when(jdbcTemplate.queryForObject(anyString(), eq(BigDecimal.class), any(Object[].class)))
-                .thenReturn(BigDecimal.ZERO, BigDecimal.valueOf(100));
+        Map<Integer, BigDecimal> alreadyReceivedMap = new HashMap<>();
+        alreadyReceivedMap.put(6, BigDecimal.ZERO);
+        Map<Integer, BigDecimal> updatedReceivedMap = new HashMap<>();
+        updatedReceivedMap.put(6, BigDecimal.valueOf(100));
+        when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), any()))
+                .thenReturn(alreadyReceivedMap, updatedReceivedMap);
 
         PurchaseRequest pr = PurchaseRequest.builder().purchaseRequestNumber(12).status("APPROVED").build();
         when(purchaseRequestRepository.findByIdForUpdate(12)).thenReturn(Optional.of(pr));
@@ -372,8 +385,8 @@ public class InventoryServiceStockOutTests {
         PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
         when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
 
-        ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
-        when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
+        ProductSupplier ps = ProductSupplier.builder().productSupplierNumber(5).productNumber(6).supplierNumber(30).build();
+        when(productSupplierRepository.findAllById(any())).thenReturn(Collections.singletonList(ps));
 
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)
@@ -396,11 +409,13 @@ public class InventoryServiceStockOutTests {
         PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
         when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
 
-        ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
-        when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
+        ProductSupplier ps = ProductSupplier.builder().productSupplierNumber(5).productNumber(6).supplierNumber(30).build();
+        when(productSupplierRepository.findAllById(any())).thenReturn(Collections.singletonList(ps));
 
-        when(jdbcTemplate.queryForObject(anyString(), eq(BigDecimal.class), any(Object[].class)))
-                .thenReturn(BigDecimal.ZERO);
+        Map<Integer, BigDecimal> alreadyReceivedMap = new HashMap<>();
+        alreadyReceivedMap.put(6, BigDecimal.ZERO);
+        when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), any()))
+                .thenReturn(alreadyReceivedMap);
 
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)
@@ -423,11 +438,13 @@ public class InventoryServiceStockOutTests {
         PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
         when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
 
-        ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
-        when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
+        ProductSupplier ps = ProductSupplier.builder().productSupplierNumber(5).productNumber(6).supplierNumber(30).build();
+        when(productSupplierRepository.findAllById(any())).thenReturn(Collections.singletonList(ps));
 
-        when(jdbcTemplate.queryForObject(anyString(), eq(BigDecimal.class), any(Object[].class)))
-                .thenReturn(BigDecimal.valueOf(80));
+        Map<Integer, BigDecimal> alreadyReceivedMap = new HashMap<>();
+        alreadyReceivedMap.put(6, BigDecimal.valueOf(80));
+        when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.ResultSetExtractor.class), any()))
+                .thenReturn(alreadyReceivedMap);
 
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)

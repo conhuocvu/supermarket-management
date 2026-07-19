@@ -7,6 +7,7 @@ import '../providers/purchase_request_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 
 class PurchaseRequestListScreen extends ConsumerStatefulWidget {
   const PurchaseRequestListScreen({super.key});
@@ -45,6 +46,13 @@ class _PurchaseRequestListScreenState
     super.dispose();
   }
 
+  String _formatQuantity(double quantity) {
+    if (quantity == quantity.toInt()) {
+      return quantity.toInt().toString();
+    }
+    return quantity.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -52,12 +60,15 @@ class _PurchaseRequestListScreenState
 
     final authState = ref.watch(authProvider);
     final currentUserFullName = authState.profile?.fullName ?? 'John Doe';
+    final currentUserId = authState.user?.id ?? ApiService.mockUserUuid;
 
     // Detect if there's an existing draft with items created by the current user
     final draftRequest = prAsync.whenData((list) =>
       list.where((pr) => 
         pr.status.toUpperCase() == 'DRAFT' && 
-        pr.createdBy.toLowerCase() == currentUserFullName.toLowerCase()
+        (pr.createdById != null 
+            ? pr.createdById == currentUserId 
+            : pr.createdBy.toLowerCase() == currentUserFullName.toLowerCase())
       ).firstOrNull
     ).value;
     final hasDraft = draftRequest != null;
@@ -94,9 +105,11 @@ class _PurchaseRequestListScreenState
                   data: (requests) {
                     final filteredRequests = requests.where((pr) {
                       // Do not show drafts of other users
-                      if (pr.status.toUpperCase() == 'DRAFT' &&
-                          pr.createdBy.toLowerCase() != currentUserFullName.toLowerCase()) {
-                        return false;
+                      if (pr.status.toUpperCase() == 'DRAFT') {
+                        final isOwner = pr.createdById != null 
+                            ? pr.createdById == currentUserId 
+                            : pr.createdBy.toLowerCase() == currentUserFullName.toLowerCase();
+                        if (!isOwner) return false;
                       }
 
                       final matchesStatus =
@@ -199,7 +212,7 @@ class _PurchaseRequestListScreenState
                                     ),
                                     DataCell(Text(pr.supplierName)),
                                     DataCell(Text('${pr.totalItems}')),
-                                    DataCell(Text('${pr.totalQuantity}')),
+                                    DataCell(Text(_formatQuantity(pr.totalQuantity))),
                                     DataCell(
                                       _buildStatusBadge(theme, pr.status),
                                     ),
@@ -722,16 +735,18 @@ class _PurchaseRequestListScreenState
                                       DataCell(Text(item.supplierName)),
                                       DataCell(
                                         Text(
-                                          '${item.requestedQuantity} ${item.unitName}',
+                                          '${_formatQuantity(item.requestedQuantity)} ${item.unitName}',
                                         ),
                                       ),
                                       DataCell(
                                         Text(
-                                          '\$${item.importPrice.toStringAsFixed(2)}',
+                                          NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(item.importPrice),
                                         ),
                                       ),
                                       DataCell(
-                                        Text('\$${total.toStringAsFixed(2)}'),
+                                        Text(
+                                          NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(total),
+                                        ),
                                       ),
                                     ],
                                   );
@@ -754,7 +769,7 @@ class _PurchaseRequestListScreenState
                             ),
                           ),
                           Text(
-                            '\$${totalPrCost.toStringAsFixed(2)}',
+                            NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(totalPrCost),
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.primary,
