@@ -77,13 +77,29 @@ class SupplierListNotifier extends StateNotifier<SupplierListState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      // 1. Fetch main list
-      final listResult = await _apiService.fetchSupplierList(
-        keyword: state.searchQuery.isEmpty ? null : state.searchQuery,
-        status: state.statusFilter,
-        page: state.currentPage,
-        size: state.pageSize,
-      );
+      // 1. Fetch main list, active count, and inactive count in parallel to avoid network chaining latency
+      final results = await Future.wait([
+        _apiService.fetchSupplierList(
+          keyword: state.searchQuery.isEmpty ? null : state.searchQuery,
+          status: state.statusFilter,
+          page: state.currentPage,
+          size: state.pageSize,
+        ),
+        _apiService.fetchSupplierList(
+          status: 'ACTIVE',
+          page: 0,
+          size: 1,
+        ),
+        _apiService.fetchSupplierList(
+          status: 'INACTIVE',
+          page: 0,
+          size: 1,
+        ),
+      ]);
+
+      final listResult = results[0];
+      final activeResult = results[1];
+      final inactiveResult = results[2];
 
       final rawItems = listResult['items'] as List? ?? [];
       final suppliersList = rawItems
@@ -92,21 +108,7 @@ class SupplierListNotifier extends StateNotifier<SupplierListState> {
 
       final totalPages = (listResult['totalPages'] as num?)?.toInt() ?? 1;
       final currentPage = (listResult['page'] as num?)?.toInt() ?? 0;
-
-      // 2. Fetch active count
-      final activeResult = await _apiService.fetchSupplierList(
-        status: 'ACTIVE',
-        page: 0,
-        size: 1,
-      );
       final activeCount = (activeResult['totalItems'] as num?)?.toInt() ?? 0;
-
-      // 3. Fetch inactive count
-      final inactiveResult = await _apiService.fetchSupplierList(
-        status: 'INACTIVE',
-        page: 0,
-        size: 1,
-      );
       final inactiveCount = (inactiveResult['totalItems'] as num?)?.toInt() ?? 0;
 
       state = state.copyWith(

@@ -143,19 +143,31 @@ public class SupplierService {
 
         if (assignments == null || assignments.isEmpty()) return;
 
-        for (ProductAssignmentDTO assignment : assignments) {
-            if (!productRepository.existsById(assignment.getProductNumber())) {
-                throw new RuntimeException("Product not found: " + assignment.getProductNumber());
-            }
+        List<Integer> productNumbers = assignments.stream()
+                .map(ProductAssignmentDTO::getProductNumber)
+                .collect(Collectors.toList());
 
-            ProductSupplier ps = ProductSupplier.builder()
-                    .supplierNumber(supplierNumber)
-                    .productNumber(assignment.getProductNumber())
-                    .importPrice(assignment.getImportPrice())
-                    .minimumOrderQuantity(assignment.getMinimumOrderQuantity())
-                    .build();
-            productSupplierRepository.save(ps);
+        List<Product> products = productRepository.findAllById(productNumbers);
+        if (products.size() != productNumbers.size()) {
+            List<Integer> foundIds = products.stream()
+                    .map(Product::getProductNumber)
+                    .collect(Collectors.toList());
+            List<Integer> missingIds = productNumbers.stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .collect(Collectors.toList());
+            throw new RuntimeException("Products not found: " + missingIds);
         }
+
+        List<ProductSupplier> psList = assignments.stream()
+                .map(assignment -> ProductSupplier.builder()
+                        .supplierNumber(supplierNumber)
+                        .productNumber(assignment.getProductNumber())
+                        .importPrice(assignment.getImportPrice())
+                        .minimumOrderQuantity(assignment.getMinimumOrderQuantity())
+                        .build())
+                .collect(Collectors.toList());
+
+        productSupplierRepository.saveAll(psList);
     }
 
     @Transactional
