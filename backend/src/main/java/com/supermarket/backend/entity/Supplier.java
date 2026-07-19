@@ -13,6 +13,7 @@ import lombok.*;
 public class Supplier {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "supplier_number")
     private Integer supplierNumber;
 

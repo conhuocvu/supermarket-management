@@ -12,4 +12,7 @@ import lombok.NoArgsConstructor;
 public class SupplierDTO {
     private Integer supplierNumber;
     private String supplierName;
+    private String phone;
+    private String email;
+    private String status;
 }

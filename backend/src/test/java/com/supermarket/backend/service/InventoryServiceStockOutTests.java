@@ -131,7 +131,7 @@ public class InventoryServiceStockOutTests {
         when(productReportRepository.findById(4)).thenReturn(Optional.of(report));
         when(inventoryRepository.findByIdForUpdate(6)).thenReturn(Optional.of(inventory));
         when(stockInDetailRepository.findLatestStockInDetails(6)).thenReturn(Arrays.asList(batch1, batch2));
-        
+
         StockOut savedStockOut = StockOut.builder().stockOutNumber(100).build();
         when(stockOutRepository.save(any(StockOut.class))).thenReturn(savedStockOut);
 
@@ -145,7 +145,8 @@ public class InventoryServiceStockOutTests {
 
         inventoryService.recordStockOut(request);
 
-        // Verify FIFO: Batch 1 (30 remaining) should be completely cleared (remaining = 0)
+        // Verify FIFO: Batch 1 (30 remaining) should be completely cleared (remaining =
+        // 0)
         assertEquals(BigDecimal.ZERO, batch1.getRemainingQuantity());
         // Batch 2 (40 remaining) should have 20 deducted (remaining = 20)
         assertEquals(BigDecimal.valueOf(20), batch2.getRemainingQuantity());
@@ -234,12 +235,10 @@ public class InventoryServiceStockOutTests {
 
         inventoryService.validateAndSaveDeliveryIssue(request);
 
-        verify(productReportRepository, times(1)).save(argThat(r -> 
-            "DELIVERY_DISCREPANCY".equals(r.getReportType()) &&
-            r.getProductNumber().equals(6) &&
-            r.getQuantity().compareTo(BigDecimal.valueOf(5)) == 0 &&
-            "[PR-12] Short of 5 boxes".equals(r.getDescription())
-        ));
+        verify(productReportRepository, times(1)).save(argThat(r -> "DELIVERY_DISCREPANCY".equals(r.getReportType()) &&
+                r.getProductNumber().equals(6) &&
+                r.getQuantity().compareTo(BigDecimal.valueOf(5)) == 0 &&
+                "[PR-12] Short of 5 boxes".equals(r.getDescription())));
     }
 
     @Test
@@ -280,7 +279,8 @@ public class InventoryServiceStockOutTests {
         StockInDetail savedDetail = StockInDetail.builder().stockInDetailNumber(200).build();
         when(stockInDetailRepository.save(any(StockInDetail.class))).thenReturn(savedDetail);
 
-        Inventory inv = Inventory.builder().productNumber(6).availableQuantity(BigDecimal.ZERO).totalQuantity(BigDecimal.ZERO).build();
+        Inventory inv = Inventory.builder().productNumber(6).availableQuantity(BigDecimal.ZERO)
+                .totalQuantity(BigDecimal.ZERO).build();
         when(inventoryRepository.findByIdForUpdate(6)).thenReturn(Optional.of(inv));
         when(productRepository.findById(6)).thenReturn(Optional.of(Product.builder().productNumber(6).build()));
 
@@ -308,10 +308,13 @@ public class InventoryServiceStockOutTests {
                 .stockInDetailNumber(null)
                 .build();
 
-        when(productReportRepository.findAll()).thenReturn(Arrays.asList(reportMatching, reportOtherPR, reportOtherProduct));
+        when(productReportRepository.findAll())
+                .thenReturn(Arrays.asList(reportMatching, reportOtherPR, reportOtherProduct));
 
-        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
-        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
+        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5)
+                .requestedQuantity(BigDecimal.valueOf(100)).build();
+        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12))
+                .thenReturn(Collections.singletonList(prd));
 
         ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
         when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
@@ -337,7 +340,8 @@ public class InventoryServiceStockOutTests {
 
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(99)
-                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6).deliveredQuantity(BigDecimal.valueOf(10)).build()))
+                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6)
+                        .deliveredQuantity(BigDecimal.valueOf(10)).build()))
                 .build();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -354,7 +358,8 @@ public class InventoryServiceStockOutTests {
 
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)
-                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6).deliveredQuantity(BigDecimal.valueOf(10)).build()))
+                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6)
+                        .deliveredQuantity(BigDecimal.valueOf(10)).build()))
                 .build();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -369,8 +374,10 @@ public class InventoryServiceStockOutTests {
         PurchaseRequest pr = PurchaseRequest.builder().purchaseRequestNumber(12).status("APPROVED").build();
         when(purchaseRequestRepository.findByIdForUpdate(12)).thenReturn(Optional.of(pr));
 
-        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
-        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
+        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5)
+                .requestedQuantity(BigDecimal.valueOf(100)).build();
+        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12))
+                .thenReturn(Collections.singletonList(prd));
 
         ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
         when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
@@ -378,14 +385,16 @@ public class InventoryServiceStockOutTests {
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)
                 .supplierNumber(40)
-                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6).deliveredQuantity(BigDecimal.valueOf(10)).build()))
+                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6)
+                        .deliveredQuantity(BigDecimal.valueOf(10)).build()))
                 .build();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
             inventoryService.recordStockIn(request);
         });
 
-        assertTrue(exception.getMessage().contains("Supplier mismatch") || exception.getMessage().contains("No items found"));
+        assertTrue(exception.getMessage().contains("Supplier mismatch")
+                || exception.getMessage().contains("No items found"));
     }
 
     @Test
@@ -393,8 +402,10 @@ public class InventoryServiceStockOutTests {
         PurchaseRequest pr = PurchaseRequest.builder().purchaseRequestNumber(12).status("APPROVED").build();
         when(purchaseRequestRepository.findByIdForUpdate(12)).thenReturn(Optional.of(pr));
 
-        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
-        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
+        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5)
+                .requestedQuantity(BigDecimal.valueOf(100)).build();
+        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12))
+                .thenReturn(Collections.singletonList(prd));
 
         ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
         when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
@@ -405,7 +416,8 @@ public class InventoryServiceStockOutTests {
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)
                 .supplierNumber(30)
-                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(999).deliveredQuantity(BigDecimal.valueOf(10)).build()))
+                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(999)
+                        .deliveredQuantity(BigDecimal.valueOf(10)).build()))
                 .build();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -420,8 +432,10 @@ public class InventoryServiceStockOutTests {
         PurchaseRequest pr = PurchaseRequest.builder().purchaseRequestNumber(12).status("APPROVED").build();
         when(purchaseRequestRepository.findByIdForUpdate(12)).thenReturn(Optional.of(pr));
 
-        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5).requestedQuantity(BigDecimal.valueOf(100)).build();
-        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12)).thenReturn(Collections.singletonList(prd));
+        PurchaseRequestDetail prd = PurchaseRequestDetail.builder().productSupplierNumber(5)
+                .requestedQuantity(BigDecimal.valueOf(100)).build();
+        when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(12))
+                .thenReturn(Collections.singletonList(prd));
 
         ProductSupplier ps = ProductSupplier.builder().productNumber(6).supplierNumber(30).build();
         when(productSupplierRepository.findById(5)).thenReturn(Optional.of(ps));
@@ -432,7 +446,8 @@ public class InventoryServiceStockOutTests {
         StockInRequestDTO request = StockInRequestDTO.builder()
                 .purchaseRequestNumber(12)
                 .supplierNumber(30)
-                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6).deliveredQuantity(BigDecimal.valueOf(30)).build()))
+                .items(Collections.singletonList(StockInDetailRequestDTO.builder().productNumber(6)
+                        .deliveredQuantity(BigDecimal.valueOf(30)).build()))
                 .build();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {

@@ -34,6 +34,9 @@ class AppScaffold extends ConsumerWidget {
     } else if (currentPath == '/manager/promotion') {
       displayTitle = 'Promotions';
       displayBreadcrumbs = ['Manager', 'Promotions'];
+    } else if (currentPath == '/manager/supplier') {
+      displayTitle = 'Supplier Management';
+      displayBreadcrumbs = ['Manager', 'Suppliers'];
     }
 
     final authState = ref.watch(authProvider);
@@ -236,6 +239,8 @@ class AppScaffold extends ConsumerWidget {
                             context.go('/manager/staff');
                           } else if (item['title'] == 'Promotion') {
                             context.go('/manager/promotion');
+                          } else if (item['title'] == 'Supplier') {
+                            context.go('/manager/supplier');
                           }
                         } else {
                           if (item['title'] == 'Dashboard') {

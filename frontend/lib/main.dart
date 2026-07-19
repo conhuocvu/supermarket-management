@@ -30,6 +30,7 @@ import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
 import 'screens/promotion_list_screen.dart';
 import 'screens/promotion_detail_screen.dart';
+import 'screens/supplier_list_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -248,6 +249,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 child: PromotionDetailScreen(promotionNumber: promotionNumber),
               );
             },
+          ),
+          GoRoute(
+            path: '/manager/supplier',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SupplierListScreen()),
           ),
         ],
       ),
