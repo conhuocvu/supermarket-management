@@ -69,3 +69,9 @@ VALUES
 (5, 'Grand Opening Anniversary', 15.0, 'ACTIVE'::promotion_status, CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '12 days', 'ANNIVERSARY5', 'STOREWIDE EVENT', TRUE, 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=800&q=80', 'Special store-wide discounts across all departments to celebrate our 5th year in operation.')
 ON CONFLICT (promotion_number) DO NOTHING;
 
+-- 12. Add expected_delivery_date to purchase_requests table
+ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS expected_delivery_date DATE;
+
+-- 13. Add reason and notes to purchase_request_details table
+ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
+ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS notes TEXT;

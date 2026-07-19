@@ -101,14 +101,14 @@ class AppScaffold extends ConsumerWidget {
               'active': currentPath.startsWith('/stock/transactions'),
             },
             {
-              'title': 'Low Stock',
-              'icon': Icons.priority_high_outlined,
-              'active': false,
-            },
-            {
               'title': 'Purchase Requests',
               'icon': Icons.shopping_cart_outlined,
               'active': currentPath.startsWith('/stock/purchase-requests'),
+            },
+            {
+              'title': 'Low Stock',
+              'icon': Icons.priority_high_outlined,
+              'active': currentPath.startsWith('/stock/low-stock'),
             },
             {
               'title': 'Expiring Products',
@@ -234,8 +234,14 @@ class AppScaffold extends ConsumerWidget {
                             context.go('/manager');
                           } else if (item['title'] == 'Staff') {
                             context.go('/manager/staff');
+                          } else if (item['title'] == 'Requests') {
+                            context.go('/manager/requests');
                           } else if (item['title'] == 'Promotion') {
                             context.go('/manager/promotion');
+                          } else if (item['title'] == 'Supplier') {
+                            context.go('/manager/supplier');
+                          } else if (item['title'] == 'Reports') {
+                            context.go('/manager/reports');
                           }
                         } else {
                           if (item['title'] == 'Dashboard') {
@@ -248,7 +254,10 @@ class AppScaffold extends ConsumerWidget {
                             context.go('/stock/transactions');
                           } else if (item['title'] == 'Purchase Requests') {
                             context.go('/stock/purchase-requests');
+                          } else if (item['title'] == 'Low Stock') {
+                            context.go('/stock/low-stock');
                           }
+                        }
                         }
                       },
                       borderRadius: BorderRadius.circular(12),
