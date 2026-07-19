@@ -1,13 +1,12 @@
 package com.supermarket.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.supermarket.backend.dto.ApiResponse;
 import com.supermarket.backend.dto.AttendanceDTO;
 import com.supermarket.backend.service.AttendanceService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,10 +24,9 @@ public class AttendanceController {
      */
     @PostMapping("/{userId}/check-in")
     public ResponseEntity<ApiResponse<AttendanceDTO>> checkIn(
-            @PathVariable UUID userId,
-            HttpServletRequest request) {
+            @PathVariable UUID userId) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             AttendanceDTO record = attendanceService.checkIn(userId);
             return ResponseEntity.ok(ApiResponse.success("Checked in successfully.", record));
         } catch (SecurityException e) {
@@ -46,10 +44,9 @@ public class AttendanceController {
      */
     @PostMapping("/{userId}/check-out")
     public ResponseEntity<ApiResponse<AttendanceDTO>> checkOut(
-            @PathVariable UUID userId,
-            HttpServletRequest request) {
+            @PathVariable UUID userId) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             AttendanceDTO record = attendanceService.checkOut(userId);
             return ResponseEntity.ok(ApiResponse.success("Checked out successfully.", record));
         } catch (SecurityException e) {
@@ -68,10 +65,9 @@ public class AttendanceController {
      */
     @GetMapping("/{userId}/today")
     public ResponseEntity<ApiResponse<AttendanceDTO>> getTodayAttendance(
-            @PathVariable UUID userId,
-            HttpServletRequest request) {
+            @PathVariable UUID userId) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             AttendanceDTO record = attendanceService.getTodayAttendance(userId);
             return ResponseEntity.ok(ApiResponse.success("Attendance retrieved successfully.", record));
         } catch (SecurityException e) {
@@ -91,10 +87,9 @@ public class AttendanceController {
     public ResponseEntity<ApiResponse<List<AttendanceDTO>>> getMonthlyAttendance(
             @PathVariable UUID userId,
             @RequestParam int year,
-            @RequestParam int month,
-            HttpServletRequest request) {
+            @RequestParam int month) {
         try {
-            verifyOwnership(request, userId);
+            verifyOwnership(userId);
             if (month < 1 || month > 12) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("Month must be between 1 and 12."));
@@ -114,24 +109,16 @@ public class AttendanceController {
     /**
      * Verifies that the JWT in the Authorization header belongs to the same user as
      * the path variable, preventing accidental cross-user writes (IDOR).
-     * Same approach as ProfileController — decode only, no signature verification.
+     * Retrieves the validated subject directly from Spring Security Context.
      */
-    private void verifyOwnership(HttpServletRequest request, UUID userId) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    private void verifyOwnership(UUID userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new SecurityException("Authentication required.");
         }
-        try {
-            String token = authHeader.substring(7);
-            DecodedJWT decoded = JWT.decode(token); // Decode only — no signature verification
-            String sub = decoded.getSubject();      // Supabase sets sub = user UUID
-            if (sub == null || !sub.equals(userId.toString())) {
-                throw new SecurityException("You are not authorised to access this attendance record.");
-            }
-        } catch (SecurityException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SecurityException("Invalid authentication token: " + e.getMessage());
+        String principalName = authentication.getName();
+        if (principalName == null || !principalName.equals(userId.toString())) {
+            throw new SecurityException("You are not authorised to access this attendance record.");
         }
     }
 }

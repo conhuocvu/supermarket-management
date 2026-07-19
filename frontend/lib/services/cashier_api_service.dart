@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/cashier_models.dart';
 import 'api_service.dart';
@@ -13,7 +14,24 @@ class CashierApiService {
             connectTimeout: const Duration(seconds: 8),
             receiveTimeout: const Duration(seconds: 12),
           ),
-        );
+        ) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          try {
+            final token =
+                Supabase.instance.client.auth.currentSession?.accessToken;
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (_) {
+            // Supabase not initialized or no session
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+  }
 
   Future<CashierDashboardData> dashboard(String cashierId) async {
     final body = await _request(

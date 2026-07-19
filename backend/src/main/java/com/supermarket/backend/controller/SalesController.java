@@ -7,12 +7,15 @@ import com.supermarket.backend.service.SalesService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/cashier")
+@PreAuthorize("hasRole('CASHIER')")
 public class SalesController {
     private final SalesService service;
 
