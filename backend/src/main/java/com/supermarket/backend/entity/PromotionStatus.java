@@ -4,5 +4,6 @@ public enum PromotionStatus {
     ACTIVE,
     SCHEDULED,
     EXPIRED,
-    INACTIVE
+    INACTIVE,
+    PENDING
 }

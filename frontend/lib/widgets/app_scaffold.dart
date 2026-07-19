@@ -174,7 +174,8 @@ class AppScaffold extends ConsumerWidget {
             {
               'title': 'Expiring Products',
               'icon': Icons.event_busy_outlined,
-              'active': false,
+              'route': '/stock/expiring-products',
+              'active': currentPath.startsWith('/stock/expiring-products'),
             },
             {
               'title': 'Product Reports',

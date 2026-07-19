@@ -16,6 +16,8 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
 
     List<Promotion> findByStatus(PromotionStatus status);
 
+    List<Promotion> findByCategoryOrderByPromotionNumberDesc(String category);
+
     Page<Promotion> findByStatus(PromotionStatus status, Pageable pageable);
 
     List<Promotion> findByPromotionNameContainingIgnoreCaseOrPromoCodeContainingIgnoreCase(String nameKeyword, String codeKeyword);

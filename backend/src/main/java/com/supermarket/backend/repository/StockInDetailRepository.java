@@ -20,6 +20,9 @@ public interface StockInDetailRepository extends JpaRepository<StockInDetail, In
     @Query("SELECT s FROM StockInDetail s WHERE s.remainingQuantity > 0 ORDER BY s.expiryDate ASC NULLS LAST")
     List<StockInDetail> findAllActiveStockInDetails();
 
+    @Query("SELECT s FROM StockInDetail s WHERE s.remainingQuantity > 0 AND s.expiryDate IS NOT NULL AND s.expiryDate <= :maxThreshold ORDER BY s.expiryDate ASC")
+    List<StockInDetail> findExpiringStockInDetails(@Param("maxThreshold") LocalDate maxThreshold);
+
     @Query("SELECT s FROM StockInDetail s WHERE s.productNumber IN :productNumbers AND s.remainingQuantity > 0 ORDER BY s.expiryDate ASC NULLS LAST")
     List<StockInDetail> findActiveStockInDetailsByProductNumbers(@Param("productNumbers") List<Integer> productNumbers);
 }

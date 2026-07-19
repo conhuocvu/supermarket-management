@@ -128,4 +128,52 @@ public class PromotionController {
                     .body(ApiResponse.error("Failed to upload image: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/clearance-proposals/{stockInDetailNumber}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<com.supermarket.backend.dto.ClearanceProposalDataDTO>> getClearanceProposalData(
+            @PathVariable("stockInDetailNumber") Integer stockInDetailNumber) {
+        try {
+            com.supermarket.backend.dto.ClearanceProposalDataDTO data = promotionService.loadClearanceProposalData(stockInDetailNumber);
+            return ResponseEntity.ok(ApiResponse.success("Clearance proposal data loaded successfully.", data));
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error(e.getMessage()));
+            }
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Clearance proposal data cannot be loaded."));
+        }
+    }
+
+    @PostMapping("/clearance-proposals")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> submitClearanceProposal(
+            @Valid @RequestBody com.supermarket.backend.dto.ClearanceProposalRequestDTO request) {
+        try {
+            promotionService.submitClearanceProposal(request);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("Clearance proposal has been submitted successfully.", null));
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error(e.getMessage()));
+            }
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Clearance proposal cannot be submitted."));
+        }
+    }
+
+    @GetMapping("/clearance-proposals/submitted")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<java.util.List<PromotionDTO>>> getSubmittedClearanceProposals() {
+        try {
+            java.util.List<PromotionDTO> data = promotionService.getSubmittedClearanceProposals();
+            return ResponseEntity.ok(ApiResponse.success("Submitted clearance proposals loaded successfully.", data));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Unable to load submitted clearance proposals: " + e.getMessage()));
+        }
+    }
 }
+

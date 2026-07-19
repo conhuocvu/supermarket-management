@@ -18,7 +18,10 @@ import java.util.UUID;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
+import com.supermarket.backend.repository.PromotionProductRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class InventoryService {
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
     private final StockInDetailRepository stockInDetailRepository;
+    private final PromotionProductRepository promotionProductRepository;
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final JdbcTemplate jdbcTemplate;
@@ -1193,4 +1197,177 @@ public class InventoryService {
         }
         return dtos;
     }
+
+    @Transactional(readOnly = true)
+    public List<ExpiringProductDTO> getExpiringProducts(String search, String status) {
+        LocalDate now = LocalDate.now();
+        // Look ahead 90 days for any near-expiry warning
+        List<StockInDetail> activeBatches = stockInDetailRepository.findExpiringStockInDetails(now.plusDays(90));
+
+        List<Integer> proposedNumbers = promotionProductRepository.findProposedStockInDetailNumbers();
+        Set<Integer> proposedSet = proposedNumbers != null ? new HashSet<>(proposedNumbers) : new HashSet<>();
+
+        Set<Integer> productNumbers = activeBatches.stream()
+                .map(StockInDetail::getProductNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Product> products = productNumbers.isEmpty() ? java.util.Collections.emptyList() : productRepository.findAllById(productNumbers);
+        Map<Integer, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
+
+        List<ExpiringProductDTO> dtos = new java.util.ArrayList<>();
+
+        for (StockInDetail detail : activeBatches) {
+            if (detail.getRemainingQuantity() == null || detail.getRemainingQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (proposedSet.contains(detail.getStockInDetailNumber())) {
+                continue;
+            }
+
+            Product p = productMap.get(detail.getProductNumber());
+            if (p == null) continue;
+
+            LocalDate expiryDate = detail.getExpiryDate();
+            if (expiryDate == null) continue;
+
+            int warningDays = p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30;
+            LocalDate warningThreshold = now.plusDays(warningDays);
+
+            if (expiryDate.isAfter(warningThreshold)) {
+                continue;
+            }
+
+            long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(now, expiryDate);
+            boolean isCritical = daysRemaining <= 7;
+
+            // Apply status filter
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase("All")) {
+                if (status.equalsIgnoreCase("Expired") && daysRemaining >= 0) continue;
+                if (status.equalsIgnoreCase("Critical") && (daysRemaining < 0 || daysRemaining > 7)) continue;
+                if (status.equalsIgnoreCase("Warning") && (daysRemaining <= 7 || daysRemaining > warningDays)) continue;
+            }
+
+            // Apply search filter
+            if (search != null && !search.isBlank()) {
+                String query = search.toLowerCase();
+                boolean matchesName = p.getProductName() != null && p.getProductName().toLowerCase().contains(query);
+                boolean matchesBatch = detail.getBatchNumber() != null && detail.getBatchNumber().toLowerCase().contains(query);
+                if (!matchesName && !matchesBatch) continue;
+            }
+
+            dtos.add(ExpiringProductDTO.builder()
+                    .stockInDetailNumber(detail.getStockInDetailNumber())
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .barcode(p.getBarcode())
+                    .batchNumber(detail.getBatchNumber())
+                    .quantity(detail.getRemainingQuantity())
+                    .expiryDate(expiryDate)
+                    .daysRemaining(daysRemaining)
+                    .critical(isCritical)
+                    .expiryWarningDays(warningDays)
+                    .importPrice(detail.getImportPrice())
+                    .build());
+        }
+
+        dtos.sort((d1, d2) -> d1.getExpiryDate().compareTo(d2.getExpiryDate()));
+        return dtos;
+    }
+
+    @Transactional(readOnly = true)
+    public DisposalFormDataDTO getDisposalFormData(Integer stockInDetailNumber) {
+        StockInDetail detail = stockInDetailRepository.findById(stockInDetailNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Stock batch not found with ID: " + stockInDetailNumber));
+
+        Product product = productRepository.findById(detail.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + detail.getProductNumber()));
+
+        String unitName = "Pcs";
+        if (product.getInventoryUnitNumber() != null) {
+            unitName = unitRepository.findById(product.getInventoryUnitNumber())
+                    .map(Unit::getUnitName)
+                    .orElse("Pcs");
+        }
+
+        return DisposalFormDataDTO.builder()
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .productName(product.getProductName())
+                .barcode(product.getBarcode())
+                .batchNumber(detail.getBatchNumber())
+                .expiryDate(detail.getExpiryDate())
+                .remainingQuantity(detail.getRemainingQuantity())
+                .unitName(unitName)
+                .importPrice(detail.getImportPrice())
+                .sellingPrice(product.getSellingPrice())
+                .build();
+    }
+
+    @Transactional
+    public void recordDisposal(DisposalRequestDTO request) {
+        StockInDetail detail = stockInDetailRepository.findById(request.getStockInDetailNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Stock batch not found with ID: " + request.getStockInDetailNumber()));
+
+        if (detail.getRemainingQuantity() == null || request.getQuantity().compareTo(detail.getRemainingQuantity()) > 0) {
+            throw new IllegalArgumentException("Disposal quantity cannot exceed remaining stock quantity (" + detail.getRemainingQuantity() + ").");
+        }
+
+        Product product = productRepository.findById(request.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + request.getProductNumber()));
+
+        String fullReason = "DISPOSAL: " + request.getReason();
+        if (request.getObservations() != null && !request.getObservations().isBlank()) {
+            fullReason += " - " + request.getObservations().trim();
+        }
+
+        // 1. Create StockOut
+        StockOut stockOut = StockOut.builder()
+                .createdBy(getDefaultUserId())
+                .reason(fullReason)
+                .createdDate(LocalDateTime.now())
+                .build();
+        StockOut savedStockOut = stockOutRepository.save(stockOut);
+
+        // 2. Create StockOutDetail
+        StockOutDetail stockOutDetail = StockOutDetail.builder()
+                .stockOutNumber(savedStockOut.getStockOutNumber())
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .quantity(request.getQuantity())
+                .build();
+        stockOutDetailRepository.save(stockOutDetail);
+
+        // 3. Update StockInDetail remaining quantity
+        BigDecimal newRemaining = detail.getRemainingQuantity().subtract(request.getQuantity());
+        detail.setRemainingQuantity(newRemaining.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newRemaining);
+        stockInDetailRepository.save(detail);
+
+        // 4. Update Inventory available quantity
+        Optional<Inventory> invOpt = inventoryRepository.findById(product.getProductNumber());
+        if (invOpt.isPresent()) {
+            Inventory inv = invOpt.get();
+            BigDecimal currentQty = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal updatedQty = currentQty.subtract(request.getQuantity());
+            inv.setAvailableQuantity(updatedQty.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : updatedQty);
+            inv.setLastUpdated(LocalDateTime.now());
+            inventoryRepository.save(inv);
+        }
+
+        // 5. Create InventoryTransaction
+        InventoryTransaction tx = InventoryTransaction.builder()
+                .product(product)
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .type("OUT")
+                .quantity(request.getQuantity())
+                .referenceType("DISPOSAL")
+                .referenceId(savedStockOut.getStockOutNumber())
+                .createdBy(getDefaultUserId())
+                .createdAt(LocalDateTime.now())
+                .reason(fullReason)
+                .build();
+        inventoryTransactionRepository.save(tx);
+    }
 }
+
