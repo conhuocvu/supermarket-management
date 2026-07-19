@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface PurchaseRequestDetailRepository extends JpaRepository<PurchaseRequestDetail, Integer> {
     List<PurchaseRequestDetail> findByPurchaseRequestNumber(Integer purchaseRequestNumber);
+    void deleteByPurchaseRequestNumber(Integer purchaseRequestNumber);
 }

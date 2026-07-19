@@ -27,6 +27,8 @@ public class InventoryServicePurchaseRequestTests {
     @Mock
     private ProductRepository productRepository;
     @Mock
+    private InventoryRepository inventoryRepository;
+    @Mock
     private PurchaseRequestRepository purchaseRequestRepository;
     @Mock
     private PurchaseRequestDetailRepository purchaseRequestDetailRepository;
@@ -34,6 +36,8 @@ public class InventoryServicePurchaseRequestTests {
     private ProductSupplierRepository productSupplierRepository;
     @Mock
     private SupplierRepository supplierRepository;
+    @Mock
+    private UnitRepository unitRepository;
     @Mock
     private JdbcTemplate jdbcTemplate;
 
@@ -85,6 +89,14 @@ public class InventoryServicePurchaseRequestTests {
                 .supplierNumber(30)
                 .supplierName("Coca Cola Vietnam")
                 .build();
+
+        try {
+            java.lang.reflect.Field field = InventoryService.class.getDeclaredField("defaultUserIdStr");
+            field.setAccessible(true);
+            field.set(inventoryService, "e3b3ec4a-da0b-40f5-9747-29361993892b");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -112,11 +124,19 @@ public class InventoryServicePurchaseRequestTests {
 
     @Test
     void testGetPurchaseRequestDetails_Success() {
+        product.setInventoryUnitNumber(1);
+
         when(purchaseRequestRepository.findById(1)).thenReturn(Optional.of(purchaseRequest));
         when(purchaseRequestDetailRepository.findByPurchaseRequestNumber(1)).thenReturn(Collections.singletonList(detail1));
-        when(productSupplierRepository.findById(5)).thenReturn(Optional.of(productSupplier));
-        when(productRepository.findById(20)).thenReturn(Optional.of(product));
-        when(supplierRepository.findById(30)).thenReturn(Optional.of(supplier));
+        when(productSupplierRepository.findAllById(Collections.singletonList(5))).thenReturn(Collections.singletonList(productSupplier));
+        when(productRepository.findAllById(Collections.singletonList(20))).thenReturn(Collections.singletonList(product));
+        when(supplierRepository.findAllById(Collections.singletonList(30))).thenReturn(Collections.singletonList(supplier));
+
+        Inventory inventoryMock = Inventory.builder().productNumber(20).availableQuantity(BigDecimal.TEN).build();
+        when(inventoryRepository.findAllById(Collections.singletonList(20))).thenReturn(Collections.singletonList(inventoryMock));
+
+        Unit unit = Unit.builder().unitNumber(1).unitName("Can").build();
+        when(unitRepository.findAll()).thenReturn(Collections.singletonList(unit));
 
         // Mock creator name and approver name lookups
         when(jdbcTemplate.queryForObject(contains("profiles WHERE user_id"), eq(String.class), eq(purchaseRequest.getCreatedBy())))

@@ -10,16 +10,16 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PurchaseRequestItemDTO {
+public class LowStockProductDTO {
     private Integer productNumber;
     private String productName;
     private String sku;
-    private BigDecimal requestedQuantity;
-    private BigDecimal importPrice;
-    private String unitName;
-    private String supplierName;
-    private String reason;
-    private String notes;
     private BigDecimal currentStock;
     private BigDecimal reorderLevel;
+    private String unitName;
+    private BigDecimal suggestedQuantity;
+    private BigDecimal minOrderQuantity;
+    private BigDecimal importPrice;
+    private String suggestion;
+    private boolean critical;
 }

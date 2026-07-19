@@ -9,6 +9,7 @@ import '../models/product_adjustment.dart';
 import '../models/inventory_transaction.dart';
 import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
+import '../models/low_stock_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -610,6 +611,93 @@ class ApiService {
     try {
       final response = await _dio.post('/purchase-requests/$prNumber/submit');
       return response.statusCode == 200 && response.data['success'] == true;
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<PurchaseRequestFormData> fetchPurchaseRequestFormData() async {
+    try {
+      final response = await _dio.get('/purchase-requests/form-data');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PurchaseRequestFormData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load form data.');
+        }
+      } else {
+        throw Exception('Failed to load form data: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<PurchaseRequestDetail> fetchOrCreateDraftPurchaseRequest() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
+      final response = await _dio.get('/purchase-requests/draft', queryParameters: {'userId': userId});
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PurchaseRequestDetail.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load draft.');
+        }
+      } else {
+        throw Exception('Failed to load draft: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<PurchaseRequestDetail> saveDraftPurchaseRequest(Map<String, dynamic> payload) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
+      final fullPayload = {
+        'userId': userId,
+        ...payload,
+      };
+      final response = await _dio.put('/purchase-requests/draft', data: fullPayload);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PurchaseRequestDetail.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to save draft.');
+        }
+      } else {
+        throw Exception('Failed to save draft: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<LowStockProduct>> fetchLowStockProducts() async {
+    try {
+      final response = await _dio.get('/inventory/low-stock');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => LowStockProduct.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load low stock products.');
+        }
+      } else {
+        throw Exception('Failed to load low stock products: HTTP ${response.statusCode}');
+      }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
