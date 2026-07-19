@@ -180,7 +180,8 @@ class AppScaffold extends ConsumerWidget {
             {
               'title': 'Product Reports',
               'icon': Icons.assessment_outlined,
-              'active': false,
+              'route': '/stock/product-reports',
+              'active': currentPath.startsWith('/stock/product-reports'),
             },
           ]
         : [

@@ -17,6 +17,7 @@ import '../models/expiring_product.dart';
 import '../models/clearance_proposal.dart';
 import '../models/promotion.dart';
 import '../models/disposal_form_data.dart';
+import '../models/product_report.dart';
 
 class ApiService {
   final Dio _dio;
@@ -1340,6 +1341,41 @@ class ApiService {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Expired product cannot be disposed.');
+    }
+  }
+
+  Future<List<ProductReport>> fetchProductReports({
+    String? search,
+    String? issueType,
+    String? status,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {};
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+      if (issueType != null && issueType.isNotEmpty && issueType != 'All') {
+        queryParams['issueType'] = issueType;
+      }
+      if (status != null && status.isNotEmpty && status != 'All') {
+        queryParams['status'] = status;
+      }
+
+      final response = await _dio.get('/inventory/product-reports', queryParameters: queryParams);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((item) => ProductReport.fromJson(item)).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Product report data cannot be loaded.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Product report data cannot be loaded.');
     }
   }
 

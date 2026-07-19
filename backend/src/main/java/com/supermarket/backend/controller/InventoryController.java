@@ -127,5 +127,26 @@ public class InventoryController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    @GetMapping("/product-reports")
+    public ResponseEntity<Map<String, Object>> getProductReports(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String issueType,
+            @RequestParam(required = false) String status) {
+        try {
+            java.util.List<com.supermarket.backend.dto.ProductReportDTO> reports = inventoryService.getProductReports(search, issueType, status);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Product report list retrieved successfully.");
+            response.put("data", reports);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Product report data cannot be loaded.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }
+
 
