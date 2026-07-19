@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 import '../models/dashboard_data.dart';
@@ -31,9 +32,18 @@ class ApiService {
   ApiService() : _dio = _buildDio();
 
   static Dio _buildDio() {
+    String resolvedUrl = baseUrl;
+    if (resolvedUrl.contains('localhost') || resolvedUrl.contains('127.0.0.1')) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        resolvedUrl = resolvedUrl
+            .replaceAll('localhost', '10.0.2.2')
+            .replaceAll('127.0.0.1', '10.0.2.2');
+      }
+    }
+
     final dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl,
+        baseUrl: resolvedUrl,
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 30),
       ),
