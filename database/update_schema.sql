@@ -145,18 +145,11 @@ ALTER TABLE purchase_requests
 ADD COLUMN IF NOT EXISTS expected_delivery_date DATE;
 
 -- 13. Add reason and notes to purchase_request_details table
-ALTER TABLE purchase_request_details
-ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
+ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS reason VARCHAR(255);
+ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS notes TEXT;
 
-ALTER TABLE purchase_request_details
-ADD COLUMN IF NOT EXISTS notes TEXT;
-
--- 14. Create notifications table if it does not exist
-CREATE TABLE IF NOT EXISTS public.notifications (
-    notification_number SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- 14. Add columns to suppliers table for contact person, address, category, and notes
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact_person VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS category VARCHAR(255);
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT;

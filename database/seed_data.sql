@@ -9,10 +9,33 @@ TRUNCATE TABLE product_reports, promotion_products, promotions,
 INSERT INTO roles (role_number, role_name, description) VALUES
 (1, 'Admin', 'System Administrator'),
 (2, 'Manager', 'Store Manager'),
-(3, 'Stock Controller', 'Stock Controller')
+(3, 'Stock Controller', 'Stock Controller'),
+(4, 'Sales Associate', 'Sales Associate'),
+(5, 'Cashier', 'Cashier')
 ON CONFLICT (role_number) DO NOTHING;
 
--- 2. Seed profiles for existing auth users
+-- 2. Seed auth users and profiles for employees
+INSERT INTO auth.users (id, email, encrypted_password, raw_app_meta_data, raw_user_meta_data, aud, role, is_sso_user, is_anonymous) VALUES
+('f0000000-0000-0000-0000-000000000001', 'a@sms.com', '$2a$10$Vz2PvmaC0sRo4EtTzF3HWOxtJFM3z7ecRWzYB0hDVFQsoJYskXtta', '{"provider":"email","providers":["email"]}', '{"full_name":"Nguyen Van A","phone":"0912345678"}', 'authenticated', 'authenticated', FALSE, FALSE),
+('f0000000-0000-0000-0000-000000000002', 'b@sms.com', '$2a$10$Vz2PvmaC0sRo4EtTzF3HWOxtJFM3z7ecRWzYB0hDVFQsoJYskXtta', '{"provider":"email","providers":["email"]}', '{"full_name":"Tran Thi B","phone":"0987654321"}', 'authenticated', 'authenticated', FALSE, FALSE),
+('f0000000-0000-0000-0000-000000000003', 'c@sms.com', '$2a$10$Vz2PvmaC0sRo4EtTzF3HWOxtJFM3z7ecRWzYB0hDVFQsoJYskXtta', '{"provider":"email","providers":["email"]}', '{"full_name":"Le Van C","phone":"0901234567"}', 'authenticated', 'authenticated', FALSE, FALSE),
+('f0000000-0000-0000-0000-000000000004', 'd@sms.com', '$2a$10$Vz2PvmaC0sRo4EtTzF3HWOxtJFM3z7ecRWzYB0hDVFQsoJYskXtta', '{"provider":"email","providers":["email"]}', '{"full_name":"Pham Thi D","phone":"0934567890"}', 'authenticated', 'authenticated', FALSE, FALSE),
+('f0000000-0000-0000-0000-000000000005', 'e@sms.com', '$2a$10$Vz2PvmaC0sRo4EtTzF3HWOxtJFM3z7ecRWzYB0hDVFQsoJYskXtta', '{"provider":"email","providers":["email"]}', '{"full_name":"Hoang Van E","phone":"0976543210"}', 'authenticated', 'authenticated', FALSE, FALSE)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO profiles (user_id, role_number, full_name, phone, status, created_at) VALUES
+('f0000000-0000-0000-0000-000000000001', 3, 'Nguyen Van A', '0912345678', 'ACTIVE', NOW()),
+('f0000000-0000-0000-0000-000000000002', 4, 'Tran Thi B', '0987654321', 'ACTIVE', NOW()),
+('f0000000-0000-0000-0000-000000000003', 5, 'Le Van C', '0901234567', 'ACTIVE', NOW()),
+('f0000000-0000-0000-0000-000000000004', 3, 'Pham Thi D', '0934567890', 'ACTIVE', NOW()),
+('f0000000-0000-0000-0000-000000000005', 4, 'Hoang Van E', '0976543210', 'ACTIVE', NOW())
+ON CONFLICT (user_id) DO UPDATE SET
+  role_number = EXCLUDED.role_number,
+  full_name = EXCLUDED.full_name,
+  phone = EXCLUDED.phone,
+  status = EXCLUDED.status;
+
+-- 2b. Seed profiles for other existing auth users
 INSERT INTO profiles (user_id, role_number, full_name, phone, status, created_at)
 SELECT id, 3, 'John Doe', '0123456789', 'ACTIVE', NOW()
 FROM auth.users

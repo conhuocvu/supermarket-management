@@ -1,13 +1,21 @@
 package com.supermarket.backend.service;
 
+import com.supermarket.backend.dto.ClearanceProposalDataDTO;
+import com.supermarket.backend.dto.ClearanceProposalRequestDTO;
 import com.supermarket.backend.dto.CreatePromotionRequestDTO;
 import com.supermarket.backend.dto.PromotionDTO;
 import com.supermarket.backend.dto.PromotionDetailDTO;
 import com.supermarket.backend.dto.PromotionSummaryDTO;
 import com.supermarket.backend.dto.UpdatePromotionRequestDTO;
+import com.supermarket.backend.entity.Product;
 import com.supermarket.backend.entity.Promotion;
+import com.supermarket.backend.entity.PromotionProduct;
 import com.supermarket.backend.entity.PromotionStatus;
+import com.supermarket.backend.entity.StockInDetail;
+import com.supermarket.backend.repository.ProductRepository;
+import com.supermarket.backend.repository.PromotionProductRepository;
 import com.supermarket.backend.repository.PromotionRepository;
+import com.supermarket.backend.repository.StockInDetailRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,6 +34,9 @@ import java.util.stream.Collectors;
 public class PromotionService {
 
     private final PromotionRepository promotionRepository;
+    private final PromotionProductRepository promotionProductRepository;
+    private final StockInDetailRepository stockInDetailRepository;
+    private final ProductRepository productRepository;
 
     public PromotionSummaryDTO getPromotionsSummary(String keyword, String status, Pageable pageable) {
         PromotionStatus filterStatus = null;
@@ -215,4 +227,70 @@ public class PromotionService {
         Promotion saved = promotionRepository.save(promotion);
         return mapToDTO(saved);
     }
+
+    @Transactional(readOnly = true)
+    public ClearanceProposalDataDTO loadClearanceProposalData(Integer stockInDetailNumber) {
+        StockInDetail detail = stockInDetailRepository.findById(stockInDetailNumber)
+                .orElseThrow(() -> new RuntimeException("Stock batch not found with number: " + stockInDetailNumber));
+
+        Product product = productRepository.findById(detail.getProductNumber())
+                .orElseThrow(() -> new RuntimeException("Product not found with number: " + detail.getProductNumber()));
+
+        return ClearanceProposalDataDTO.builder()
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .productName(product.getProductName())
+                .barcode(product.getBarcode())
+                .batchNumber(detail.getBatchNumber())
+                .expiryDate(detail.getExpiryDate())
+                .remainingQuantity(detail.getRemainingQuantity())
+                .sellingPrice(product.getSellingPrice())
+                .importPrice(detail.getImportPrice())
+                .build();
+    }
+
+    @Transactional
+    public void submitClearanceProposal(ClearanceProposalRequestDTO request) {
+        StockInDetail detail = stockInDetailRepository.findById(request.getStockInDetailNumber())
+                .orElseThrow(() -> new RuntimeException("Stock batch not found."));
+
+        Product product = productRepository.findById(request.getProductNumber())
+                .orElseThrow(() -> new RuntimeException("Product not found."));
+
+        Integer maxNumber = promotionRepository.findMaxPromotionNumber();
+        int nextNumber = (maxNumber == null ? 0 : maxNumber) + 1;
+
+        String proposalName = "Clearance: " + product.getProductName() + " (" + detail.getBatchNumber() + ")";
+
+        Promotion promotion = Promotion.builder()
+                .promotionNumber(nextNumber)
+                .promotionName(proposalName)
+                .discountValue(request.getDiscountPercentage())
+                .status(PromotionStatus.PENDING)
+                .startDate(LocalDate.now())
+                .endDate(detail.getExpiryDate())
+                .description(request.getReason())
+                .category("CLEARANCE")
+                .isFeatured(false)
+                .build();
+
+        Promotion saved = promotionRepository.save(promotion);
+
+        PromotionProduct pp = PromotionProduct.builder()
+                .promotionNumber(saved.getPromotionNumber())
+                .productNumber(product.getProductNumber())
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .status("PENDING")
+                .product(product.getProductName())
+                .build();
+
+        promotionProductRepository.save(pp);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromotionDTO> getSubmittedClearanceProposals() {
+        List<Promotion> proposals = promotionRepository.findByCategoryOrderByPromotionNumberDesc("CLEARANCE");
+        return proposals.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
 }
+

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 import '../models/dashboard_data.dart';
@@ -12,6 +13,12 @@ import '../models/inventory_transaction.dart';
 import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
 import '../models/low_stock_product.dart';
+import '../models/supplier_product.dart';
+import '../models/expiring_product.dart';
+import '../models/clearance_proposal.dart';
+import '../models/promotion.dart';
+import '../models/disposal_form_data.dart';
+import '../models/product_report.dart';
 
 class ApiService {
   final Dio _dio;
@@ -25,9 +32,18 @@ class ApiService {
   ApiService() : _dio = _buildDio();
 
   static Dio _buildDio() {
+    String resolvedUrl = baseUrl;
+    if (resolvedUrl.contains('localhost') || resolvedUrl.contains('127.0.0.1')) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        resolvedUrl = resolvedUrl
+            .replaceAll('localhost', '10.0.2.2')
+            .replaceAll('127.0.0.1', '10.0.2.2');
+      }
+    }
+
     final dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl,
+        baseUrl: resolvedUrl,
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 30),
       ),
@@ -1192,6 +1208,187 @@ class ApiService {
     }
   }
 
+  Future<List<ExpiringProduct>> fetchExpiringProducts({String? search, String? status}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (status != null && status.isNotEmpty && status != 'All') {
+        queryParams['status'] = status;
+      }
+      final response = await _dio.get('/inventory/expiring-products', queryParameters: queryParams);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => ExpiringProduct.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load expiring products.');
+        }
+      } else {
+        throw Exception('Failed to load expiring products: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<ClearanceProposalData> fetchClearanceProposalData(int stockInDetailNumber) async {
+    try {
+      final response = await _dio.get('/promotions/clearance-proposals/$stockInDetailNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return ClearanceProposalData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load proposal data.');
+        }
+      } else {
+        throw Exception('Failed to load proposal data: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> submitClearanceProposal({
+    required int stockInDetailNumber,
+    required int productNumber,
+    required double discountPercentage,
+    String? reason,
+  }) async {
+    try {
+      final response = await _dio.post('/promotions/clearance-proposals', data: {
+        'stockInDetailNumber': stockInDetailNumber,
+        'productNumber': productNumber,
+        'discountPercentage': discountPercentage,
+        'reason': reason,
+      });
+      if (response.statusCode == 201) {
+        final body = response.data;
+        if (body['success'] != true) {
+          throw Exception(body['message'] ?? 'Failed to submit proposal.');
+        }
+      } else {
+        throw Exception('Failed to submit proposal: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<Promotion>> fetchSubmittedClearanceProposals() async {
+    try {
+      final response = await _dio.get('/promotions/clearance-proposals/submitted');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((item) => Promotion.fromJson(item)).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Failed to load submitted proposals: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<DisposalFormData> fetchDisposalFormData(int stockInDetailNumber) async {
+    try {
+      final response = await _dio.get('/inventory/disposals/$stockInDetailNumber');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return DisposalFormData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Expired product information cannot be loaded.');
+        }
+      } else {
+        throw Exception('Expired product information cannot be loaded.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Expired product information cannot be loaded.');
+    }
+  }
+
+  Future<void> recordDisposal({
+    required int stockInDetailNumber,
+    required int productNumber,
+    required double quantity,
+    required String reason,
+    String? observations,
+  }) async {
+    try {
+      final response = await _dio.post('/stock-outs/disposals', data: {
+        'stockInDetailNumber': stockInDetailNumber,
+        'productNumber': productNumber,
+        'quantity': quantity,
+        'reason': reason,
+        'observations': observations,
+      });
+      if (response.statusCode == 201) {
+        final body = response.data;
+        if (body['success'] != true) {
+          throw Exception(body['message'] ?? 'Expired product cannot be disposed.');
+        }
+      } else {
+        throw Exception('Expired product cannot be disposed.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Expired product cannot be disposed.');
+    }
+  }
+
+  Future<List<ProductReport>> fetchProductReports({
+    String? search,
+    String? issueType,
+    String? status,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {};
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+      if (issueType != null && issueType.isNotEmpty && issueType != 'All') {
+        queryParams['issueType'] = issueType;
+      }
+      if (status != null && status.isNotEmpty && status != 'All') {
+        queryParams['status'] = status;
+      }
+
+      final response = await _dio.get('/inventory/product-reports', queryParameters: queryParams);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((item) => ProductReport.fromJson(item)).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Product report data cannot be loaded.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Product report data cannot be loaded.');
+    }
+  }
+
   String _handleDioError(DioException e) {
     String message = 'Server connection error.';
     if (e.type == DioExceptionType.connectionTimeout ||
@@ -1287,6 +1484,144 @@ class ApiService {
         throw Exception(
           response.data['message'] ?? 'Failed to update category.',
         );
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Supplier Methods
+  // ==========================================
+
+  Future<Map<String, dynamic>> fetchSupplierList({
+    String? keyword,
+    String? status,
+    int page = 0,
+    int size = 6,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {
+        'page': page,
+        'size': size,
+      };
+      if (keyword != null && keyword.isNotEmpty) {
+        queryParams['keyword'] = keyword;
+      }
+      if (status != null && status != 'ALL') {
+        queryParams['status'] = status;
+      }
+
+      final response = await _dio.get(
+        '/suppliers',
+        queryParameters: queryParams,
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load suppliers.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchSupplierDetail(int id) async {
+    try {
+      final response = await _dio.get('/suppliers/$id');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load supplier detail.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Creates a supplier and returns the new supplier number.
+  Future<int> createSupplier(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/suppliers', data: data);
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          response.data['success'] == true) {
+        final supplierData = response.data['data'] as Map<String, dynamic>;
+        return (supplierData['supplierNumber'] as num?)?.toInt() ?? 0;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create supplier.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> updateSupplier(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('/suppliers/$id', data: data);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to update supplier.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> updateSupplierStatus(int id, String status) async {
+    try {
+      final response = await _dio.patch(
+        '/suppliers/$id/status',
+        data: {'status': status},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to update supplier status.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<List<SupplierProduct>> fetchSupplierProducts(int supplierNumber) async {
+    try {
+      final response = await _dio.get('/suppliers/$supplierNumber/products');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final list = response.data['data'] as List<dynamic>? ?? [];
+        return list.map((item) => SupplierProduct.fromJson(item as Map<String, dynamic>)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load supplier products.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> assignSupplierProducts(int supplierNumber, List<Map<String, dynamic>> assignments) async {
+    try {
+      final response = await _dio.post('/suppliers/$supplierNumber/products', data: assignments);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to assign products to supplier.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<void> updateSupplierImportPrices(int supplierNumber, List<Map<String, dynamic>> assignments) async {
+    try {
+      final response = await _dio.put('/suppliers/$supplierNumber/products/prices', data: assignments);
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to update import prices.');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));

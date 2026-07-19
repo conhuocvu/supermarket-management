@@ -18,7 +18,10 @@ import java.util.UUID;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
+import com.supermarket.backend.repository.PromotionProductRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class InventoryService {
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
     private final StockInDetailRepository stockInDetailRepository;
+    private final PromotionProductRepository promotionProductRepository;
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final JdbcTemplate jdbcTemplate;
@@ -39,6 +43,8 @@ public class InventoryService {
     private final StockOutRepository stockOutRepository;
     private final StockOutDetailRepository stockOutDetailRepository;
     private final UnitRepository unitRepository;
+    private final ProfileRepository profileRepository;
+    private final CategoryRepository categoryRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
     private String defaultUserIdStr;
@@ -1193,4 +1199,291 @@ public class InventoryService {
         }
         return dtos;
     }
+
+    @Transactional(readOnly = true)
+    public List<ExpiringProductDTO> getExpiringProducts(String search, String status) {
+        LocalDate now = LocalDate.now();
+        // Look ahead 90 days for any near-expiry warning
+        List<StockInDetail> activeBatches = stockInDetailRepository.findExpiringStockInDetails(now.plusDays(90));
+
+        List<Integer> proposedNumbers = promotionProductRepository.findProposedStockInDetailNumbers();
+        Set<Integer> proposedSet = proposedNumbers != null ? new HashSet<>(proposedNumbers) : new HashSet<>();
+
+        Set<Integer> productNumbers = activeBatches.stream()
+                .map(StockInDetail::getProductNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Product> products = productNumbers.isEmpty() ? java.util.Collections.emptyList() : productRepository.findAllById(productNumbers);
+        Map<Integer, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
+
+        List<ExpiringProductDTO> dtos = new java.util.ArrayList<>();
+
+        for (StockInDetail detail : activeBatches) {
+            if (detail.getRemainingQuantity() == null || detail.getRemainingQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (proposedSet.contains(detail.getStockInDetailNumber())) {
+                continue;
+            }
+
+            Product p = productMap.get(detail.getProductNumber());
+            if (p == null) continue;
+
+            LocalDate expiryDate = detail.getExpiryDate();
+            if (expiryDate == null) continue;
+
+            int warningDays = p.getExpiryWarningDays() != null ? p.getExpiryWarningDays() : 30;
+            LocalDate warningThreshold = now.plusDays(warningDays);
+
+            if (expiryDate.isAfter(warningThreshold)) {
+                continue;
+            }
+
+            long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(now, expiryDate);
+            boolean isCritical = daysRemaining <= 7;
+
+            // Apply status filter
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase("All")) {
+                if (status.equalsIgnoreCase("Expired") && daysRemaining >= 0) continue;
+                if (status.equalsIgnoreCase("Critical") && (daysRemaining < 0 || daysRemaining > 7)) continue;
+                if (status.equalsIgnoreCase("Warning") && (daysRemaining <= 7 || daysRemaining > warningDays)) continue;
+            }
+
+            // Apply search filter
+            if (search != null && !search.isBlank()) {
+                String query = search.toLowerCase();
+                boolean matchesName = p.getProductName() != null && p.getProductName().toLowerCase().contains(query);
+                boolean matchesBatch = detail.getBatchNumber() != null && detail.getBatchNumber().toLowerCase().contains(query);
+                if (!matchesName && !matchesBatch) continue;
+            }
+
+            dtos.add(ExpiringProductDTO.builder()
+                    .stockInDetailNumber(detail.getStockInDetailNumber())
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .barcode(p.getBarcode())
+                    .batchNumber(detail.getBatchNumber())
+                    .quantity(detail.getRemainingQuantity())
+                    .expiryDate(expiryDate)
+                    .daysRemaining(daysRemaining)
+                    .critical(isCritical)
+                    .expiryWarningDays(warningDays)
+                    .importPrice(detail.getImportPrice())
+                    .build());
+        }
+
+        dtos.sort((d1, d2) -> d1.getExpiryDate().compareTo(d2.getExpiryDate()));
+        return dtos;
+    }
+
+    @Transactional(readOnly = true)
+    public DisposalFormDataDTO getDisposalFormData(Integer stockInDetailNumber) {
+        StockInDetail detail = stockInDetailRepository.findById(stockInDetailNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Stock batch not found with ID: " + stockInDetailNumber));
+
+        Product product = productRepository.findById(detail.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + detail.getProductNumber()));
+
+        String unitName = "Pcs";
+        if (product.getInventoryUnitNumber() != null) {
+            unitName = unitRepository.findById(product.getInventoryUnitNumber())
+                    .map(Unit::getUnitName)
+                    .orElse("Pcs");
+        }
+
+        return DisposalFormDataDTO.builder()
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .productName(product.getProductName())
+                .barcode(product.getBarcode())
+                .batchNumber(detail.getBatchNumber())
+                .expiryDate(detail.getExpiryDate())
+                .remainingQuantity(detail.getRemainingQuantity())
+                .unitName(unitName)
+                .importPrice(detail.getImportPrice())
+                .sellingPrice(product.getSellingPrice())
+                .build();
+    }
+
+    @Transactional
+    public void recordDisposal(DisposalRequestDTO request) {
+        StockInDetail detail = stockInDetailRepository.findById(request.getStockInDetailNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Stock batch not found with ID: " + request.getStockInDetailNumber()));
+
+        if (detail.getRemainingQuantity() == null || request.getQuantity().compareTo(detail.getRemainingQuantity()) > 0) {
+            throw new IllegalArgumentException("Disposal quantity cannot exceed remaining stock quantity (" + detail.getRemainingQuantity() + ").");
+        }
+
+        Product product = productRepository.findById(request.getProductNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + request.getProductNumber()));
+
+        String fullReason = "DISPOSAL: " + request.getReason();
+        if (request.getObservations() != null && !request.getObservations().isBlank()) {
+            fullReason += " - " + request.getObservations().trim();
+        }
+
+        // 1. Create StockOut
+        StockOut stockOut = StockOut.builder()
+                .createdBy(getDefaultUserId())
+                .reason(fullReason)
+                .createdDate(LocalDateTime.now())
+                .build();
+        StockOut savedStockOut = stockOutRepository.save(stockOut);
+
+        // 2. Create StockOutDetail
+        StockOutDetail stockOutDetail = StockOutDetail.builder()
+                .stockOutNumber(savedStockOut.getStockOutNumber())
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .productNumber(product.getProductNumber())
+                .quantity(request.getQuantity())
+                .build();
+        stockOutDetailRepository.save(stockOutDetail);
+
+        // 3. Update StockInDetail remaining quantity
+        BigDecimal newRemaining = detail.getRemainingQuantity().subtract(request.getQuantity());
+        detail.setRemainingQuantity(newRemaining.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newRemaining);
+        stockInDetailRepository.save(detail);
+
+        // 4. Update Inventory available quantity
+        Optional<Inventory> invOpt = inventoryRepository.findById(product.getProductNumber());
+        if (invOpt.isPresent()) {
+            Inventory inv = invOpt.get();
+            BigDecimal currentQty = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal updatedQty = currentQty.subtract(request.getQuantity());
+            inv.setAvailableQuantity(updatedQty.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : updatedQty);
+            inv.setLastUpdated(LocalDateTime.now());
+            inventoryRepository.save(inv);
+        }
+
+        // 5. Create InventoryTransaction
+        InventoryTransaction tx = InventoryTransaction.builder()
+                .product(product)
+                .stockInDetailNumber(detail.getStockInDetailNumber())
+                .type("OUT")
+                .quantity(request.getQuantity())
+                .referenceType("DISPOSAL")
+                .referenceId(savedStockOut.getStockOutNumber())
+                .createdBy(getDefaultUserId())
+                .createdAt(LocalDateTime.now())
+                .reason(fullReason)
+                .build();
+        inventoryTransactionRepository.save(tx);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductReportDTO> getProductReports(String search, String issueType, String status) {
+        List<ProductReport> reports = productReportRepository.findAll(
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+
+        Set<Integer> productIds = reports.stream()
+                .map(ProductReport::getProductNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Product> products = productIds.isEmpty() ? java.util.Collections.emptyList() : productRepository.findAllById(productIds);
+        Map<Integer, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p, (p1, p2) -> p1));
+
+        Set<Integer> categoryIds = products.stream()
+                .map(Product::getCategoryNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Integer, String> categoryMap = categoryIds.isEmpty() ? java.util.Collections.emptyMap() :
+                categoryRepository.findAllById(categoryIds).stream()
+                        .collect(Collectors.toMap(Category::getCategoryNumber, Category::getCategoryName, (c1, c2) -> c1));
+
+        Set<Integer> unitIds = products.stream()
+                .map(Product::getInventoryUnitNumber)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Integer, String> unitMap = unitIds.isEmpty() ? java.util.Collections.emptyMap() :
+                unitRepository.findAllById(unitIds).stream()
+                        .collect(Collectors.toMap(Unit::getUnitNumber, Unit::getUnitName, (u1, u2) -> u1));
+
+        Set<UUID> userIds = new HashSet<>();
+        reports.forEach(r -> {
+            if (r.getReportedBy() != null) userIds.add(r.getReportedBy());
+            if (r.getResolvedBy() != null) userIds.add(r.getResolvedBy());
+        });
+        Map<UUID, String> userMap = userIds.isEmpty() ? java.util.Collections.emptyMap() :
+                profileRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(Profile::getUserId, Profile::getFullName, (u1, u2) -> u1));
+
+        List<ProductReportDTO> dtos = new java.util.ArrayList<>();
+        String query = search != null ? search.toLowerCase().trim() : null;
+
+        for (ProductReport report : reports) {
+            // Stock Controller only views LOW_STOCK and NEAR_EXPIRY / OUT_OF_STOCK reports (UC64)
+            String type = report.getReportType() != null ? report.getReportType().toUpperCase() : "";
+            String issue = report.getIssueType() != null ? report.getIssueType().toUpperCase() : "";
+            boolean isStockControllerReport = type.equals("LOW_STOCK") || issue.equals("LOW_STOCK")
+                    || type.equals("NEAR_EXPIRY") || issue.equals("NEAR_EXPIRY")
+                    || type.equals("OUT_OF_STOCK") || issue.equals("OUT_OF_STOCK");
+
+            if (!isStockControllerReport) {
+                continue;
+            }
+
+            Product p = productMap.get(report.getProductNumber());
+            String productName = p != null ? p.getProductName() : "Unknown Product";
+            String barcode = p != null ? p.getBarcode() : "N/A";
+            String categoryName = (p != null && p.getCategoryNumber() != null) ? categoryMap.getOrDefault(p.getCategoryNumber(), "General") : "General";
+            String unitName = (p != null && p.getInventoryUnitNumber() != null) ? unitMap.getOrDefault(p.getInventoryUnitNumber(), "Pcs") : "Pcs";
+            String reporterName = report.getReportedBy() != null ? userMap.getOrDefault(report.getReportedBy(), "Staff User") : "System";
+            String resolverName = report.getResolvedBy() != null ? userMap.get(report.getResolvedBy()) : null;
+
+            // Apply issueType filter
+            if (issueType != null && !issueType.isBlank() && !issueType.equalsIgnoreCase("All")) {
+                String currentIssue = report.getIssueType() != null ? report.getIssueType() : report.getReportType();
+                if (currentIssue == null || !currentIssue.equalsIgnoreCase(issueType)) {
+                    continue;
+                }
+            }
+
+            // Apply status filter
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase("All")) {
+                if (report.getStatus() == null || !report.getStatus().equalsIgnoreCase(status)) {
+                    continue;
+                }
+            }
+
+            // Apply search filter
+            if (query != null && !query.isEmpty()) {
+                boolean matchesProduct = productName.toLowerCase().contains(query);
+                boolean matchesBarcode = barcode.toLowerCase().contains(query);
+                boolean matchesReporter = reporterName.toLowerCase().contains(query);
+                boolean matchesDesc = report.getDescription() != null && report.getDescription().toLowerCase().contains(query);
+                if (!matchesProduct && !matchesBarcode && !matchesReporter && !matchesDesc) {
+                    continue;
+                }
+            }
+
+            dtos.add(ProductReportDTO.builder()
+                    .reportNumber(report.getReportNumber())
+                    .reportedBy(report.getReportedBy())
+                    .reporterName(reporterName)
+                    .productNumber(report.getProductNumber())
+                    .productName(productName)
+                    .barcode(barcode)
+                    .categoryName(categoryName)
+                    .stockInDetailNumber(report.getStockInDetailNumber())
+                    .reportType(report.getReportType())
+                    .issueType(report.getIssueType())
+                    .quantity(report.getQuantity())
+                    .unitName(unitName)
+                    .description(report.getDescription())
+                    .status(report.getStatus())
+                    .createdAt(report.getCreatedAt())
+                    .resolvedBy(report.getResolvedBy())
+                    .resolverName(resolverName)
+                    .resolvedAt(report.getResolvedAt())
+                    .build());
+        }
+
+        return dtos;
+    }
 }
+

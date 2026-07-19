@@ -371,6 +371,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
     List<dynamic> activities,
   ) {
     final theme = Theme.of(context);
+    final isWide = MediaQuery.of(context).size.width >= 900;
 
     return Card(
       elevation: 2,
@@ -387,10 +388,15 @@ class InventoryDashboardScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recent Inventory Activities',
-                  style: theme.textTheme.headlineSmall,
+                Expanded(
+                  child: Text(
+                    'Recent Inventory Activities',
+                    style: theme.textTheme.headlineSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: () {
                     // Navigate to transaction list in the future
@@ -400,120 +406,140 @@ class InventoryDashboardScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 500),
-                child: Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(2),
-                    1: FlexColumnWidth(3),
-                    2: FlexColumnWidth(2),
-                    3: FlexColumnWidth(2),
-                  },
-                  border: TableBorder(
-                    horizontalInside: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.3,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Table(
+                      columnWidths: isWide
+                          ? const {
+                              0: FlexColumnWidth(2),
+                              1: FlexColumnWidth(3),
+                              2: FlexColumnWidth(2),
+                              3: FlexColumnWidth(2),
+                            }
+                          : const {
+                              0: FlexColumnWidth(2.6),
+                              1: FlexColumnWidth(3.4),
+                              2: FlexColumnWidth(2),
+                              3: FlexColumnWidth(2),
+                            },
+                      border: TableBorder(
+                        horizontalInside: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.3,
+                          ),
+                          width: 1,
+                        ),
                       ),
-                      width: 1,
-                    ),
-                  ),
-                  children: [
-                    TableRow(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Text(
-                            'Activity',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Text(
-                            'Product',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Text(
-                            'Quantity',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Text(
-                            'Time',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    ...activities.map((activity) {
-                      final isStockIn = activity.action == 'Stock-in';
-                      final timeString = _formatActivityTime(activity.time);
-
-                      return TableRow(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16.0),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isStockIn
-                                      ? Icons.add_circle
-                                      : Icons.remove_circle,
-                                  color: isStockIn
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.secondary,
-                                  size: 20,
+                        TableRow(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Text(
+                                'Activity',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  activity.action,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16.0),
-                            child: Text(activity.item),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16.0),
-                            child: Text(activity.quantity),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16.0),
-                            child: Text(
-                              timeString,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.8),
-                                fontSize: 13,
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-              ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Text(
+                                'Product',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Text(
+                                'Quantity',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Text(
+                                'Time',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        ...activities.map((activity) {
+                          final isStockIn = activity.action == 'Stock-in';
+                          final timeString = _formatActivityTime(activity.time);
+                          final verticalPad = isWide ? 16.0 : 10.0;
+
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 6,
+                                  children: [
+                                    Icon(
+                                      isStockIn
+                                          ? Icons.add_circle
+                                          : Icons.remove_circle,
+                                      color: isStockIn
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.secondary,
+                                      size: isWide ? 20 : 16,
+                                    ),
+                                    Text(
+                                      activity.action,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: isWide ? 14 : 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Text(
+                                  activity.item,
+                                  style: TextStyle(fontSize: isWide ? 14 : 12),
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Text(
+                                  activity.quantity,
+                                  style: TextStyle(fontSize: isWide ? 14 : 12),
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Text(
+                                  timeString,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.8),
+                                    fontSize: isWide ? 13 : 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

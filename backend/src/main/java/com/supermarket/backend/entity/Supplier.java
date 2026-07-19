@@ -13,6 +13,7 @@ import lombok.*;
 public class Supplier {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "supplier_number")
     private Integer supplierNumber;
 
@@ -27,4 +28,16 @@ public class Supplier {
 
     @Column(name = "status")
     private String status;
+
+    @Column(name = "contact_person")
+    private String contactPerson;
+
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "notes")
+    private String notes;
 }
