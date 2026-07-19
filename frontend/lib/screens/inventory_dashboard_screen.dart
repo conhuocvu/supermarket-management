@@ -371,6 +371,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
     List<dynamic> activities,
   ) {
     final theme = Theme.of(context);
+    final isWide = MediaQuery.of(context).size.width >= 900;
 
     return Card(
       elevation: 2,
@@ -387,10 +388,15 @@ class InventoryDashboardScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recent Inventory Activities',
-                  style: theme.textTheme.headlineSmall,
+                Expanded(
+                  child: Text(
+                    'Recent Inventory Activities',
+                    style: theme.textTheme.headlineSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: () {
                     // Navigate to transaction list in the future
@@ -407,12 +413,19 @@ class InventoryDashboardScreen extends ConsumerWidget {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: Table(
-                      columnWidths: const {
-                        0: FlexColumnWidth(2),
-                        1: FlexColumnWidth(3),
-                        2: FlexColumnWidth(2),
-                        3: FlexColumnWidth(2),
-                      },
+                      columnWidths: isWide
+                          ? const {
+                              0: FlexColumnWidth(2),
+                              1: FlexColumnWidth(3),
+                              2: FlexColumnWidth(2),
+                              3: FlexColumnWidth(2),
+                            }
+                          : const {
+                              0: FlexColumnWidth(2.6),
+                              1: FlexColumnWidth(3.4),
+                              2: FlexColumnWidth(2),
+                              3: FlexColumnWidth(2),
+                            },
                       border: TableBorder(
                         horizontalInside: BorderSide(
                           color: theme.colorScheme.outlineVariant.withValues(
@@ -465,12 +478,15 @@ class InventoryDashboardScreen extends ConsumerWidget {
                         ...activities.map((activity) {
                           final isStockIn = activity.action == 'Stock-in';
                           final timeString = _formatActivityTime(activity.time);
+                          final verticalPad = isWide ? 16.0 : 10.0;
 
                           return TableRow(
                             children: [
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                                child: Row(
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 6,
                                   children: [
                                     Icon(
                                       isStockIn
@@ -479,34 +495,40 @@ class InventoryDashboardScreen extends ConsumerWidget {
                                       color: isStockIn
                                           ? theme.colorScheme.primary
                                           : theme.colorScheme.secondary,
-                                      size: 20,
+                                      size: isWide ? 20 : 16,
                                     ),
-                                    const SizedBox(width: 8),
                                     Text(
                                       activity.action,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w500,
+                                        fontSize: isWide ? 14 : 12,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                                child: Text(activity.item),
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Text(
+                                  activity.item,
+                                  style: TextStyle(fontSize: isWide ? 14 : 12),
+                                ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                                child: Text(activity.quantity),
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                child: Text(
+                                  activity.quantity,
+                                  style: TextStyle(fontSize: isWide ? 14 : 12),
+                                ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                padding: EdgeInsets.symmetric(vertical: verticalPad),
                                 child: Text(
                                   timeString,
                                   style: TextStyle(
                                     color: theme.colorScheme.onSurfaceVariant
                                         .withValues(alpha: 0.8),
-                                    fontSize: 13,
+                                    fontSize: isWide ? 13 : 11,
                                   ),
                                 ),
                               ),
