@@ -264,7 +264,8 @@ class _InventoryProductListScreenState
         Widget warningDropdown = SizedBox(
           height: 48,
           child: DropdownButtonFormField<String>(
-            value: state.warningFilter ?? 'NONE',
+            initialValue: state.warningFilter ?? 'NONE',
+            isExpanded: true,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
