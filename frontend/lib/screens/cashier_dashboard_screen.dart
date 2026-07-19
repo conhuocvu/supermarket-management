@@ -6,7 +6,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 import '../widgets/attendance_card.dart';
 import '../widgets/bento_card.dart';
 
@@ -39,28 +39,31 @@ class _CashierDashboardScreenState
       _future = _load();
     }
 
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'Cashier Dashboard',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: () => setState(() => _future = _load()),
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-        const SizedBox(width: 8),
-      ],
-      body: FutureBuilder<CashierDashboardData>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) return _error(snapshot.error.toString());
-          return _content(snapshot.data!);
-        },
-      ),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Cashier Dashboard',
+            breadcrumbs: ['Cashier', 'Dashboard'],
+            actions: [
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: () => setState(() => _future = _load()),
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+              const SizedBox(width: 8),
+            ],
+          );
+    });
+
+    return FutureBuilder<CashierDashboardData>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) return _error(snapshot.error.toString());
+        return _content(snapshot.data!);
+      },
     );
   }
 

@@ -6,7 +6,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/cashier_provider.dart';
 import '../services/receipt_print_service.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class CashierReceiptScreen extends ConsumerStatefulWidget {
   final int invoiceNumber;
@@ -84,29 +84,32 @@ class _CashierReceiptScreenState extends ConsumerState<CashierReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'Receipt',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        OutlinedButton.icon(
-          onPressed: _receipt == null || _printing ? null : _print,
-          icon: _printing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.print_outlined),
-          label: const Text('Print'),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _content(_receipt!),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Receipt',
+            breadcrumbs: ['Cashier', 'Receipt'],
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _receipt == null || _printing ? null : _print,
+                icon: _printing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.print_outlined),
+                label: const Text('Print'),
+              ),
+            ],
+          );
+    });
+
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? _errorView()
+            : _content(_receipt!);
   }
 
   Widget _content(CashierReceipt receipt) {

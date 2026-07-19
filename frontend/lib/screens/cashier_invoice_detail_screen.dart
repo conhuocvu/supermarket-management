@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class CashierInvoiceDetailScreen extends ConsumerStatefulWidget {
   final int invoiceNumber;
@@ -58,25 +58,28 @@ class _CashierInvoiceDetailScreenState
   @override
   Widget build(BuildContext context) {
     final invoice = _invoice;
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: invoice == null
-          ? 'Invoice Details'
-          : 'Invoice #${invoice.invoiceNumber}',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _content(invoice!),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: invoice == null
+                ? 'Invoice Details'
+                : 'Invoice #${invoice.invoiceNumber}',
+            breadcrumbs: ['Cashier', 'Invoices', 'Details'],
+            actions: [
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          );
+    });
+
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? _errorView()
+            : _content(invoice!);
   }
 
   Widget _content(CashierInvoice invoice) {

@@ -8,7 +8,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class ShiftInvoicesScreen extends ConsumerStatefulWidget {
   const ShiftInvoicesScreen({super.key});
@@ -86,18 +86,22 @@ class _ShiftInvoicesScreenState extends ConsumerState<ShiftInvoicesScreen> {
       }
     });
 
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'Shift Invoices',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-      body: Padding(
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Shift Invoices',
+            breadcrumbs: ['Cashier', 'Shift Invoices'],
+            actions: [
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          );
+    });
+
+    return Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,8 +119,7 @@ class _ShiftInvoicesScreenState extends ConsumerState<ShiftInvoicesScreen> {
             _pagination(),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _header() {

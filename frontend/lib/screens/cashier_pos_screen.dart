@@ -8,7 +8,7 @@ import '../core/cashier_format.dart';
 import '../models/cashier_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cashier_provider.dart';
-import '../widgets/role_module_scaffold.dart';
+import '../providers/shell_layout_provider.dart';
 
 class CashierPosScreen extends ConsumerStatefulWidget {
   final int? invoiceNumber;
@@ -146,28 +146,31 @@ class _CashierPosScreenState extends ConsumerState<CashierPosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RoleModuleScaffold(
-      moduleLabel: 'Cashier Module',
-      title: 'POS / Current Invoice',
-      navigationItems: cashierNavigationItems,
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: Chip(
-            label: Text(
-              _invoice == null
-                  ? 'Draft · not saved'
-                  : 'Invoice #${_invoice!.invoiceNumber}',
-            ),
-          ),
-        ),
-      ],
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _content(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'POS / Current Invoice',
+            breadcrumbs: ['Cashier', 'POS / Current Invoice'],
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Chip(
+                  label: Text(
+                    _invoice == null
+                        ? 'Draft · not saved'
+                        : 'Invoice #${_invoice!.invoiceNumber}',
+                  ),
+                ),
+              ),
+            ],
+          );
+    });
+
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? _errorView()
+            : _content();
   }
 
   Widget _content() {
