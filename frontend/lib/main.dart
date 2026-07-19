@@ -53,6 +53,7 @@ import 'screens/supplier_list_screen.dart';
 import 'screens/supplier_detail_screen.dart';
 import 'screens/create_supplier_screen.dart';
 import 'screens/expiring_product_list_screen.dart';
+import 'screens/clearance_proposal_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -533,6 +534,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'expiring-products',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: ExpiringProductListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'clearance-proposal/:stockInDetailNumber',
+                    pageBuilder: (context, state) {
+                      final id = int.parse(state.pathParameters['stockInDetailNumber']!);
+                      return NoTransitionPage(child: ClearanceProposalScreen(stockInDetailNumber: id));
+                    },
+                  ),
+                ],
               ),
             ],
           ),
