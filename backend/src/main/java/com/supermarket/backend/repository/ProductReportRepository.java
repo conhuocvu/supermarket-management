@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 public interface ProductReportRepository extends JpaRepository<ProductReport, Integer> {
@@ -18,4 +19,11 @@ public interface ProductReportRepository extends JpaRepository<ProductReport, In
     List<ProductReport> findDeliveryDiscrepancies(
             @Param("productNumber") Integer productNumber,
             @Param("descriptionPrefix") String descriptionPrefix);
+
+    /** All reports filed by a user (issues + suggestions), newest first. */
+    List<ProductReport> findByReportedByOrderByCreatedAtDesc(UUID reportedBy);
+
+    /** A user's reports of one report type, newest first. */
+    List<ProductReport> findByReportedByAndReportTypeOrderByCreatedAtDesc(
+            UUID reportedBy, String reportType);
 }

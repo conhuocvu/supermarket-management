@@ -40,6 +40,15 @@ import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
 import 'screens/promotion_list_screen.dart';
 import 'screens/promotion_detail_screen.dart';
+import 'screens/sales_dashboard_screen.dart';
+import 'screens/sales_product_list_screen.dart';
+import 'screens/sales_product_detail_screen.dart';
+import 'screens/sales_problem_products_screen.dart';
+import 'screens/sales_problem_product_details_screen.dart';
+import 'screens/sales_report_status_screen.dart';
+import 'screens/sales_suggestion_detail_screen.dart';
+import 'screens/sales_inventory_issue_form.dart';
+import 'screens/sales_product_update_form.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -255,9 +264,82 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      GoRoute(
-        path: '/sales',
-        builder: (context, state) => const SalesAssociateScreen(),
+      // Sales Associate workspace (inside AppScaffold shell)
+      ShellRoute(
+        builder: (context, state, child) => AppScaffold(body: child),
+        routes: [
+          GoRoute(
+            path: '/sales',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SalesDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/sales/products',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SalesProductListScreen()),
+            routes: [
+              GoRoute(
+                path: ':id',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: SalesProductDetailScreen(
+                    productNumber:
+                        int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/sales/problems',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SalesProblemProductsScreen()),
+            routes: [
+              GoRoute(
+                path: ':id',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: SalesProblemProductDetailsScreen(
+                    reportNumber:
+                        int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/sales/reports',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SalesReportStatusScreen()),
+            routes: [
+              GoRoute(
+                path: 'suggestions/:id',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: SalesSuggestionDetailScreen(
+                    reportNumber:
+                        int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/sales/report-issue',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesInventoryIssueForm(
+                prefilledProductNumber: int.tryParse(
+                    state.uri.queryParameters['productNumber'] ?? ''),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/sales/suggest-update',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesProductUpdateForm(
+                prefilledProductNumber: int.tryParse(
+                    state.uri.queryParameters['productNumber'] ?? ''),
+              ),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/cashier',
