@@ -27,8 +27,9 @@ public class Promotion {
     @Column(name = "discount_value")
     private Double discountValue;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private String status;
+    private PromotionStatus status;
 
     @Column(name = "start_date")
     private LocalDate startDate;

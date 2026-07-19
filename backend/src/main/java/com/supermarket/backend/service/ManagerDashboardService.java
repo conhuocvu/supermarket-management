@@ -137,18 +137,9 @@ public class ManagerDashboardService {
         List<Object[]> staffRows = managerDashboardRepository.findRecentProfiles();
         for (Object[] row : staffRows) {
             String fullName = (String) row[0];
-            Number roleNum = (Number) row[1];
+            String roleName = row[1] != null ? (String) row[1] : "Staff";
             LocalDateTime time = convertToLocalDateTime(row[2]);
             
-            String roleName = "Staff";
-            if (roleNum != null) {
-                int role = roleNum.intValue();
-                if (role == 1) roleName = "Admin";
-                else if (role == 2) roleName = "Manager";
-                else if (role == 3) roleName = "Stock Controller";
-                else if (role == 4) roleName = "Sales Associate";
-                else if (role == 5) roleName = "Cashier";
-            }
             activities.add(RecentActivityDTO.builder()
                 .action("New Staff Onboarded")
                 .item(fullName + " onboarded")

@@ -2,8 +2,10 @@ package com.supermarket.backend.controller;
 
 import com.supermarket.backend.dto.*;
 import com.supermarket.backend.service.StaffService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +28,7 @@ public class StaffController {
      *   status    - optional: ALL | ON_DUTY | OFF_DUTY | ON_LEAVE (default ALL)
      */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<StaffSummaryDTO>> getStaff(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "status", required = false, defaultValue = "ALL") String status,
@@ -40,6 +43,7 @@ public class StaffController {
      * GET /api/staff/{userId}  — UC-ST-02 View Staff Details
      */
     @GetMapping("/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<StaffDetailDTO>> getStaffDetail(@PathVariable String userId) {
         StaffDetailDTO data = staffService.getStaffDetail(userId);
         return ResponseEntity.ok(ApiResponse.success("Staff detail loaded.", data));
@@ -49,9 +53,10 @@ public class StaffController {
      * PUT /api/staff/{userId}/role  — UC-ST-03 Set Role
      */
     @PutMapping("/{userId}/role")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<Void>> setRole(
             @PathVariable String userId,
-            @RequestBody SetRoleRequestDTO request) {
+            @Valid @RequestBody SetRoleRequestDTO request) {
         if (request.getRoleNumber() == null) {
             throw new IllegalArgumentException("Please select a new role.");
         }
@@ -63,6 +68,7 @@ public class StaffController {
      * POST /api/staff/{userId}/shifts  — UC-ST-04 Assign Employee Shifts
      */
     @PostMapping("/{userId}/shifts")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<Void>> assignShifts(
             @PathVariable String userId,
             @RequestBody AssignShiftsRequestDTO request) {
@@ -74,6 +80,7 @@ public class StaffController {
      * GET /api/staff/meta/roles  — Fetch all available roles
      */
     @GetMapping("/meta/roles")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRoles() {
         List<Object[]> rows = staffService.getRoles();
         List<Map<String, Object>> data = rows.stream().map(r -> Map.<String, Object>of(
@@ -88,6 +95,7 @@ public class StaffController {
      * GET /api/staff/meta/shifts  — Fetch all available shifts
      */
     @GetMapping("/meta/shifts")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getShifts() {
         List<Object[]> rows = staffService.getShifts();
         List<Map<String, Object>> data = rows.stream().map(r -> Map.<String, Object>of(
