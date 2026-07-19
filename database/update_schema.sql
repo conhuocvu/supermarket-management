@@ -98,13 +98,35 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS internal_notes TEXT;
 
 -- 9. Add columns to promotions table
-ALTER TABLE promotions ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50);
+ALTER TABLE promotions
+ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50);
+
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS category VARCHAR(50);
-ALTER TABLE promotions ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE promotions
+ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;
 
 -- 10. Update seeded promotions with code, category, is_featured, and image URL
-UPDATE promotions SET promo_code = 'HARVEST20', category = 'SEASONAL SALE', is_featured = FALSE, image_url = 'https://images.unsplash.com/photo-1610348725531-843dff163e2c?w=400&q=80', description = 'Fresh Harvest 20% Off' WHERE promotion_number = 1;
-UPDATE promotions SET promo_code = 'BAKE50', category = 'FLASH DEAL', is_featured = FALSE, image_url = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80', description = 'Midnight Bakery Special' WHERE promotion_number = 2;
+UPDATE promotions
+SET
+    promo_code = 'HARVEST20',
+    category = 'SEASONAL SALE',
+    is_featured = FALSE,
+    image_url = 'https://images.unsplash.com/photo-1610348725531-843dff163e2c?w=400&q=80',
+    description = 'Fresh Harvest 20% Off'
+WHERE
+    promotion_number = 1;
+
+UPDATE promotions
+SET
+    promo_code = 'BAKE50',
+    category = 'FLASH DEAL',
+    is_featured = FALSE,
+    image_url = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80',
+    description = 'Midnight Bakery Special'
+WHERE
+    promotion_number = 2;
+
 UPDATE promotions SET promo_code = 'CLEANUP', category = 'HOME CARE', is_featured = FALSE, image_url = 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80', description = 'Cleaning Essentials Pack', status = 'EXPIRED'::promotion_status WHERE promotion_number = 3;
 
 -- 11. Add a few more promotions to match mockups
@@ -119,7 +141,8 @@ VALUES
 ON CONFLICT (promotion_number) DO NOTHING;
 
 -- 12. Add expected_delivery_date to purchase_requests table
-ALTER TABLE purchase_requests ADD COLUMN IF NOT EXISTS expected_delivery_date DATE;
+ALTER TABLE purchase_requests
+ADD COLUMN IF NOT EXISTS expected_delivery_date DATE;
 
 -- 13. Add reason and notes to purchase_request_details table
 ALTER TABLE purchase_request_details ADD COLUMN IF NOT EXISTS reason VARCHAR(255);

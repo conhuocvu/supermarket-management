@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
+import 'notification_bell.dart';
 
 class AppScaffold extends ConsumerWidget {
   final Widget body;
@@ -180,6 +181,12 @@ class AppScaffold extends ConsumerWidget {
               'icon': Icons.rule_folder_outlined,
               'route': '/manage-requests',
               'active': currentPath == '/manage-requests',
+            },
+            {
+              'title': 'Notifications',
+              'icon': Icons.notifications_outlined,
+              'route': '/notifications',
+              'active': currentPath == '/notifications',
             },
           ];
 
@@ -477,7 +484,12 @@ class AppScaffold extends ConsumerWidget {
                                 color: theme.colorScheme.onSurface,
                               ),
                             ),
-                            Row(children: displayActions),
+                            Row(
+                              children: [
+                                const NotificationBell(),
+                                ...displayActions,
+                              ],
+                            ),
                           ],
                         ),
                         if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty) ...[
@@ -571,7 +583,7 @@ class AppScaffold extends ConsumerWidget {
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
-          actions: displayActions,
+          actions: [const NotificationBell(), ...displayActions],
           iconTheme: IconThemeData(color: theme.colorScheme.primary),
         ),
         drawer: Drawer(child: buildSidebarContent()),

@@ -23,6 +23,7 @@ public class ShiftChangeRequestService {
 
     private final ShiftChangeRequestRepository shiftChangeRequestRepository;
     private final ProfileRepository profileRepository;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     /** A user's shift change requests, newest first. */
@@ -57,6 +58,13 @@ public class ShiftChangeRequestService {
                 .build();
 
         shiftChangeRequestRepository.save(record);
+
+        notificationService.createNotification(
+                userId,
+                "Shift change request submitted",
+                "Your request to change shift on " + dto.getCurrentShiftDate()
+                        + " is pending approval.");
+
         return mapToDTO(record);
     }
 

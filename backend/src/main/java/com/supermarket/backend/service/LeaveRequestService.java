@@ -24,6 +24,7 @@ public class LeaveRequestService {
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final ProfileRepository profileRepository;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     /** A user's leave requests, newest first. */
@@ -62,6 +63,13 @@ public class LeaveRequestService {
                 .build();
 
         leaveRequestRepository.save(record);
+
+        notificationService.createNotification(
+                userId,
+                "Leave request submitted",
+                "Your leave request from " + dto.getStartDate() + " to " + dto.getEndDate()
+                        + " is pending approval.");
+
         return mapToDTO(record);
     }
 
