@@ -21,9 +21,7 @@ public class StaffService {
 
     private final StaffRepository staffRepository;
 
-    public StaffSummaryDTO getStaffList(String keyword, String workStatus) {
-        return getStaffList(keyword, workStatus, 0, Integer.MAX_VALUE);
-    }
+
 
     public StaffSummaryDTO getStaffList(String keyword, String workStatus, int page, int size) {
         try {
@@ -172,6 +170,9 @@ public class StaffService {
     @Transactional
     public void setStaffRole(String userId, Integer roleNumber) {
         try {
+            if (!RoleNumber.isValid(roleNumber)) {
+                throw new IllegalArgumentException("Invalid role number.");
+            }
             if (!staffRepository.existsRole(roleNumber)) {
                 throw new RuntimeException("Role not found.");
             }

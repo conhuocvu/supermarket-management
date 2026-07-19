@@ -90,7 +90,10 @@ public class ManagerDashboardRepository {
     @SuppressWarnings("unchecked")
     public List<Object[]> findRecentProfiles() {
         Query query = entityManager.createNativeQuery(
-            "SELECT full_name, role_number, created_at FROM profiles ORDER BY created_at DESC LIMIT 5"
+            "SELECT p.full_name, r.role_name, p.created_at " +
+            "FROM profiles p " +
+            "LEFT JOIN roles r ON p.role_number = r.role_number " +
+            "ORDER BY p.created_at DESC LIMIT 5"
         );
         return query.getResultList();
     }

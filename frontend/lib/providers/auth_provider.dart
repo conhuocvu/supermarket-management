@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile.dart';
 import '../models/supabase_auth_state.dart';
+import '../services/api_service.dart';
 
 class AuthNotifier extends StateNotifier<SupabaseAuthState> {
   final SupabaseClient _client;
@@ -66,20 +67,19 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
     });
   }
 
+  /// Fetches profile data through the Spring Boot backend (Issue #2 fix).
+  /// Falls back gracefully if backend is unavailable, retrying up to 3 times.
   Future<Profile?> _fetchProfileData(String userId) async {
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        final data = await _client
-            .from('profiles')
-            .select()
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (data != null) {
-          return Profile.fromJson(data);
-        }
+        return await ApiService().fetchProfile(userId);
       } catch (e) {
-        debugPrint('Error fetching profile (attempt $attempt): $e');
+        debugPrint('Error fetching profile via backend (attempt $attempt): $e');
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('account inactive') || errorMsg.contains('access denied') || errorMsg.contains('403')) {
+          state = state.copyWith(errorMessage: 'Account inactive. Access denied.');
+          return null;
+        }
       }
       if (attempt < 3) {
         await Future.delayed(Duration(milliseconds: 200 * attempt));
@@ -87,6 +87,7 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
     }
     return null;
   }
+
 
   Future<void> signIn(String email, String password) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
@@ -147,6 +148,28 @@ class AuthNotifier extends StateNotifier<SupabaseAuthState> {
         errorMessage: 'Failed to sign out: $e',
       );
     }
+  }
+
+  Future<void> refreshProfile() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    final profile = await _fetchProfileData(user.id);
+    // copyWith does not fall back to previous user/session, so pass them explicitly
+    state = state.copyWith(
+      user: user,
+      session: _client.auth.currentSession,
+      profile: profile,
+    );
+  }
+
+  /// Updates the local profile state directly from a ProfileDTO returned by
+  /// the backend update endpoint — avoids a redundant network fetch (Issue #5).
+  void updateProfileState(Profile updatedProfile) {
+    state = state.copyWith(
+      user: _client.auth.currentUser,
+      session: _client.auth.currentSession,
+      profile: updatedProfile,
+    );
   }
 
   void clearError() {

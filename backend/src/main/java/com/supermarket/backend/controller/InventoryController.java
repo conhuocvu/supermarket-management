@@ -69,4 +69,21 @@ public class InventoryController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    @GetMapping("/low-stock")
+    public ResponseEntity<Map<String, Object>> getLowStockProducts() {
+        try {
+            java.util.List<com.supermarket.backend.dto.LowStockProductDTO> lowStockProducts = inventoryService.getLowStockProducts();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Low stock products retrieved successfully.");
+            response.put("data", lowStockProducts);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Low-stock product data cannot be loaded: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }

@@ -6,6 +6,7 @@ import com.supermarket.backend.dto.PromotionDetailDTO;
 import com.supermarket.backend.dto.PromotionSummaryDTO;
 import com.supermarket.backend.dto.UpdatePromotionRequestDTO;
 import com.supermarket.backend.entity.Promotion;
+import com.supermarket.backend.entity.PromotionStatus;
 import com.supermarket.backend.repository.PromotionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,12 +27,19 @@ public class PromotionService {
     private final PromotionRepository promotionRepository;
 
     public PromotionSummaryDTO getPromotionsSummary(String keyword, String status, Pageable pageable) {
-        String filterStatus = (status == null || "ALL".equalsIgnoreCase(status)) ? null : status;
+        PromotionStatus filterStatus = null;
+        if (status != null && !"ALL".equalsIgnoreCase(status)) {
+            try {
+                filterStatus = PromotionStatus.valueOf(status.toUpperCase().trim());
+            } catch (IllegalArgumentException e) {
+                // Invalid status string, ignore filter
+            }
+        }
         
         Page<Promotion> promotionsPage;
         if (keyword != null && !keyword.trim().isEmpty()) {
             if (filterStatus != null) {
-                promotionsPage = promotionRepository.findByStatusIgnoreCaseAndPromotionNameContainingIgnoreCaseOrStatusIgnoreCaseAndPromoCodeContainingIgnoreCase(
+                promotionsPage = promotionRepository.findByStatusAndPromotionNameContainingIgnoreCaseOrStatusAndPromoCodeContainingIgnoreCase(
                         filterStatus, keyword, filterStatus, keyword, pageable);
             } else {
                 promotionsPage = promotionRepository.findByPromotionNameContainingIgnoreCaseOrPromoCodeContainingIgnoreCase(
@@ -39,26 +47,19 @@ public class PromotionService {
             }
         } else {
             if (filterStatus != null) {
-                promotionsPage = promotionRepository.findByStatusIgnoreCase(filterStatus, pageable);
+                promotionsPage = promotionRepository.findByStatus(filterStatus, pageable);
             } else {
                 promotionsPage = promotionRepository.findAll(pageable);
             }
         }
 
-        List<Promotion> allPromotions = promotionRepository.findAll();
+        long active = promotionRepository.countByStatus(PromotionStatus.ACTIVE);
+        long scheduled = promotionRepository.countByStatus(PromotionStatus.SCHEDULED);
+        long expired = promotionRepository.countByStatus(PromotionStatus.EXPIRED)
+                + promotionRepository.countByStatus(PromotionStatus.INACTIVE);
 
-        long active = allPromotions.stream().filter(p -> "ACTIVE".equalsIgnoreCase(p.getStatus())).count();
-        long scheduled = allPromotions.stream().filter(p -> "SCHEDULED".equalsIgnoreCase(p.getStatus())).count();
-        long expired = allPromotions.stream().filter(p -> "EXPIRED".equalsIgnoreCase(p.getStatus())).count();
-
-        double avgDiscount = 0.0;
-        if (!allPromotions.isEmpty()) {
-            double totalDiscount = allPromotions.stream()
-                    .mapToDouble(p -> p.getDiscountValue() != null ? p.getDiscountValue() : 0.0)
-                    .sum();
-            double avg = totalDiscount / allPromotions.size();
-            avgDiscount = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
-        }
+        Double avg = promotionRepository.getAverageDiscountValue();
+        double avgDiscount = avg != null ? BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue() : 0.0;
 
         List<PromotionDTO> dtoList = promotionsPage.getContent().stream().map(this::mapToDTO).collect(Collectors.toList());
 
@@ -80,7 +81,7 @@ public class PromotionService {
                 .promotionNumber(entity.getPromotionNumber())
                 .promotionName(entity.getPromotionName())
                 .discountValue(entity.getDiscountValue())
-                .status(entity.getStatus())
+                .status(entity.getStatus() != null ? entity.getStatus().name() : null)
                 .startDate(entity.getStartDate())
                 .endDate(entity.getEndDate())
                 .description(entity.getDescription())
@@ -109,7 +110,7 @@ public class PromotionService {
                 .promotionNumber(promotion.getPromotionNumber())
                 .promotionName(promotion.getPromotionName())
                 .discountValue(promotion.getDiscountValue())
-                .status(promotion.getStatus())
+                .status(promotion.getStatus() != null ? promotion.getStatus().name() : null)
                 .startDate(promotion.getStartDate())
                 .endDate(promotion.getEndDate())
                 .promoCode(promotion.getPromoCode())
@@ -128,7 +129,13 @@ public class PromotionService {
         Integer maxNumber = promotionRepository.findMaxPromotionNumber();
         int nextNumber = (maxNumber == null ? 0 : maxNumber) + 1;
 
-        String status = request.getStatus() != null ? request.getStatus() : "ACTIVE";
+        String statusStr = request.getStatus() != null ? request.getStatus() : "ACTIVE";
+        PromotionStatus status = PromotionStatus.ACTIVE;
+        try {
+            status = PromotionStatus.valueOf(statusStr.toUpperCase().trim());
+        } catch (IllegalArgumentException e) {
+            // Leave as default ACTIVE
+        }
 
         Promotion promotion = Promotion.builder()
                 .promotionNumber(nextNumber)
@@ -165,7 +172,11 @@ public class PromotionService {
             promotion.setEndDate(request.getEndDate());
         }
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            promotion.setStatus(request.getStatus());
+            try {
+                promotion.setStatus(PromotionStatus.valueOf(request.getStatus().toUpperCase().trim()));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid promotion status: " + request.getStatus());
+            }
         }
         if (request.getPromoCode() != null) {
             promotion.setPromoCode(request.getPromoCode());
@@ -192,7 +203,7 @@ public class PromotionService {
         Promotion promotion = promotionRepository.findByPromotionNumber(promotionNumber)
                 .orElseThrow(() -> new RuntimeException("Promotion not found with number: " + promotionNumber));
 
-        promotion.setStatus("INACTIVE");
+        promotion.setStatus(PromotionStatus.EXPIRED);
         promotionRepository.save(promotion);
     }
 

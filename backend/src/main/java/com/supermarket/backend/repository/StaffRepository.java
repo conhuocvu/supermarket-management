@@ -235,4 +235,20 @@ public class StaffRepository {
                 "SELECT DISTINCT shift_number, shift_name, CAST(start_time AS VARCHAR), CAST(end_time AS VARCHAR) FROM shifts WHERE shift_number IS NOT NULL ORDER BY shift_number"
         ).getResultList();
     }
+
+    public String getUserRole(String userId) {
+        try {
+            String sql = """
+                SELECT r.role_name
+                FROM profiles p
+                JOIN roles r ON p.role_number = r.role_number
+                WHERE p.user_id = CAST(:userId AS uuid)
+                """;
+            Query query = entityManager.createNativeQuery(sql);
+            query.setParameter("userId", userId);
+            return (String) query.getSingleResult();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

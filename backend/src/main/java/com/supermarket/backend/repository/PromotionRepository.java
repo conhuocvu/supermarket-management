@@ -1,6 +1,7 @@
 package com.supermarket.backend.repository;
 
 import com.supermarket.backend.entity.Promotion;
+import com.supermarket.backend.entity.PromotionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,21 +14,26 @@ import java.util.List;
 @Repository
 public interface PromotionRepository extends JpaRepository<Promotion, Long> {
 
-    List<Promotion> findByStatusIgnoreCase(String status);
+    List<Promotion> findByStatus(PromotionStatus status);
 
-    Page<Promotion> findByStatusIgnoreCase(String status, Pageable pageable);
+    Page<Promotion> findByStatus(PromotionStatus status, Pageable pageable);
 
     List<Promotion> findByPromotionNameContainingIgnoreCaseOrPromoCodeContainingIgnoreCase(String nameKeyword, String codeKeyword);
 
     Page<Promotion> findByPromotionNameContainingIgnoreCaseOrPromoCodeContainingIgnoreCase(String nameKeyword, String codeKeyword, Pageable pageable);
 
-    List<Promotion> findByStatusIgnoreCaseAndPromotionNameContainingIgnoreCaseOrStatusIgnoreCaseAndPromoCodeContainingIgnoreCase(
-            String status1, String nameKeyword, String status2, String codeKeyword);
+    List<Promotion> findByStatusAndPromotionNameContainingIgnoreCaseOrStatusAndPromoCodeContainingIgnoreCase(
+            PromotionStatus status1, String nameKeyword, PromotionStatus status2, String codeKeyword);
 
-    Page<Promotion> findByStatusIgnoreCaseAndPromotionNameContainingIgnoreCaseOrStatusIgnoreCaseAndPromoCodeContainingIgnoreCase(
-            String status1, String nameKeyword, String status2, String codeKeyword, Pageable pageable);
+    Page<Promotion> findByStatusAndPromotionNameContainingIgnoreCaseOrStatusAndPromoCodeContainingIgnoreCase(
+            PromotionStatus status1, String nameKeyword, PromotionStatus status2, String codeKeyword, Pageable pageable);
 
     java.util.Optional<Promotion> findByPromotionNumber(Integer promotionNumber);
+
+    long countByStatus(PromotionStatus status);
+
+    @Query("SELECT AVG(p.discountValue) FROM Promotion p")
+    Double getAverageDiscountValue();
 
     @Query(value = "SELECT p.product_name, p.barcode, p.selling_price " +
                    "FROM products p " +

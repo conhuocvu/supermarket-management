@@ -38,6 +38,7 @@ public class InventoryService {
     private final SupplierRepository supplierRepository;
     private final StockOutRepository stockOutRepository;
     private final StockOutDetailRepository stockOutDetailRepository;
+    private final UnitRepository unitRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.default-user-id:e3b3ec4a-da0b-40f5-9747-29361993892b}")
     private String defaultUserIdStr;
@@ -47,7 +48,6 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable("dashboardData")
     public DashboardDataDTO getDashboardData() {
         long totalProducts = productRepository.count();
         long lowStockCount = inventoryRepository.countLowStock();
@@ -408,7 +408,6 @@ public class InventoryService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void recordStockIn(StockInRequestDTO request) {
         if (request.getPurchaseRequestNumber() == null) {
             throw new IllegalArgumentException("Purchase request number is required.");
@@ -688,7 +687,6 @@ public class InventoryService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void recordStockOut(StockOutRequestDTO request) {
         if (request.getReportNumber() == null) {
             throw new IllegalArgumentException("Report number is required.");
@@ -812,6 +810,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public List<PurchaseRequestListDTO> getPurchaseRequests() {
         String sql = "SELECT pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, " +
+                "pr.created_by as creator_id, " +
                 "p1.full_name as creator_name, p2.full_name as approver_name, " +
                 "MAX(s.supplier_name) as supplier_name, " +
                 "COALESCE(SUM(prd.requested_quantity), 0) as total_quantity, " +
@@ -822,12 +821,12 @@ public class InventoryService {
                 "LEFT JOIN purchase_request_details prd ON pr.purchase_request_number = prd.purchase_request_number " +
                 "LEFT JOIN product_suppliers ps ON prd.product_supplier_number = ps.product_supplier_number " +
                 "LEFT JOIN suppliers s ON ps.supplier_number = s.supplier_number " +
-                "GROUP BY pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, p1.full_name, p2.full_name "
-                +
+                "GROUP BY pr.purchase_request_number, pr.status, pr.created_date, pr.approved_date, pr.created_by, p1.full_name, p2.full_name " +
                 "ORDER BY pr.created_date DESC";
 
         return jdbcTemplate.query(sql, (rs, rowNum) -> PurchaseRequestListDTO.builder()
                 .purchaseRequestNumber(rs.getInt("purchase_request_number"))
+                .createdById(rs.getString("creator_id"))
                 .createdBy(rs.getString("creator_name") != null ? rs.getString("creator_name") : "System")
                 .status(rs.getString("status"))
                 .createdDate(rs.getTimestamp("created_date") != null ? rs.getTimestamp("created_date").toLocalDateTime()
@@ -873,20 +872,62 @@ public class InventoryService {
 
         List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
 
+        if (details.isEmpty()) {
+            return PurchaseRequestDetailDTO.builder()
+                    .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                    .createdBy(creatorName)
+                    .createdDate(pr.getCreatedDate())
+                    .approvedBy(approverName)
+                    .approvedDate(pr.getApprovedDate())
+                    .status(pr.getStatus())
+                    .expectedDeliveryDate(pr.getExpectedDeliveryDate())
+                    .items(java.util.Collections.emptyList())
+                    .build();
+        }
+
+        // Collect IDs needed
+        List<Integer> productSupplierIds = details.stream()
+                .map(PurchaseRequestDetail::getProductSupplierNumber)
+                .collect(Collectors.toList());
+
+        // Bulk load product-suppliers
+        Map<Integer, ProductSupplier> psMap = productSupplierRepository.findAllById(productSupplierIds).stream()
+                .collect(Collectors.toMap(ProductSupplier::getProductSupplierNumber, ps -> ps));
+
+        List<Integer> productIds = psMap.values().stream()
+                .map(ProductSupplier::getProductNumber)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Integer> supplierIds = psMap.values().stream()
+                .map(ProductSupplier::getSupplierNumber)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Bulk load products, inventories, and suppliers
+        Map<Integer, Product> productMap = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getProductNumber, p -> p));
+
+        Map<Integer, Inventory> inventoryMap = inventoryRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Inventory::getProductNumber, inv -> inv));
+
+        Map<Integer, String> supplierNameMap = supplierRepository.findAllById(supplierIds).stream()
+                .collect(Collectors.toMap(Supplier::getSupplierNumber, Supplier::getSupplierName));
+
+        Map<Integer, String> unitNameMap = unitRepository.findAll().stream()
+                .collect(Collectors.toMap(Unit::getUnitNumber, Unit::getUnitName));
+
         List<PurchaseRequestItemDTO> items = details.stream().map(d -> {
-            ProductSupplier prodSupplier = productSupplierRepository.findById(d.getProductSupplierNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product supplier mapping not found: " + d.getProductSupplierNumber()));
+            ProductSupplier prodSupplier = psMap.get(d.getProductSupplierNumber());
+            if (prodSupplier == null) return null;
 
-            Product p = productRepository.findById(prodSupplier.getProductNumber())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product not found: " + prodSupplier.getProductNumber()));
+            Product p = productMap.get(prodSupplier.getProductNumber());
+            if (p == null) return null;
 
-            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
-
-            String supplierName = supplierRepository.findById(prodSupplier.getSupplierNumber())
-                    .map(s -> s.getSupplierName())
-                    .orElse("Unknown");
+            String unitName = unitNameMap.getOrDefault(p.getInventoryUnitNumber(), "Unit");
+            String supplierName = supplierNameMap.getOrDefault(prodSupplier.getSupplierNumber(), "Unknown");
+            Inventory inv = inventoryMap.get(p.getProductNumber());
+            BigDecimal stock = inv != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
 
             return PurchaseRequestItemDTO.builder()
                     .productNumber(p.getProductNumber())
@@ -896,8 +937,12 @@ public class InventoryService {
                     .importPrice(prodSupplier.getImportPrice())
                     .unitName(unitName)
                     .supplierName(supplierName)
+                    .reason(d.getReason())
+                    .notes(d.getNotes())
+                    .currentStock(stock)
+                    .reorderLevel(p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO)
                     .build();
-        }).collect(Collectors.toList());
+        }).filter(item -> item != null).collect(Collectors.toList());
 
         return PurchaseRequestDetailDTO.builder()
                 .purchaseRequestNumber(pr.getPurchaseRequestNumber())
@@ -906,12 +951,12 @@ public class InventoryService {
                 .approvedBy(approverName)
                 .approvedDate(pr.getApprovedDate())
                 .status(pr.getStatus())
+                .expectedDeliveryDate(pr.getExpectedDeliveryDate())
                 .items(items)
                 .build();
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "dashboardData", allEntries = true)
     public void submitPurchaseRequest(Integer prNumber) {
         PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
@@ -923,5 +968,229 @@ public class InventoryService {
 
         pr.setStatus("PENDING");
         purchaseRequestRepository.save(pr);
+    }
+
+    @Transactional(readOnly = true)
+    public PurchaseRequestFormDataDTO getPurchaseRequestFormData() {
+        // Load ALL data in bulk (4 queries total) to avoid N+1 problem
+        Map<Integer, Supplier> supplierMap = supplierRepository.findAll().stream()
+                .collect(Collectors.toMap(Supplier::getSupplierNumber, s -> s));
+
+        List<SupplierDTO> activeSuppliersDTO = supplierMap.values().stream()
+                .filter(s -> "ACTIVE".equals(s.getStatus()))
+                .map(s -> SupplierDTO.builder()
+                        .supplierNumber(s.getSupplierNumber())
+                        .supplierName(s.getSupplierName())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<Product> activeProducts = productRepository.findByStatusWithRelationships("ACTIVE");
+
+        // Bulk load all product-supplier mappings and group by productNumber
+        Map<Integer, List<ProductSupplier>> productSupplierMap = productSupplierRepository.findAll().stream()
+                .collect(Collectors.groupingBy(ProductSupplier::getProductNumber));
+
+        // Bulk load all inventories and index by productNumber
+        Map<Integer, Inventory> inventoryMap = inventoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Inventory::getProductNumber, inv -> inv));
+
+        // Bulk load all units and index by unitNumber
+        Map<Integer, String> unitNameMap = unitRepository.findAll().stream()
+                .collect(Collectors.toMap(Unit::getUnitNumber, Unit::getUnitName));
+
+        List<PurchaseRequestFormProductDTO> productDTOs = new java.util.ArrayList<>();
+        for (Product p : activeProducts) {
+            List<ProductSupplier> prodSuppliers = productSupplierMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
+            if (prodSuppliers.isEmpty()) {
+                continue;
+            }
+
+            List<ProductSupplierInfoDTO> supplierInfos = prodSuppliers.stream()
+                    .map(ps -> {
+                        Supplier sup = supplierMap.get(ps.getSupplierNumber());
+                        String supplierName = sup != null ? sup.getSupplierName() : "Unknown Supplier";
+                        return ProductSupplierInfoDTO.builder()
+                                .supplierNumber(ps.getSupplierNumber())
+                                .supplierName(supplierName)
+                                .importPrice(ps.getImportPrice())
+                                .minimumOrderQuantity(ps.getMinimumOrderQuantity())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            String unitName = unitNameMap.getOrDefault(p.getInventoryUnitNumber(), "Unit");
+            Inventory inv = inventoryMap.get(p.getProductNumber());
+            BigDecimal stock = inv != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+
+            productDTOs.add(PurchaseRequestFormProductDTO.builder()
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .barcode(p.getBarcode())
+                    .unitName(unitName)
+                    .currentStock(stock)
+                    .reorderLevel(p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO)
+                    .suppliers(supplierInfos)
+                    .build());
+        }
+
+        return PurchaseRequestFormDataDTO.builder()
+                .suppliers(activeSuppliersDTO)
+                .products(productDTOs)
+                .build();
+    }
+
+    /**
+     * Finds an existing DRAFT purchase request for the user, or creates a new empty one.
+     * Does NOT modify any existing items — safe to call on page open.
+     */
+    @Transactional
+    public PurchaseRequest findOrCreateDraftPurchaseRequest(UUID userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to access or create a draft purchase request. Please log in.");
+        }
+        final UUID finalUserId = userId;
+        return purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
+                .orElseGet(() -> {
+                    PurchaseRequest newPr = PurchaseRequest.builder()
+                            .status("DRAFT")
+                            .createdBy(finalUserId)
+                            .createdDate(LocalDateTime.now())
+                            .build();
+                    return purchaseRequestRepository.save(newPr);
+                });
+    }
+
+    @Transactional
+    public PurchaseRequest saveDraftPurchaseRequest(UUID userId, PurchaseRequestSaveDraftDTO dto) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to save a draft purchase request. Please log in.");
+        }
+        final UUID finalUserId = userId;
+        PurchaseRequest pr = purchaseRequestRepository.findByCreatedByAndStatus(finalUserId, "DRAFT")
+                .orElseGet(() -> {
+                    PurchaseRequest newPr = PurchaseRequest.builder()
+                            .status("DRAFT")
+                            .createdBy(finalUserId)
+                            .createdDate(LocalDateTime.now())
+                            .build();
+                    return purchaseRequestRepository.save(newPr);
+                });
+
+        pr.setExpectedDeliveryDate(dto.getExpectedDeliveryDate());
+        purchaseRequestRepository.save(pr);
+
+        if (dto.getItems() != null) {
+            // Load existing details indexed by productSupplierNumber for upsert
+            List<PurchaseRequestDetail> existingDetails =
+                    purchaseRequestDetailRepository.findByPurchaseRequestNumber(pr.getPurchaseRequestNumber());
+            java.util.Map<Integer, PurchaseRequestDetail> existingBySupplierNum = existingDetails.stream()
+                    .collect(Collectors.toMap(PurchaseRequestDetail::getProductSupplierNumber, d -> d));
+
+            java.util.Set<Integer> incomingSupplierNumbers = new java.util.HashSet<>();
+
+            // Bulk load all relevant ProductSuppliers to avoid N+1 query loop
+            List<Integer> productNumbers = dto.getItems().stream()
+                    .map(PurchaseRequestSaveDraftItemDTO::getProductNumber)
+                    .collect(Collectors.toList());
+            List<ProductSupplier> allSuppliers = productSupplierRepository.findByProductNumberIn(productNumbers);
+
+            for (PurchaseRequestSaveDraftItemDTO item : dto.getItems()) {
+                ProductSupplier productSupplier = allSuppliers.stream()
+                        .filter(ps -> ps.getProductNumber().equals(item.getProductNumber()) && ps.getSupplierNumber().equals(item.getSupplierNumber()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Supplier relationship not found for product " + item.getProductNumber() +
+                                " and supplier " + item.getSupplierNumber() +
+                                ". Please configure a supplier for this product first."));
+
+                incomingSupplierNumbers.add(productSupplier.getProductSupplierNumber());
+
+                PurchaseRequestDetail existing = existingBySupplierNum.get(productSupplier.getProductSupplierNumber());
+                if (existing != null) {
+                    // Update existing detail — do NOT delete and recreate
+                    existing.setRequestedQuantity(item.getRequestedQuantity());
+                    existing.setReason(item.getReason());
+                    existing.setNotes(item.getNotes());
+                    purchaseRequestDetailRepository.save(existing);
+                } else {
+                    // Insert new detail
+                    PurchaseRequestDetail detail = PurchaseRequestDetail.builder()
+                            .purchaseRequestNumber(pr.getPurchaseRequestNumber())
+                            .productSupplierNumber(productSupplier.getProductSupplierNumber())
+                            .requestedQuantity(item.getRequestedQuantity())
+                            .reason(item.getReason())
+                            .notes(item.getNotes())
+                            .build();
+                    purchaseRequestDetailRepository.save(detail);
+                }
+            }
+
+            // Remove details that were explicitly removed from the form (not in incoming list)
+            existingDetails.stream()
+                    .filter(d -> !incomingSupplierNumbers.contains(d.getProductSupplierNumber()))
+                    .forEach(purchaseRequestDetailRepository::delete);
+        }
+
+        return pr;
+    }
+
+    @Transactional(readOnly = true)
+    public List<LowStockProductDTO> getLowStockProducts() {
+        List<Inventory> lowStockInventories = inventoryRepository.findLowStockProducts();
+
+        // Bulk load all product-supplier mappings and group by productNumber
+        Map<Integer, List<ProductSupplier>> productSupplierMap = productSupplierRepository.findAll().stream()
+                .collect(Collectors.groupingBy(ProductSupplier::getProductNumber));
+
+        List<LowStockProductDTO> dtos = new java.util.ArrayList<>();
+        for (Inventory inv : lowStockInventories) {
+            Product p = inv.getProduct();
+            if (p == null) continue;
+
+            String unitName = p.getUnit() != null ? p.getUnit().getUnitName() : "Unit";
+            
+            // Get minimum order quantity from product suppliers
+            List<ProductSupplier> prodSuppliers = productSupplierMap.getOrDefault(p.getProductNumber(), java.util.Collections.emptyList());
+            BigDecimal minOrderQty = BigDecimal.valueOf(10); // default fallback
+            BigDecimal importPrice = BigDecimal.ZERO; // default fallback
+            if (!prodSuppliers.isEmpty()) {
+                minOrderQty = prodSuppliers.get(0).getMinimumOrderQuantity();
+                importPrice = prodSuppliers.get(0).getImportPrice();
+            }
+
+            BigDecimal stock = inv.getAvailableQuantity() != null ? inv.getAvailableQuantity() : BigDecimal.ZERO;
+            BigDecimal reorderLevel = p.getReorderLevel() != null ? p.getReorderLevel() : BigDecimal.ZERO;
+            BigDecimal needed = reorderLevel.subtract(stock);
+            
+            BigDecimal suggestedQty = needed;
+            if (suggestedQty.compareTo(minOrderQty) < 0) {
+                suggestedQty = minOrderQty;
+            }
+
+            boolean isCritical = stock.compareTo(BigDecimal.ZERO) == 0 || 
+                    stock.compareTo(reorderLevel.multiply(BigDecimal.valueOf(0.3))) <= 0;
+
+            String suggestion;
+            if (isCritical) {
+                suggestion = "Critical - Restock " + suggestedQty.stripTrailingZeros().toPlainString() + " " + unitName;
+            } else {
+                suggestion = "Order " + suggestedQty.stripTrailingZeros().toPlainString() + "+ " + unitName;
+            }
+
+            dtos.add(LowStockProductDTO.builder()
+                    .productNumber(p.getProductNumber())
+                    .productName(p.getProductName())
+                    .sku(p.getBarcode())
+                    .currentStock(stock)
+                    .reorderLevel(reorderLevel)
+                    .unitName(unitName)
+                    .suggestedQuantity(suggestedQty)
+                    .minOrderQuantity(minOrderQty)
+                    .importPrice(importPrice)
+                    .suggestion(suggestion)
+                    .critical(isCritical)
+                    .build());
+        }
+        return dtos;
     }
 }

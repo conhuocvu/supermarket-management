@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import 'models/profile.dart';
 import 'models/inventory_product.dart';
+import 'models/cashier_models.dart';
 import 'providers/auth_provider.dart';
 import 'providers/splash_finished_provider.dart';
 import 'providers/router_notifier.dart';
@@ -21,10 +22,27 @@ import 'screens/inventory_transaction_list_screen.dart';
 import 'screens/stock_in_form_screen.dart';
 import 'screens/stock_out_form_screen.dart';
 import 'screens/purchase_request_list_screen.dart';
+import 'screens/purchase_request_form_screen.dart';
+import 'screens/request_management_screen.dart';
+import 'screens/low_stock_product_list_screen.dart';
+import 'screens/cashier_dashboard_screen.dart';
+import 'screens/new_invoice_launcher_screen.dart';
+import 'screens/cashier_pos_screen.dart';
+import 'screens/cashier_checkout_screen.dart';
+import 'screens/cashier_receipt_screen.dart';
+import 'screens/shift_invoices_screen.dart';
+import 'screens/cashier_invoice_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/role_screens.dart';
+import 'screens/profile_screen.dart';
+import 'screens/change_password_screen.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/personal_screens.dart';
+import 'screens/work_schedule_screen.dart';
+import 'screens/leave_request_form.dart';
+import 'screens/schedule_request_form.dart';
 import 'screens/manager_dashboard_screen.dart';
 import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
@@ -144,26 +162,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 4. If logged in and profile loaded:
       final role = auth.profile!.roleNumber;
-      String landingPage;
-      switch (role) {
-        case UserRoles.admin:
-          landingPage = '/admin';
-          break;
-        case UserRoles.manager:
-          landingPage = '/manager';
-          break;
-        case UserRoles.stockController:
-          landingPage = '/stock';
-          break;
-        case UserRoles.salesAssociate:
-          landingPage = '/sales';
-          break;
-        case UserRoles.cashier:
-          landingPage = '/cashier';
-          break;
-        default:
-          landingPage = '/login'; // Fallback for invalid role
-      }
+      const landingPage = '/dashboard';
 
       // Redirect if on a public/splash route
       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
@@ -175,8 +174,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         return landingPage;
       }
 
-      // Protect routes based on role:
       final path = state.uri.path;
+
+      // Routes shared by all authenticated roles
+      if (path == '/dashboard' ||
+          path == '/profile' ||
+          path == '/work-schedule' ||
+          path == '/leave-request' ||
+          path == '/schedule-change' ||
+          path == '/manage-requests' ||
+          path == '/change-password') {
+        return null;
+      }
+
+      // Protect routes based on role:
       if (role == UserRoles.admin && !path.startsWith('/admin')) {
         return '/admin';
       }
@@ -222,6 +233,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: ManagerDashboardScreen()),
           ),
           GoRoute(
+            path: '/manager/requests',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: RequestManagementScreen()),
+          ),
+          GoRoute(
             path: '/manager/staff',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: StaffListScreen()),
@@ -263,7 +279,69 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/cashier',
-        builder: (context, state) => const CashierScreen(),
+        pageBuilder: (context, state) =>
+            const NoTransitionPage(child: CashierDashboardScreen()),
+        routes: [
+          GoRoute(
+            path: 'new-invoice',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NewInvoiceLauncherScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'pos/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierPosScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'checkout/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierCheckoutScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'receipt/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierReceiptScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+                initialReceipt: state.extra is CashierReceipt
+                    ? state.extra as CashierReceipt
+                    : null,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'invoices',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ShiftInvoicesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'invoices/:invoiceNumber',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: CashierInvoiceDetailScreen(
+                invoiceNumber: int.tryParse(
+                      state.pathParameters['invoiceNumber'] ?? '',
+                    ) ??
+                    0,
+              ),
+            ),
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -271,10 +349,45 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(
+            path: '/dashboard',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DashboardScreen()),
+          ),
+          GoRoute(
+            path: '/profile',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProfileScreen()),
+          ),
+          GoRoute(
+            path: '/work-schedule',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: WorkScheduleScreen()),
+          ),
+          GoRoute(
+            path: '/leave-request',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: LeaveRequestForm()),
+          ),
+          GoRoute(
+            path: '/schedule-change',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ScheduleRequestForm()),
+          ),
+          GoRoute(
+            path: '/manage-requests',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ManageRequestStatusScreen()),
+          ),
+          GoRoute(
             path: '/stock',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: InventoryDashboardScreen()),
             routes: [
+              GoRoute(
+                path: 'profile',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: ProfileScreen()),
+              ),
               GoRoute(
                 path: 'categories',
                 pageBuilder: (context, state) =>
@@ -369,10 +482,26 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'purchase-requests',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: PurchaseRequestListScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'create',
+                    pageBuilder: (context, state) =>
+                        const NoTransitionPage(child: PurchaseRequestFormScreen()),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'low-stock',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: LowStockProductListScreen()),
               ),
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
       GoRoute(
         path: '/test-cors',
@@ -408,7 +537,7 @@ class CorsTestHomePage extends StatefulWidget {
 }
 
 class _CorsTestHomePageState extends State<CorsTestHomePage> {
-  String _status = 'Chưa kiểm tra kết nối';
+  String _status = 'Connection not tested yet';
   String _responseDetails = '';
   bool _isLoading = false;
   bool _isSuccess = false;
@@ -421,7 +550,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
   Future<void> _testBackendConnection() async {
     setState(() {
       _isLoading = true;
-      _status = 'Đang gọi API backend ($apiBaseUrl/test)...';
+      _status = 'Calling backend API ($apiBaseUrl/test)...';
       _responseDetails = '';
     });
 
@@ -434,21 +563,21 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
         final data = jsonDecode(response.body);
         setState(() {
           _isSuccess = true;
-          _status = 'Kết nối thành công! (HTTP 200 OK)';
+          _status = 'Connection successful! (HTTP 200 OK)';
           _responseDetails = 'Response: ${data["message"]}';
         });
       } else {
         setState(() {
           _isSuccess = false;
-          _status = 'Lỗi kết nối! HTTP Status: ${response.statusCode}';
+          _status = 'Connection error! HTTP Status: ${response.statusCode}';
           _responseDetails = response.body;
         });
       }
     } catch (e) {
       setState(() {
         _isSuccess = false;
-        _status = 'Thất bại khi gọi API!';
-        _responseDetails = 'Chi tiết lỗi (có thể do CORS hoặc BE chưa bật): $e';
+        _status = 'API call failed!';
+        _responseDetails = 'Error details (possibly CORS or backend not running): $e';
       });
     } finally {
       setState(() {
@@ -461,7 +590,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kiểm tra kết nối FE + BE (CORS Test)'),
+        title: const Text('FE + BE Connection Check (CORS Test)'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
       ),
@@ -487,7 +616,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Bấm nút bên dưới để thử gửi request HTTP GET từ Frontend đến Backend localhost:8080',
+                'Press the button below to send an HTTP GET request from the Frontend to the Backend at localhost:8080',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
@@ -513,7 +642,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                       )
                     : const Icon(Icons.cloud_sync),
                 label: Text(
-                  _isLoading ? 'Đang gửi request...' : 'Test Kết Nối Backend',
+                  _isLoading ? 'Sending request...' : 'Test Backend Connection',
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
@@ -523,14 +652,14 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _status.contains('Chưa')
+                  color: _status.contains('not tested')
                       ? Colors.grey.shade100
                       : (_isSuccess
                             ? Colors.green.shade50
                             : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _status.contains('Chưa')
+                    color: _status.contains('not tested')
                         ? Colors.grey.shade300
                         : (_isSuccess ? Colors.green : Colors.red),
                   ),
@@ -543,7 +672,7 @@ class _CorsTestHomePageState extends State<CorsTestHomePage> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: _status.contains('Chưa')
+                        color: _status.contains('not tested')
                             ? Colors.black87
                             : (_isSuccess
                                   ? Colors.green.shade800

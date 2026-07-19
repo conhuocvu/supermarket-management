@@ -7,9 +7,11 @@ import '../models/category_item.dart';
 import '../models/inventory_product.dart';
 import '../models/inventory_product_detail.dart';
 import '../models/product_adjustment.dart';
+import '../models/profile.dart';
 import '../models/inventory_transaction.dart';
 import '../models/pending_task.dart';
 import '../models/purchase_request.dart';
+import '../models/low_stock_product.dart';
 
 class ApiService {
   final Dio _dio;
@@ -20,14 +22,36 @@ class ApiService {
     defaultValue: 'http://localhost:8080/api',
   );
 
-  ApiService()
-    : _dio = Dio(
-        BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-        ),
-      );
+  ApiService() : _dio = _buildDio();
+
+  static Dio _buildDio() {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    // Attach the Supabase JWT Bearer token to every request so Spring Boot can
+    // verify ownership (IDOR protection) without a separate auth step.
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          try {
+            final token =
+                Supabase.instance.client.auth.currentSession?.accessToken;
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (_) {
+            // Supabase not initialized or no session
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+    return dio;
+  }
 
   Future<DashboardData> fetchDashboardData() async {
     try {
@@ -37,9 +61,7 @@ class ApiService {
         if (body['success'] == true) {
           return DashboardData.fromJson(body['data']);
         } else {
-          throw Exception(
-            body['message'] ?? 'Failed to load dashboard data.',
-          );
+          throw Exception(body['message'] ?? 'Failed to load dashboard data.');
         }
       } else {
         throw Exception(
@@ -84,12 +106,16 @@ class ApiService {
         final body = response.data;
         if (body['success'] == true) {
           final data = body['data'] as List? ?? [];
-          return data.map((item) => InventoryTransaction.fromJson(item)).toList();
+          return data
+              .map((item) => InventoryTransaction.fromJson(item))
+              .toList();
         } else {
           throw Exception(body['message'] ?? 'Failed to load transactions.');
         }
       } else {
-        throw Exception('Failed to load transactions: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load transactions: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -109,7 +135,9 @@ class ApiService {
           throw Exception(body['message'] ?? 'Failed to load pending tasks.');
         }
       } else {
-        throw Exception('Failed to load pending tasks: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load pending tasks: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -152,9 +180,7 @@ class ApiService {
             'totalPages': data['totalPages'] ?? 0,
           };
         } else {
-          throw Exception(
-            body['message'] ?? 'Failed to load products list.',
-          );
+          throw Exception(body['message'] ?? 'Failed to load products list.');
         }
       } else {
         throw Exception(
@@ -180,7 +206,9 @@ class ApiService {
           throw Exception(body['message'] ?? 'Failed to load categories.');
         }
       } else {
-        throw Exception('Failed to load categories: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load categories: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -196,9 +224,7 @@ class ApiService {
         queryParameters: {'status': status},
       );
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(
-          response.data['message'] ?? 'Failed to update status.',
-        );
+        throw Exception(response.data['message'] ?? 'Failed to update status.');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -209,13 +235,11 @@ class ApiService {
 
   Future<void> createPurchaseRequest(List<int> productNumbers) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
+      final userId =
+          Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
       final response = await _dio.post(
         '/purchase-requests/items',
-        data: {
-          'userId': userId,
-          'productNumbers': productNumbers,
-        },
+        data: {'userId': userId, 'productNumbers': productNumbers},
       );
       if (response.statusCode != 200 || response.data['success'] != true) {
         throw Exception(
@@ -239,14 +263,10 @@ class ApiService {
           final data = body['data'] as List? ?? [];
           return data.map((item) => Map<String, dynamic>.from(item)).toList();
         } else {
-          throw Exception(
-            body['message'] ?? 'Failed to load units.',
-          );
+          throw Exception(body['message'] ?? 'Failed to load units.');
         }
       } else {
-        throw Exception(
-          'Failed to load units: HTTP ${response.statusCode}',
-        );
+        throw Exception('Failed to load units: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -264,9 +284,7 @@ class ApiService {
           final data = body['data'] as List? ?? [];
           return data.map((item) => Map<String, dynamic>.from(item)).toList();
         } else {
-          throw Exception(
-            body['message'] ?? 'Failed to load suppliers list.',
-          );
+          throw Exception(body['message'] ?? 'Failed to load suppliers list.');
         }
       } else {
         throw Exception(
@@ -300,6 +318,152 @@ class ApiService {
         }
       } else {
         throw Exception('Failed to upload image: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Profile Methods
+  // ---------------------------------------------------------------------------
+
+  /// Fetches a profile via the Spring Boot backend (GET /api/profiles/{userId}).
+  /// Converts the backend DTO field names (camelCase) into the Profile model.
+  Future<Profile> fetchProfile(String userId) async {
+    try {
+      final response = await _dio.get('/profiles/$userId');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as Map<String, dynamic>;
+          // Backend DTO uses camelCase; map to snake_case for Profile.fromJson
+          return Profile.fromJson({
+            'user_id': data['userId'],
+            'role_number': data['roleNumber'],
+            'full_name': data['fullName'],
+            'phone': data['phone'],
+            'status': data['status'],
+            'created_at': data['createdAt'],
+            'avatar_url': data['avatarUrl'],
+            'address': data['address'],
+            'last_login': data['lastLogin'],
+          });
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load profile.');
+        }
+      } else {
+        throw Exception('Failed to load profile: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Updates editable profile fields via the Spring Boot backend
+  /// (PUT /api/profiles/{userId}).
+  /// Returns the updated Profile so the caller can refresh local state
+  /// without an extra fetch (fixes Issue #5 redundant refresh).
+  Future<Profile> updateProfile({
+    required String userId,
+    required String fullName,
+    required String phone,
+    String? address,
+  }) async {
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final response = await _dio.put(
+          '/profiles/$userId',
+          data: {
+            'fullName': fullName,
+            'phone': phone,
+            'address': address,
+          },
+        );
+        if (response.statusCode == 200) {
+          final body = response.data;
+          if (body['success'] == true) {
+            final data = body['data'] as Map<String, dynamic>;
+            return Profile.fromJson({
+              'user_id': data['userId'],
+              'role_number': data['roleNumber'],
+              'full_name': data['fullName'],
+              'phone': data['phone'],
+              'status': data['status'],
+              'created_at': data['createdAt'],
+              'avatar_url': data['avatarUrl'],
+              'address': data['address'],
+              'last_login': data['lastLogin'],
+            });
+          } else {
+            throw Exception(body['message'] ?? 'Failed to update profile.');
+          }
+        } else {
+          throw Exception('Failed to update profile: HTTP ${response.statusCode}');
+        }
+      } on DioException catch (e) {
+        final isTransientError = e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+        if (attempt == 3 || !isTransientError) {
+          throw Exception(_handleDioError(e));
+        }
+        await Future.delayed(Duration(milliseconds: 200 * attempt));
+      } catch (e) {
+        if (attempt == 3) {
+          throw Exception('Unexpected error occurred: $e');
+        }
+        await Future.delayed(Duration(milliseconds: 200 * attempt));
+      }
+    }
+    throw Exception('Failed to update profile after multiple attempts.');
+  }
+
+  Future<String> uploadAvatar(String userId, XFile imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      // Determine content-type from extension so the backend can validate it
+      final ext = imageFile.name.split('.').last.toLowerCase();
+      final mimeType = const {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+      }[ext] ?? 'image/jpeg';
+
+      // Build DioMediaType from mime string (e.g. "image/jpeg" → type="image", subtype="jpeg")
+      final mimeParts = mimeType.split('/');
+      final dioContentType = DioMediaType(mimeParts[0], mimeParts[1]);
+
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.name,
+          contentType: dioContentType,
+        ),
+      });
+
+      final response = await _dio.put(
+        '/profiles/$userId/avatar',
+        data: formData,
+        options: Options(
+          // Avatar uploads may take longer than the default 30s
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return body['data']['avatarUrl'] as String;
+        } else {
+          throw Exception(body['message'] ?? 'Failed to upload avatar.');
+        }
+      } else {
+        throw Exception('Failed to upload avatar: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -448,7 +612,10 @@ class ApiService {
   // Stock-In Methods
   // ==========================================
 
-  Future<Map<String, dynamic>> fetchStockInFormData(int prNumber, int? supplierNumber) async {
+  Future<Map<String, dynamic>> fetchStockInFormData(
+    int prNumber,
+    int? supplierNumber,
+  ) async {
     try {
       final response = await _dio.get(
         '/stock-ins/form-data',
@@ -462,10 +629,14 @@ class ApiService {
         if (body['success'] == true) {
           return body['data'] as Map<String, dynamic>;
         } else {
-          throw Exception(body['message'] ?? 'Failed to load stock-in form data.');
+          throw Exception(
+            body['message'] ?? 'Failed to load stock-in form data.',
+          );
         }
       } else {
-        throw Exception('Failed to load stock-in form data: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load stock-in form data: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -481,7 +652,9 @@ class ApiService {
   ) async {
     try {
       // Convert map keys to string as JSON map keys must be strings
-      final stringKeysMap = deliveredQuantities.map((k, v) => MapEntry(k.toString(), v));
+      final stringKeysMap = deliveredQuantities.map(
+        (k, v) => MapEntry(k.toString(), v),
+      );
       final response = await _dio.post(
         '/stock-ins/compare-quantities',
         data: {
@@ -498,7 +671,9 @@ class ApiService {
           throw Exception(body['message'] ?? 'Failed to compare quantities.');
         }
       } else {
-        throw Exception('Failed to compare quantities: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to compare quantities: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -515,7 +690,8 @@ class ApiService {
     required String description,
   }) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
+      final userId =
+          Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
       final response = await _dio.post(
         '/inventory/delivery-issues',
         data: {
@@ -537,10 +713,7 @@ class ApiService {
 
   Future<bool> submitStockIn(Map<String, dynamic> stockInPayload) async {
     try {
-      final response = await _dio.post(
-        '/stock-ins',
-        data: stockInPayload,
-      );
+      final response = await _dio.post('/stock-ins', data: stockInPayload);
       return response.statusCode == 201 && response.data['success'] == true;
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -564,10 +737,14 @@ class ApiService {
         if (body['success'] == true) {
           return body['data'] as Map<String, dynamic>;
         } else {
-          throw Exception(body['message'] ?? 'Failed to load stock-out form data.');
+          throw Exception(
+            body['message'] ?? 'Failed to load stock-out form data.',
+          );
         }
       } else {
-        throw Exception('Failed to load stock-out form data: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load stock-out form data: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -578,10 +755,7 @@ class ApiService {
 
   Future<bool> submitStockOut(Map<String, dynamic> stockOutPayload) async {
     try {
-      final response = await _dio.post(
-        '/stock-outs',
-        data: stockOutPayload,
-      );
+      final response = await _dio.post('/stock-outs', data: stockOutPayload);
       return response.statusCode == 201 && response.data['success'] == true;
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -597,12 +771,18 @@ class ApiService {
         final body = response.data;
         if (body['success'] == true) {
           final data = body['data'] as List? ?? [];
-          return data.map((item) => PurchaseRequestList.fromJson(item)).toList();
+          return data
+              .map((item) => PurchaseRequestList.fromJson(item))
+              .toList();
         } else {
-          throw Exception(body['message'] ?? 'Failed to load purchase requests.');
+          throw Exception(
+            body['message'] ?? 'Failed to load purchase requests.',
+          );
         }
       } else {
-        throw Exception('Failed to load purchase requests: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load purchase requests: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -619,10 +799,14 @@ class ApiService {
         if (body['success'] == true) {
           return PurchaseRequestDetail.fromJson(body['data']);
         } else {
-          throw Exception(body['message'] ?? 'Failed to load purchase request details.');
+          throw Exception(
+            body['message'] ?? 'Failed to load purchase request details.',
+          );
         }
       } else {
-        throw Exception('Failed to load purchase request details: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load purchase request details: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -642,6 +826,72 @@ class ApiService {
     }
   }
 
+  Future<PurchaseRequestFormData> fetchPurchaseRequestFormData() async {
+    try {
+      final response = await _dio.get('/purchase-requests/form-data');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PurchaseRequestFormData.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load form data.');
+        }
+      } else {
+        throw Exception('Failed to load form data: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<PurchaseRequestDetail> fetchOrCreateDraftPurchaseRequest() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
+      final response = await _dio.get('/purchase-requests/draft', queryParameters: {'userId': userId});
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PurchaseRequestDetail.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load draft.');
+        }
+      } else {
+        throw Exception('Failed to load draft: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<PurchaseRequestDetail> saveDraftPurchaseRequest(Map<String, dynamic> payload) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? mockUserUuid;
+      final fullPayload = {
+        'userId': userId,
+        ...payload,
+      };
+      final response = await _dio.put('/purchase-requests/draft', data: fullPayload);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return PurchaseRequestDetail.fromJson(body['data']);
+        } else {
+          throw Exception(body['message'] ?? 'Failed to save draft.');
+        }
+      } else {
+        throw Exception('Failed to save draft: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
   // ==========================================
   // Staff Methods
   // ==========================================
@@ -653,10 +903,7 @@ class ApiService {
     int size = 6,
   }) async {
     try {
-      final Map<String, dynamic> queryParams = {
-        'page': page,
-        'size': size,
-      };
+      final Map<String, dynamic> queryParams = {'page': page, 'size': size};
       if (keyword != null && keyword.isNotEmpty) {
         queryParams['keyword'] = keyword;
       }
@@ -664,10 +911,7 @@ class ApiService {
         queryParams['status'] = status;
       }
 
-      final response = await _dio.get(
-        '/staff',
-        queryParameters: queryParams,
-      );
+      final response = await _dio.get('/staff', queryParameters: queryParams);
       if (response.statusCode == 200) {
         final body = response.data;
         if (body['success'] == true) {
@@ -685,7 +929,9 @@ class ApiService {
           throw Exception(body['message'] ?? 'Failed to load staff list.');
         }
       } else {
-        throw Exception('Failed to load staff list: HTTP ${response.statusCode}');
+        throw Exception(
+          'Failed to load staff list: HTTP ${response.statusCode}',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -717,11 +963,14 @@ class ApiService {
   /// UC-ST-03: Update a staff member's role.
   Future<void> setStaffRole(String userId, int roleNumber) async {
     try {
-      final response = await _dio.put('/staff/$userId/role', data: {
-        'roleNumber': roleNumber,
-      });
+      final response = await _dio.put(
+        '/staff/$userId/role',
+        data: {'roleNumber': roleNumber},
+      );
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Unable to update staff role.');
+        throw Exception(
+          response.data['message'] ?? 'Unable to update staff role.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -731,18 +980,24 @@ class ApiService {
   }
 
   /// UC-ST-04: Assign weekly shifts for a staff member.
-  Future<void> assignStaffShifts(String userId, List<Map<String, dynamic>> schedule) async {
+  Future<void> assignStaffShifts(
+    String userId,
+    List<Map<String, dynamic>> schedule,
+  ) async {
     try {
-      final response = await _dio.post('/staff/$userId/shifts', data: {
-        'schedule': schedule,
-      });
+      final response = await _dio.post(
+        '/staff/$userId/shifts',
+        data: {'schedule': schedule},
+      );
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Unable to save shift assignment.');
+        throw Exception(
+          response.data['message'] ?? 'Unable to save shift assignment.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -788,10 +1043,7 @@ class ApiService {
     int size = 10,
   }) async {
     try {
-      final Map<String, dynamic> queryParams = {
-        'page': page,
-        'size': size,
-      };
+      final Map<String, dynamic> queryParams = {'page': page, 'size': size};
       if (keyword != null && keyword.isNotEmpty) {
         queryParams['keyword'] = keyword;
       }
@@ -815,13 +1067,14 @@ class ApiService {
   }
 
   /// Upload promotion image.
-  Future<void> uploadPromotionImage(int promotionNumber, List<int> bytes, String filename) async {
+  Future<void> uploadPromotionImage(
+    int promotionNumber,
+    List<int> bytes,
+    String filename,
+  ) async {
     try {
       final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          bytes,
-          filename: filename,
-        ),
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
       });
 
       final response = await _dio.post(
@@ -846,7 +1099,9 @@ class ApiService {
       if (response.statusCode == 200 && response.data['success'] == true) {
         return response.data['data'] as Map<String, dynamic>;
       }
-      throw Exception(response.data['message'] ?? 'Failed to load promotion detail.');
+      throw Exception(
+        response.data['message'] ?? 'Failed to load promotion detail.',
+      );
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
@@ -855,14 +1110,18 @@ class ApiService {
   }
 
   /// Create a new promotion.
-  Future<Map<String, dynamic>> createPromotion(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createPromotion(
+    Map<String, dynamic> data,
+  ) async {
     try {
       final response = await _dio.post('/promotions', data: data);
       if ((response.statusCode == 201 || response.statusCode == 200) &&
           response.data['success'] == true) {
         return response.data['data'] as Map<String, dynamic>;
       }
-      throw Exception(response.data['message'] ?? 'Failed to create promotion.');
+      throw Exception(
+        response.data['message'] ?? 'Failed to create promotion.',
+      );
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
@@ -871,13 +1130,21 @@ class ApiService {
   }
 
   /// Update an existing promotion.
-  Future<void> updatePromotion(int promotionNumber, Map<String, dynamic> data) async {
+  Future<void> updatePromotion(
+    int promotionNumber,
+    Map<String, dynamic> data,
+  ) async {
     try {
-      final response = await _dio.put('/promotions/$promotionNumber', data: data);
+      final response = await _dio.put(
+        '/promotions/$promotionNumber',
+        data: data,
+      );
       if (response.statusCode == 200 && response.data['success'] == true) {
         return;
       }
-      throw Exception(response.data['message'] ?? 'Failed to update promotion.');
+      throw Exception(
+        response.data['message'] ?? 'Failed to update promotion.',
+      );
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
@@ -888,15 +1155,40 @@ class ApiService {
   /// Deactivate a promotion (sets status to INACTIVE).
   Future<void> deactivatePromotion(int promotionNumber) async {
     try {
-      final response = await _dio.patch('/promotions/$promotionNumber/deactivate');
+      final response = await _dio.patch(
+        '/promotions/$promotionNumber/deactivate',
+      );
       if (response.statusCode == 200 && response.data['success'] == true) {
         return;
       }
-      throw Exception(response.data['message'] ?? 'Failed to deactivate promotion.');
+      throw Exception(
+        response.data['message'] ?? 'Failed to deactivate promotion.',
+      );
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {
       throw Exception('Unexpected error: $e');
+    }
+  }
+
+  Future<List<LowStockProduct>> fetchLowStockProducts() async {
+    try {
+      final response = await _dio.get('/inventory/low-stock');
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          final data = body['data'] as List? ?? [];
+          return data.map((item) => LowStockProduct.fromJson(item)).toList();
+        } else {
+          throw Exception(body['message'] ?? 'Failed to load low stock products.');
+        }
+      } else {
+        throw Exception('Failed to load low stock products: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
     }
   }
 
@@ -922,10 +1214,7 @@ class ApiService {
     int size = 10,
   }) async {
     try {
-      final queryParams = <String, dynamic>{
-        'page': page,
-        'size': size,
-      };
+      final queryParams = <String, dynamic>{'page': page, 'size': size};
 
       if (keyword != null && keyword.isNotEmpty) {
         queryParams['keyword'] = keyword;
@@ -972,8 +1261,11 @@ class ApiService {
   Future<void> createCategory(Map<String, dynamic> data) async {
     try {
       final response = await _dio.post('/categories', data: data);
-      if (response.statusCode != 201 && response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Failed to create category.');
+      if (response.statusCode != 201 && response.statusCode != 200 ||
+          response.data['success'] != true) {
+        throw Exception(
+          response.data['message'] ?? 'Failed to create category.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -982,11 +1274,19 @@ class ApiService {
     }
   }
 
-  Future<void> updateCategory(int categoryNumber, Map<String, dynamic> data) async {
+  Future<void> updateCategory(
+    int categoryNumber,
+    Map<String, dynamic> data,
+  ) async {
     try {
-      final response = await _dio.put('/categories/$categoryNumber', data: data);
+      final response = await _dio.put(
+        '/categories/$categoryNumber',
+        data: data,
+      );
       if (response.statusCode != 200 || response.data['success'] != true) {
-        throw Exception(response.data['message'] ?? 'Failed to update category.');
+        throw Exception(
+          response.data['message'] ?? 'Failed to update category.',
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -1081,6 +1381,225 @@ class ApiService {
       if (response.statusCode != 200 || response.data['success'] != true) {
         throw Exception(response.data['message'] ?? 'Failed to update supplier status.');
       }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Work Schedule Methods
+  // ==========================================
+
+  /// A user's assigned shifts for a month
+  /// (GET /api/work-schedules/{userId}?year=&month=).
+  /// Each item: scheduleNumber, workDate, status (ASSIGNED | COMPLETED |
+  /// CANCELLED | MISSED), shiftNumber, shiftName, startTime, endTime.
+  Future<List<Map<String, dynamic>>> fetchWorkSchedules(
+      String userId, int year, int month) async {
+    try {
+      final response = await _dio.get(
+        '/work-schedules/$userId',
+        queryParameters: {'year': year, 'month': month},
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load work schedule.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Leave Request Methods
+  // ==========================================
+
+  /// A user's own leave requests (GET /api/leave-requests/{userId}).
+  Future<List<Map<String, dynamic>>> fetchLeaveRequests(String userId) async {
+    try {
+      final response = await _dio.get('/leave-requests/$userId');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load leave requests.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Create a leave request (POST /api/leave-requests). Dates as ISO yyyy-MM-dd.
+  Future<Map<String, dynamic>> createLeaveRequest({
+    required String userId,
+    required String reason,
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final response = await _dio.post('/leave-requests', data: {
+        'userId': userId,
+        'reason': reason,
+        'startDate': startDate,
+        'endDate': endDate,
+      });
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create leave request.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Cancel a pending leave request
+  /// (PUT /api/leave-requests/{leaveNumber}/cancel — sets status to CANCELLED).
+  Future<void> cancelLeaveRequest(int leaveNumber, String userId) async {
+    try {
+      final response = await _dio.put(
+        '/leave-requests/$leaveNumber/cancel',
+        queryParameters: {'userId': userId},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to cancel leave request.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Shift Change Request Methods
+  // ==========================================
+
+  /// A user's shift change requests (GET /api/shift-change-requests/{userId}).
+  Future<List<Map<String, dynamic>>> fetchShiftChangeRequests(String userId) async {
+    try {
+      final response = await _dio.get('/shift-change-requests/$userId');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'] as List? ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load shift change requests.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Create a shift change request (POST /api/shift-change-requests).
+  /// Sends structured fields for both current (from) and target (to) shift.
+  Future<Map<String, dynamic>> createShiftChangeRequest({
+    required String userId,
+    String? reason,
+    // Current shift
+    required String currentShiftDate,
+    required String currentShiftType,
+    required String currentShiftStart,
+    required String currentShiftEnd,
+    // Target shift
+    required String targetShiftDate,
+    required String targetShiftType,
+    required String targetShiftStart,
+    required String targetShiftEnd,
+  }) async {
+    try {
+      final response = await _dio.post('/shift-change-requests', data: {
+        'userId': userId,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+        'currentShiftDate': currentShiftDate,
+        'currentShiftType': currentShiftType,
+        'currentShiftStart': currentShiftStart,
+        'currentShiftEnd': currentShiftEnd,
+        'targetShiftDate': targetShiftDate,
+        'targetShiftType': targetShiftType,
+        'targetShiftStart': targetShiftStart,
+        'targetShiftEnd': targetShiftEnd,
+      });
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create shift change request.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+
+  /// Cancel a pending shift change request
+  /// (PUT /api/shift-change-requests/{requestNumber}/cancel).
+  Future<void> cancelShiftChangeRequest(int requestNumber, String userId) async {
+    try {
+      final response = await _dio.put(
+        '/shift-change-requests/$requestNumber/cancel',
+        queryParameters: {'userId': userId},
+      );
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to cancel shift change request.');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  // ==========================================
+  // Attendance Methods
+  // ==========================================
+
+  /// Fetch today's attendance record (GET /api/attendance/{userId}/today).
+  /// Returns null if no record exists for today.
+  Future<Map<String, dynamic>?> fetchTodayAttendance(String userId) async {
+    try {
+      final response = await _dio.get('/attendance/$userId/today');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>?;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load attendance.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Check in to shift (POST /api/attendance/{userId}/check-in).
+  Future<Map<String, dynamic>> checkIn(String userId) async {
+    try {
+      final response = await _dio.post('/attendance/$userId/check-in');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to check in.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Check out from shift (POST /api/attendance/{userId}/check-out).
+  Future<Map<String, dynamic>> checkOut(String userId) async {
+    try {
+      final response = await _dio.post('/attendance/$userId/check-out');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to check out.');
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
     } catch (e) {

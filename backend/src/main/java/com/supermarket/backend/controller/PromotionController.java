@@ -11,8 +11,8 @@ import com.supermarket.backend.service.SupabaseStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +25,7 @@ public class PromotionController {
     private final SupabaseStorageService supabaseStorageService;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<PromotionSummaryDTO>> getPromotions(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "status", required = false) String status,
@@ -41,6 +42,7 @@ public class PromotionController {
     }
 
     @GetMapping("/{promotionNumber}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<PromotionDetailDTO>> getPromotionDetail(
             @PathVariable("promotionNumber") Integer promotionNumber) {
         try {
@@ -57,6 +59,7 @@ public class PromotionController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<PromotionDTO>> createPromotion(
             @Valid @RequestBody CreatePromotionRequestDTO request) {
         try {
@@ -73,6 +76,7 @@ public class PromotionController {
     }
 
     @PutMapping("/{promotionNumber}")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<PromotionDTO>> updatePromotion(
             @PathVariable("promotionNumber") Integer promotionNumber,
             @Valid @RequestBody UpdatePromotionRequestDTO request) {
@@ -94,6 +98,7 @@ public class PromotionController {
     }
 
     @PatchMapping("/{promotionNumber}/deactivate")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<Void>> deactivatePromotion(
             @PathVariable("promotionNumber") Integer promotionNumber) {
         try {
@@ -110,6 +115,7 @@ public class PromotionController {
     }
 
     @PostMapping("/{promotionNumber}/upload-image")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<PromotionDTO>> uploadImage(
             @PathVariable("promotionNumber") Integer promotionNumber,
             @RequestParam("file") MultipartFile file) {

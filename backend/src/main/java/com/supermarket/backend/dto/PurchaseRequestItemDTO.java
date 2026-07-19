@@ -18,4 +18,8 @@ public class PurchaseRequestItemDTO {
     private BigDecimal importPrice;
     private String unitName;
     private String supplierName;
+    private String reason;
+    private String notes;
+    private BigDecimal currentStock;
+    private BigDecimal reorderLevel;
 }
