@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/profile.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import 'notification_bell.dart';
@@ -47,7 +48,8 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final isManager = currentPath.startsWith('/manager');
+    final isManager = currentPath.startsWith('/manager') ||
+        authState.profile?.roleNumber == UserRoles.manager;
     final bool isInWorkspace = currentPath.startsWith('/stock');
     final bool isSales = currentPath.startsWith('/sales');
     final bool isCashier = currentPath.startsWith('/cashier');
@@ -91,12 +93,6 @@ class AppScaffold extends ConsumerWidget {
         : isManager
         ? [
             {
-              'title': 'Workspace Home',
-              'icon': Icons.home_outlined,
-              'route': '/dashboard',
-              'active': false,
-            },
-            {
               'title': 'Dashboard',
               'icon': Icons.dashboard_rounded,
               'route': '/manager',
@@ -131,6 +127,18 @@ class AppScaffold extends ConsumerWidget {
               'icon': Icons.bar_chart_rounded,
               'route': '/manager/reports',
               'active': currentPath.startsWith('/manager/reports'),
+            },
+            {
+              'title': 'Profile',
+              'icon': Icons.person_outline,
+              'route': '/profile',
+              'active': currentPath == '/profile',
+            },
+            {
+              'title': 'Notifications',
+              'icon': Icons.notifications_outlined,
+              'route': '/notifications',
+              'active': currentPath == '/notifications',
             },
           ]
         : isCashier

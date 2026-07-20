@@ -178,7 +178,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 4. If logged in and profile loaded:
       final role = auth.profile!.roleNumber;
-      const landingPage = '/dashboard';
+      // Managers land directly in their workspace instead of the shared dashboard
+      final landingPage =
+          role == UserRoles.manager ? '/manager' : '/dashboard';
 
       // Redirect if on a public/splash route
       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
@@ -193,14 +195,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
 
       // Routes shared by all authenticated roles
+      if (path == '/profile' ||
+          path == '/notifications' ||
+          path == '/change-password') {
+        return null;
+      }
+
+      // The common dashboard and its personal features are for staff roles;
+      // managers work directly inside their own workspace.
       if (path == '/dashboard' ||
-          path == '/profile' ||
           path == '/work-schedule' ||
           path == '/leave-request' ||
           path == '/schedule-change' ||
-          path == '/manage-requests' ||
-          path == '/notifications' ||
-          path == '/change-password') {
+          path == '/manage-requests') {
+        if (role == UserRoles.manager) {
+          return '/manager';
+        }
         return null;
       }
 
