@@ -406,12 +406,12 @@ class _SalesDashboardScreenState extends ConsumerState<SalesDashboardScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () => context.go('/sales/problems'),
+              onPressed: () => context.go('/sales/reports'),
               style: FilledButton.styleFrom(
                 backgroundColor: theme.colorScheme.error,
                 foregroundColor: theme.colorScheme.onError,
               ),
-              child: const Text('View Problem Products'),
+              child: const Text('View Report Status'),
             ),
           ),
         ],
@@ -789,12 +789,6 @@ class _SalesDashboardScreenState extends ConsumerState<SalesDashboardScreen> {
         'Product List',
         theme.colorScheme.primary,
         () => context.go('/sales/products'),
-      ),
-      (
-        Icons.warning_amber_rounded,
-        'Problem Products',
-        theme.colorScheme.secondary,
-        () => context.go('/sales/problems'),
       ),
       (
         Icons.report_problem,

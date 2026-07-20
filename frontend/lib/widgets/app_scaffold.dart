@@ -75,12 +75,6 @@ class AppScaffold extends ConsumerWidget {
         'active': currentPath.startsWith('/sales/products'),
       },
       {
-        'title': 'Problem Products',
-        'icon': Icons.warning_amber_outlined,
-        'route': '/sales/problems',
-        'active': currentPath.startsWith('/sales/problems'),
-      },
-      {
         'title': 'Report Status',
         'icon': Icons.rule_folder_outlined,
         'route': '/sales/reports',
