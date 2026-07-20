@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../providers/auth_provider.dart';
 import '../providers/manager_dashboard_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
@@ -43,28 +41,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
         onPressed: handleRefresh,
         icon: const Icon(Icons.refresh_rounded),
         tooltip: 'Refresh',
-      ),
-      const SizedBox(width: 8),
-      IconButton(
-        onPressed: () {},
-        icon: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const Icon(Icons.notifications_outlined),
-            Positioned(
-              top: -2,
-              right: -2,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.error,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     ];
 
@@ -135,52 +111,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
     ];
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return '${days[dt.weekday - 1]}, ${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-  }
-}
-
-class _SidebarItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final VoidCallback? onTap;
-
-  const _SidebarItem({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isActive ? theme.colorScheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: ListTile(
-          dense: true,
-          leading: Icon(
-            icon,
-            size: 20,
-            color: isActive ? Colors.white : theme.colorScheme.onSurfaceVariant,
-          ),
-          title: Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: isActive ? Colors.white : theme.colorScheme.onSurfaceVariant,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          onTap: onTap,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          visualDensity: VisualDensity.compact,
-        ),
-      ),
-    );
   }
 }
 

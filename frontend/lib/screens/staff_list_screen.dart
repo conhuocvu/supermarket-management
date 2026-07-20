@@ -70,22 +70,10 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ── Staff List ───────────────────────────────────────────
+          // ── Staff List / Table ───────────────────────────────────
           Expanded(
             child: _buildBody(context, theme, state, state.staff),
           ),
-
-          // ── Pagination Bar ───────────────────────────────────────
-          if (!state.isLoading && state.error == null && state.staff.isNotEmpty)
-            _PaginationBar(
-              currentPage: state.currentPage,
-              totalPages: state.totalPages,
-              totalItems: state.totalStaff,
-              pageSize: _pageSize,
-              onPageChanged: (p) {
-                ref.read(staffListProvider.notifier).setPage(p);
-              },
-            ),
         ],
       ),
     );
@@ -112,8 +100,181 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
       return _buildEmptyState(context, theme);
     }
 
-    return _StaffGrid(
-      staff: pageStaff,
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.04),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(
+            alpha: 0.5,
+          ),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Expanded(child: _buildTable(context, theme, pageStaff)),
+          const Divider(height: 1),
+          _PaginationBar(
+            currentPage: state.currentPage,
+            totalPages: state.totalPages,
+            totalItems: state.totalStaff,
+            pageSize: _pageSize,
+            onPageChanged: (p) {
+              ref.read(staffListProvider.notifier).setPage(p);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTable(BuildContext context, ThemeData theme, List<StaffMember> items) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: SingleChildScrollView(
+              child: DataTable(
+                headingRowHeight: 56,
+                dataRowMinHeight: 68,
+                dataRowMaxHeight: 68,
+                horizontalMargin: 24,
+                columnSpacing: 24,
+                showCheckboxColumn: false,
+                headingTextStyle: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+                columns: const [
+                  DataColumn(label: Text('Staff Member')),
+                  DataColumn(label: Text('Work Status')),
+                  DataColumn(label: Text('Shift Today')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: items.map((member) {
+                  final hasShift = member.shiftName != null && member.shiftName!.isNotEmpty;
+                  final isOnLeave = member.workStatus == 'ON_LEAVE';
+
+                  String shiftText = 'No Shift Today';
+                  if (isOnLeave) {
+                    shiftText = 'On Leave';
+                  } else if (hasShift) {
+                    shiftText = '${member.shiftName} (${member.shiftTimeRange})';
+                  }
+
+                  return DataRow(
+                    onSelectChanged: (_) {
+                      context.push('/manager/staff/${member.userId}');
+                    },
+                    cells: [
+                      DataCell(
+                        Row(
+                          children: [
+                            _StaffAvatar(member: member),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  member.fullName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  member.roleName,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      DataCell(_buildStatusBadge(context, member.workStatus)),
+                      DataCell(Text(shiftText)),
+                      DataCell(
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert_rounded),
+                          onSelected: (val) {
+                            if (val == 'profile') {
+                              context.push('/manager/staff/${member.userId}');
+                            }
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'profile',
+                              child: Text('View Profile'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusBadge(BuildContext context, String workStatus) {
+    final theme = Theme.of(context);
+    Color color;
+    Color bgColor;
+    String label;
+
+    switch (workStatus) {
+      case 'ON_DUTY':
+        label = 'On Duty';
+        color = theme.colorScheme.primary;
+        bgColor = theme.colorScheme.primary.withValues(alpha: 0.1);
+        break;
+      case 'ON_LEAVE':
+        label = 'On Leave';
+        color = theme.colorScheme.secondary;
+        bgColor = theme.colorScheme.secondary.withValues(alpha: 0.1);
+        break;
+      default:
+        label = 'Off Duty';
+        color = theme.colorScheme.outline;
+        bgColor = theme.colorScheme.outline.withValues(alpha: 0.1);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -179,11 +340,11 @@ class _PaginationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final start = currentPage * pageSize + 1;
+    final start = totalItems == 0 ? 0 : currentPage * pageSize + 1;
     final end = ((currentPage + 1) * pageSize).clamp(0, totalItems);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         children: [
           // ── Item count label ──────────────────────────────
@@ -660,186 +821,6 @@ class _SearchFilterBar extends StatelessWidget {
   }
 }
 
-
-
-// ────────────────────────────────────────────────────────────────────────────
-// Staff Grid
-// ────────────────────────────────────────────────────────────────────────────
-
-class _StaffGrid extends StatelessWidget {
-  final List<StaffMember> staff;
-
-  const _StaffGrid({required this.staff});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int crossAxisCount = 1;
-        if (constraints.maxWidth >= 900) {
-          crossAxisCount = 3;
-        } else if (constraints.maxWidth >= 600) {
-          crossAxisCount = 2;
-        }
-
-        return GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: crossAxisCount == 1 ? 2.8 : 1.6,
-          ),
-          itemCount: staff.length,
-          itemBuilder: (ctx, i) => _StaffCard(member: staff[i]),
-        );
-      },
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Staff Card
-// ────────────────────────────────────────────────────────────────────────────
-
-class _StaffCard extends StatelessWidget {
-  final StaffMember member;
-
-  const _StaffCard({required this.member});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final statusConfig = _statusConfig(member.workStatus, theme);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Top row: avatar + menu ──────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _StaffAvatar(member: member),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        member.fullName,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              member.roleName,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            '  •  ',
-                            style: TextStyle(
-                              color: theme.colorScheme.outlineVariant,
-                            ),
-                          ),
-                          _StatusDot(
-                            label: statusConfig.label,
-                            color: statusConfig.color,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const Spacer(),
-
-            // ── Shift info row ──────────────────────────────────
-            _ShiftInfoRow(member: member, theme: theme),
-
-            const SizedBox(height: 12),
-
-            // ── View Profile button ─────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  context.push('/manager/staff/${member.userId}');
-                },
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  'View Profile',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  _StatusConfig _statusConfig(String workStatus, ThemeData theme) {
-    switch (workStatus) {
-      case 'ON_DUTY':
-        return _StatusConfig('On Duty', theme.colorScheme.primary);
-      case 'ON_LEAVE':
-        return _StatusConfig('On Leave', theme.colorScheme.secondary);
-      default:
-        return _StatusConfig('Off Duty', theme.colorScheme.outline);
-    }
-  }
-}
-
-class _StatusConfig {
-  final String label;
-  final Color color;
-  const _StatusConfig(this.label, this.color);
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // Staff Avatar
 // ────────────────────────────────────────────────────────────────────────────
@@ -854,37 +835,27 @@ class _StaffAvatar extends StatelessWidget {
     final theme = Theme.of(context);
     final initials = _initials(member.fullName);
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-          ),
-          child: member.avatarUrl != null && member.avatarUrl!.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.network(
-                    member.avatarUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => _initialsWidget(
-                      initials,
-                      theme.colorScheme.primary,
-                      theme,
-                    ),
-                  ),
-                )
-              : _initialsWidget(initials, theme.colorScheme.primary, theme),
-        ),
-        Positioned(
-          bottom: -2,
-          right: -2,
-          child: _WorkStatusIndicator(workStatus: member.workStatus),
-        ),
-      ],
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+      ),
+      child: member.avatarUrl != null && member.avatarUrl!.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                member.avatarUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, stack) => _initialsWidget(
+                  initials,
+                  theme.colorScheme.primary,
+                  theme,
+                ),
+              ),
+            )
+          : _initialsWidget(initials, theme.colorScheme.primary, theme),
     );
   }
 
@@ -893,7 +864,7 @@ class _StaffAvatar extends StatelessWidget {
       child: Text(
         initials,
         style: TextStyle(
-          fontSize: 18,
+          fontSize: 14,
           fontWeight: FontWeight.bold,
           color: color,
         ),
@@ -906,155 +877,5 @@ class _StaffAvatar extends StatelessWidget {
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
-}
-
-class _WorkStatusIndicator extends StatelessWidget {
-  final String workStatus;
-
-  const _WorkStatusIndicator({required this.workStatus});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    Color color;
-    switch (workStatus) {
-      case 'ON_DUTY':
-        color = theme.colorScheme.primary;
-        break;
-      case 'ON_LEAVE':
-        color = theme.colorScheme.secondary;
-        break;
-      default:
-        color = theme.colorScheme.outlineVariant;
-    }
-
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Status Dot (inline label)
-// ────────────────────────────────────────────────────────────────────────────
-
-class _StatusDot extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _StatusDot({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Shift Info Row
-// ────────────────────────────────────────────────────────────────────────────
-
-class _ShiftInfoRow extends StatelessWidget {
-  final StaffMember member;
-  final ThemeData theme;
-
-  const _ShiftInfoRow({required this.member, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasShift = member.shiftName != null && member.shiftName!.isNotEmpty;
-    final isOnLeave = member.workStatus == 'ON_LEAVE';
-
-    if (isOnLeave) {
-      return _infoRow(
-        Icons.beach_access_outlined,
-        'On Leave',
-        theme.colorScheme.secondary,
-        '',
-        theme,
-      );
-    }
-
-    if (!hasShift) {
-      return _infoRow(
-        Icons.schedule_outlined,
-        'No Shift Today',
-        theme.colorScheme.outlineVariant,
-        '',
-        theme,
-      );
-    }
-
-    return _infoRow(
-      Icons.schedule_outlined,
-      'Current Shift',
-      theme.colorScheme.primary,
-      member.shiftTimeRange,
-      theme,
-    );
-  }
-
-  Widget _infoRow(
-    IconData icon,
-    String label,
-    Color iconColor,
-    String value,
-    ThemeData theme,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: iconColor),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (value.isNotEmpty)
-            Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/staff_request.dart';
 import '../../providers/staff_request_provider.dart';
+import 'clearance_detail_dialog.dart';
+import 'purchase_request_detail_dialog.dart';
 import 'request_action_buttons.dart';
 import 'request_chips.dart';
 import 'request_management_formatters.dart';
@@ -33,37 +35,47 @@ class StaffRequestTable extends StatelessWidget {
       child: RefreshIndicator(
         color: colorScheme.primary,
         onRefresh: onRefresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(
-                  colorScheme.surfaceContainerHighest,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    // Stretch the table to the card's full width; horizontal
+                    // scrolling still kicks in when columns need more room.
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                      showCheckboxColumn: false,
+                      headingRowColor: WidgetStateProperty.all(
+                        colorScheme.surfaceContainerHighest,
+                      ),
+                      headingTextStyle: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      dataTextStyle: TextStyle(color: colorScheme.onSurface),
+                      horizontalMargin: 16,
+                      columnSpacing: 20,
+                      columns: const [
+                        DataColumn(label: Text('Request')),
+                        DataColumn(label: Text('Employee')),
+                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('Request details')),
+                        DataColumn(label: Text('Submitted')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: state.items.map((request) {
+                        return _buildDataRow(context, request);
+                      }).toList(),
+                    ),
+                  ),
                 ),
-                headingTextStyle: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-                dataTextStyle: TextStyle(color: colorScheme.onSurface),
-                horizontalMargin: 20,
-                columnSpacing: 28,
-                columns: const [
-                  DataColumn(label: Text('Request')),
-                  DataColumn(label: Text('Employee')),
-                  DataColumn(label: Text('Type')),
-                  DataColumn(label: Text('Request details')),
-                  DataColumn(label: Text('Submitted')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Actions')),
-                ],
-                rows: state.items.map((request) {
-                  return _buildDataRow(context, request);
-                }).toList(),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -73,6 +85,7 @@ class StaffRequestTable extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return DataRow(
+      onSelectChanged: (_) => _showRequestDetails(context, request),
       cells: [
         DataCell(
           Text(
@@ -110,7 +123,7 @@ class StaffRequestTable extends StatelessWidget {
         DataCell(RequestTypeChip(request: request)),
         DataCell(
           SizedBox(
-            width: 280,
+            width: 230,
             child: Text(
               requestDetails(request),
               maxLines: 2,
@@ -129,5 +142,19 @@ class StaffRequestTable extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  void _showRequestDetails(BuildContext context, StaffRequest request) {
+    if (request.isClearanceRequest) {
+      showDialog(
+        context: context,
+        builder: (context) => ClearanceDetailDialog(request: request),
+      );
+    } else if (request.isPurchaseRequest) {
+      showDialog(
+        context: context,
+        builder: (context) => PurchaseRequestDetailDialog(request: request),
+      );
+    }
   }
 }

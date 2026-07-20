@@ -21,4 +21,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
 
     @Query(value = "SELECT last_sign_in_at FROM auth.users WHERE id = :userId", nativeQuery = true)
     java.time.Instant getLastLogin(@Param("userId") UUID userId);
+
+    @Query("SELECT p FROM Profile p WHERE p.roleNumber = :roleNumber AND p.status = 'ACTIVE'")
+    java.util.List<Profile> findActiveByRoleNumber(@Param("roleNumber") Integer roleNumber);
 }

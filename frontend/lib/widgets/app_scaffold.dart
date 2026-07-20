@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/profile.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shell_layout_provider.dart';
 import 'notification_bell.dart';
@@ -47,19 +48,44 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final isManager = currentPath.startsWith('/manager');
+    final isManager = currentPath.startsWith('/manager') ||
+        authState.profile?.roleNumber == UserRoles.manager;
     final bool isInWorkspace = currentPath.startsWith('/stock');
+    final bool isSales = currentPath.startsWith('/sales');
     final bool isCashier = currentPath.startsWith('/cashier');
     final sidebarWidth = (isManager || isCashier) ? 220.0 : 256.0;
 
-    final List<Map<String, dynamic>> menuItems = isManager
+    final List<Map<String, dynamic>> salesMenuItems = [
+      {
+        'title': 'Workspace Home',
+        'icon': Icons.home_outlined,
+        'route': '/dashboard',
+        'active': false,
+      },
+      {
+        'title': 'Dashboard',
+        'icon': Icons.dashboard_outlined,
+        'route': '/sales',
+        'active': currentPath == '/sales',
+      },
+      {
+        'title': 'Product List',
+        'icon': Icons.list_alt_outlined,
+        'route': '/sales/products',
+        'active': currentPath.startsWith('/sales/products'),
+      },
+      {
+        'title': 'Report Status',
+        'icon': Icons.rule_folder_outlined,
+        'route': '/sales/reports',
+        'active': currentPath.startsWith('/sales/reports'),
+      },
+    ];
+
+    final List<Map<String, dynamic>> menuItems = isSales
+        ? salesMenuItems
+        : isManager
         ? [
-            {
-              'title': 'Workspace Home',
-              'icon': Icons.home_outlined,
-              'route': '/dashboard',
-              'active': false,
-            },
             {
               'title': 'Dashboard',
               'icon': Icons.dashboard_rounded,
@@ -95,6 +121,18 @@ class AppScaffold extends ConsumerWidget {
               'icon': Icons.bar_chart_rounded,
               'route': '/manager/reports',
               'active': currentPath.startsWith('/manager/reports'),
+            },
+            {
+              'title': 'Profile',
+              'icon': Icons.person_outline,
+              'route': '/profile',
+              'active': currentPath == '/profile',
+            },
+            {
+              'title': 'Notifications',
+              'icon': Icons.notifications_outlined,
+              'route': '/notifications',
+              'active': currentPath == '/notifications',
             },
           ]
         : isCashier

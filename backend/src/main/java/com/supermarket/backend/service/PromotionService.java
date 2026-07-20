@@ -185,7 +185,22 @@ public class PromotionService {
         }
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
             try {
-                promotion.setStatus(PromotionStatus.valueOf(request.getStatus().toUpperCase().trim()));
+                PromotionStatus targetStatus = PromotionStatus.valueOf(request.getStatus().toUpperCase().trim());
+                promotion.setStatus(targetStatus);
+
+                if ("CLEARANCE".equals(promotion.getCategory())) {
+                    String ppStatus = "PENDING";
+                    if (targetStatus == PromotionStatus.ACTIVE) {
+                        ppStatus = "ACTIVE";
+                    } else if (targetStatus == PromotionStatus.INACTIVE || targetStatus == PromotionStatus.EXPIRED) {
+                        ppStatus = "REJECTED";
+                    }
+                    List<PromotionProduct> pps = promotionProductRepository.findByPromotionNumber(promotionNumber);
+                    for (PromotionProduct pp : pps) {
+                        pp.setStatus(ppStatus);
+                        promotionProductRepository.save(pp);
+                    }
+                }
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Invalid promotion status: " + request.getStatus());
             }

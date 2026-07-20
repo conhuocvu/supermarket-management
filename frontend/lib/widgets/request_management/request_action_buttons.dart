@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/staff_request.dart';
 import '../../providers/staff_request_provider.dart';
+import 'clearance_detail_dialog.dart';
+import 'purchase_request_detail_dialog.dart';
 
 class RequestActionButtons extends StatelessWidget {
   final StaffRequest request;
@@ -32,6 +34,36 @@ class RequestActionButtons extends StatelessWidget {
     final isRejecting = state.isProcessingStatus(request, 'REJECTED');
     final isApproving = state.isProcessingStatus(request, 'APPROVED');
 
+    final isAdjustable = request.isClearanceRequest || request.isPurchaseRequest;
+
+    final adjustButton = isAdjustable
+        ? SizedBox(
+            height: 40,
+            child: TextButton.icon(
+              onPressed: isBusy
+                  ? null
+                  : () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => request.isClearanceRequest
+                            ? ClearanceDetailDialog(request: request)
+                            : PurchaseRequestDetailDialog(request: request),
+                      );
+                    },
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
+              label: const Text('Adjust'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
     final rejectButton = SizedBox(
       height: 40,
       child: OutlinedButton.icon(
@@ -47,6 +79,8 @@ class RequestActionButtons extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: colorScheme.error,
           side: BorderSide(color: colorScheme.error),
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -72,6 +106,8 @@ class RequestActionButtons extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -83,13 +119,26 @@ class RequestActionButtons extends StatelessWidget {
       return Wrap(
         spacing: 10,
         runSpacing: 10,
-        children: [rejectButton, approveButton],
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (isAdjustable) adjustButton,
+          rejectButton,
+          approveButton,
+        ],
       );
     }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [rejectButton, const SizedBox(width: 8), approveButton],
+      children: [
+        if (isAdjustable) ...[
+          adjustButton,
+          const SizedBox(width: 8),
+        ],
+        rejectButton,
+        const SizedBox(width: 8),
+        approveButton,
+      ],
     );
   }
 }

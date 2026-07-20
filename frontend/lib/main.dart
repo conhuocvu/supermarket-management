@@ -49,6 +49,14 @@ import 'screens/staff_list_screen.dart';
 import 'screens/staff_detail_screen.dart';
 import 'screens/promotion_list_screen.dart';
 import 'screens/promotion_detail_screen.dart';
+import 'screens/sales_dashboard_screen.dart';
+import 'screens/sales_product_list_screen.dart';
+import 'screens/sales_product_detail_screen.dart';
+import 'screens/sales_problem_product_details_screen.dart';
+import 'screens/sales_report_status_screen.dart';
+import 'screens/sales_suggestion_detail_screen.dart';
+import 'screens/sales_inventory_issue_form.dart';
+import 'screens/sales_product_update_form.dart';
 import 'screens/supplier_list_screen.dart';
 import 'screens/supplier_detail_screen.dart';
 import 'screens/create_supplier_screen.dart';
@@ -169,7 +177,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 4. If logged in and profile loaded:
       final role = auth.profile!.roleNumber;
-      const landingPage = '/dashboard';
+      // Managers land directly in their workspace instead of the shared dashboard
+      final landingPage =
+          role == UserRoles.manager ? '/manager' : '/dashboard';
 
       // Redirect if on a public/splash route
       if (isSplashRoute || isLoginRoute || isRegisterRoute) {
@@ -184,14 +194,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
 
       // Routes shared by all authenticated roles
+      if (path == '/profile' ||
+          path == '/notifications' ||
+          path == '/change-password') {
+        return null;
+      }
+
+      // The common dashboard and its personal features are for staff roles;
+      // managers work directly inside their own workspace.
       if (path == '/dashboard' ||
-          path == '/profile' ||
           path == '/work-schedule' ||
           path == '/leave-request' ||
           path == '/schedule-change' ||
-          path == '/manage-requests' ||
-          path == '/notifications' ||
-          path == '/change-password') {
+          path == '/manage-requests') {
+        if (role == UserRoles.manager) {
+          return '/manager';
+        }
         return null;
       }
 
@@ -347,7 +365,62 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/sales',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: SalesAssociateScreen()),
+                const NoTransitionPage(child: SalesDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/sales/products',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SalesProductListScreen()),
+          ),
+          GoRoute(
+            path: '/sales/products/:id',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesProductDetailScreen(
+                productNumber:
+                    int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/sales/problems/:id',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesProblemProductDetailsScreen(
+                reportNumber:
+                    int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/sales/reports',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SalesReportStatusScreen()),
+          ),
+          GoRoute(
+            path: '/sales/reports/suggestions/:id',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesSuggestionDetailScreen(
+                reportNumber:
+                    int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/sales/report-issue',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesInventoryIssueForm(
+                prefilledProductNumber: int.tryParse(
+                    state.uri.queryParameters['productNumber'] ?? ''),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/sales/suggest-update',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: SalesProductUpdateForm(
+                prefilledProductNumber: int.tryParse(
+                    state.uri.queryParameters['productNumber'] ?? ''),
+              ),
+            ),
           ),
           GoRoute(
             path: '/cashier',

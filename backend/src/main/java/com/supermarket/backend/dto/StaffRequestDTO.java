@@ -3,6 +3,7 @@ package com.supermarket.backend.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 /**
  * Unified response DTO used by the Manager Request Management screen.
@@ -10,6 +11,7 @@ import java.util.UUID;
  * It represents either:
  * - a leave request
  * - a shift change request
+ * - a clearance/discount request
  *
  * This DTO is read-only and does not perform database mutations.
  */
@@ -25,6 +27,14 @@ public class StaffRequestDTO {
     private String status;
     private LocalDateTime createdDate;
     private LocalDateTime approvedDate;
+
+    // Clearance specific fields
+    private String productName;
+    private Double discountPercentage;
+    private String batchNumber;
+    private BigDecimal remainingQuantity;
+    private BigDecimal sellingPrice;
+    private BigDecimal importPrice;
 
     public StaffRequestDTO() {
     }
@@ -50,6 +60,41 @@ public class StaffRequestDTO {
         this.status = status;
         this.createdDate = createdDate;
         this.approvedDate = approvedDate;
+    }
+
+    public StaffRequestDTO(
+            Integer requestNumber,
+            String requestType,
+            UUID userId,
+            String employeeName,
+            String reason,
+            LocalDate startDate,
+            LocalDate endDate,
+            String status,
+            LocalDateTime createdDate,
+            LocalDateTime approvedDate,
+            String productName,
+            Double discountPercentage,
+            String batchNumber,
+            BigDecimal remainingQuantity,
+            BigDecimal sellingPrice,
+            BigDecimal importPrice) {
+        this.requestNumber = requestNumber;
+        this.requestType = requestType;
+        this.userId = userId;
+        this.employeeName = employeeName;
+        this.reason = reason;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.status = status;
+        this.createdDate = createdDate;
+        this.approvedDate = approvedDate;
+        this.productName = productName;
+        this.discountPercentage = discountPercentage;
+        this.batchNumber = batchNumber;
+        this.remainingQuantity = remainingQuantity;
+        this.sellingPrice = sellingPrice;
+        this.importPrice = importPrice;
     }
 
     public Integer getRequestNumber() {
@@ -130,5 +175,53 @@ public class StaffRequestDTO {
 
     public void setApprovedDate(LocalDateTime approvedDate) {
         this.approvedDate = approvedDate;
+    }
+
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
+    public Double getDiscountPercentage() {
+        return discountPercentage;
+    }
+
+    public void setDiscountPercentage(Double discountPercentage) {
+        this.discountPercentage = discountPercentage;
+    }
+
+    public String getBatchNumber() {
+        return batchNumber;
+    }
+
+    public void setBatchNumber(String batchNumber) {
+        this.batchNumber = batchNumber;
+    }
+
+    public BigDecimal getRemainingQuantity() {
+        return remainingQuantity;
+    }
+
+    public void setRemainingQuantity(BigDecimal remainingQuantity) {
+        this.remainingQuantity = remainingQuantity;
+    }
+
+    public BigDecimal getSellingPrice() {
+        return sellingPrice;
+    }
+
+    public void setSellingPrice(BigDecimal sellingPrice) {
+        this.sellingPrice = sellingPrice;
+    }
+
+    public BigDecimal getImportPrice() {
+        return importPrice;
+    }
+
+    public void setImportPrice(BigDecimal importPrice) {
+        this.importPrice = importPrice;
     }
 }

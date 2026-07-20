@@ -1901,4 +1901,102 @@ class ApiService {
       throw Exception('Unexpected error occurred: $e');
     }
   }
+
+  /// Files an inventory issue report (POST /api/product-reports/issues).
+  /// Returns the created report as a map.
+  Future<Map<String, dynamic>> createInventoryIssueReport({
+    required int productNumber,
+    required String issueType,
+    required num quantity,
+    String? description,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/product-reports/issues',
+        data: {
+          'productNumber': productNumber,
+          'issueType': issueType,
+          'quantity': quantity,
+          'description': description,
+        },
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      throw Exception(response.data['message'] ?? 'Failed to report issue.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// Files a product update suggestion
+  /// (POST /api/product-reports/suggestions).
+  Future<Map<String, dynamic>> createProductUpdateSuggestion({
+    required int productNumber,
+    String? suggestedName,
+    num? suggestedSellingPrice,
+    String? reason,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/product-reports/suggestions',
+        data: {
+          'productNumber': productNumber,
+          'suggestedName': suggestedName,
+          'suggestedSellingPrice': suggestedSellingPrice,
+          'reason': reason,
+        },
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      throw Exception(
+          response.data['message'] ?? 'Failed to submit suggestion.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// The current user's product reports, newest first
+  /// (GET /api/product-reports?reportType=).
+  Future<List<Map<String, dynamic>>> fetchMyProductReports(
+      {String? reportType}) async {
+    try {
+      final response = await _dio.get(
+        '/product-reports',
+        queryParameters:
+            reportType != null ? {'reportType': reportType} : null,
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return (response.data['data'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load reports.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  /// One of the current user's product reports
+  /// (GET /api/product-reports/{reportNumber}).
+  Future<Map<String, dynamic>> fetchMyProductReport(int reportNumber) async {
+    try {
+      final response = await _dio.get('/product-reports/$reportNumber');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load report.');
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
 }

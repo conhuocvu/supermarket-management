@@ -191,4 +191,27 @@ public class PurchaseRequestController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @PutMapping("/{id}/adjust")
+    public ResponseEntity<Map<String, Object>> adjustPurchaseRequest(
+            @PathVariable("id") Integer prNumber,
+            @RequestBody com.supermarket.backend.dto.PurchaseRequestAdjustDTO dto) {
+        try {
+            inventoryService.adjustPurchaseRequest(prNumber, dto);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Purchase request adjusted successfully.");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "System error while adjusting purchase request: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
 }

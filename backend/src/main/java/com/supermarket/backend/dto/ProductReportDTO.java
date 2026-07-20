@@ -5,6 +5,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Read model for a product report (Sales Associate report-status and
+ * problem-product-details screens, plus manager/stock review flows).
+ */
 @Data
 @Builder
 @NoArgsConstructor

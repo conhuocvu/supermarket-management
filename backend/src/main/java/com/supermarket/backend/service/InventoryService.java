@@ -156,6 +156,21 @@ public class InventoryService {
                 "JOIN products p ON ps.product_number = p.product_number " +
                 "JOIN units u ON p.inventory_unit_number = u.unit_number " +
                 "WHERE pr.status IN ('APPROVED', 'PARTIALLY_RECEIVED') " +
+                "AND EXISTS (" +
+                "    SELECT 1 " +
+                "    FROM purchase_request_details prd3 " +
+                "    JOIN product_suppliers ps3 ON prd3.product_supplier_number = ps3.product_supplier_number " +
+                "    WHERE prd3.purchase_request_number = pr.purchase_request_number " +
+                "      AND ps3.supplier_number = s.supplier_number " +
+                "      AND prd3.requested_quantity > COALESCE((" +
+                "          SELECT SUM(sid3.quantity) " +
+                "          FROM stock_in_details sid3 " +
+                "          JOIN stock_ins si3 ON sid3.stock_in_number = si3.stock_in_number " +
+                "          WHERE si3.purchase_request_number = pr.purchase_request_number " +
+                "            AND si3.supplier_number = s.supplier_number " +
+                "            AND sid3.product_number = ps3.product_number " +
+                "      ), 0)" +
+                ") " +
                 "GROUP BY pr.purchase_request_number, pr.created_date, pr.status, s.supplier_name, s.supplier_number";
 
         List<PendingStockInDTO> pendingStockIns = jdbcTemplate.query(stockInSql, (rs, rowNum) -> PendingStockInDTO
@@ -637,7 +652,7 @@ public class InventoryService {
         );
 
         boolean allPrItemsCompleted = true;
-        for (PurchaseRequestDetail prd : prDetails) {
+        for (PurchaseRequestDetail prd : allPrDetails) {
             ProductSupplier prodSupplier = allPsMap.get(prd.getProductSupplierNumber());
             if (prodSupplier != null) {
                 Integer prodNum = prodSupplier.getProductNumber();
@@ -646,6 +661,7 @@ public class InventoryService {
 
                 if (totalDelivered.compareTo(reqQty) < 0) {
                     allPrItemsCompleted = false;
+                    break;
                 }
             }
         }
@@ -974,6 +990,64 @@ public class InventoryService {
 
         pr.setStatus("PENDING");
         purchaseRequestRepository.save(pr);
+    }
+
+    @Transactional
+    public void adjustPurchaseRequest(Integer prNumber, com.supermarket.backend.dto.PurchaseRequestAdjustDTO dto) {
+        PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
+
+        if (!"PENDING".equals(pr.getStatus())) {
+            throw new IllegalStateException("Only PENDING purchase requests can be adjusted.");
+        }
+
+        if (dto.getExpectedDeliveryDate() != null) {
+            pr.setExpectedDeliveryDate(dto.getExpectedDeliveryDate());
+        }
+
+        if (dto.getStatus() != null && !dto.getStatus().trim().isEmpty()) {
+            String safeStatus = dto.getStatus().trim().toUpperCase();
+            if ("APPROVED".equals(safeStatus) || "REJECTED".equals(safeStatus) || "PENDING".equals(safeStatus)) {
+                pr.setStatus(safeStatus);
+                if ("APPROVED".equals(safeStatus)) {
+                    pr.setApprovedDate(LocalDateTime.now());
+                }
+            } else {
+                throw new IllegalArgumentException("Invalid status update: " + dto.getStatus());
+            }
+        }
+
+        purchaseRequestRepository.save(pr);
+
+        if (dto.getItems() != null && !dto.getItems().isEmpty()) {
+            List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+            List<Integer> psNumbers = details.stream()
+                    .map(PurchaseRequestDetail::getProductSupplierNumber)
+                    .collect(Collectors.toList());
+            List<ProductSupplier> productSuppliers = productSupplierRepository.findAllById(psNumbers);
+
+            for (com.supermarket.backend.dto.PurchaseRequestAdjustItemDTO adjustedItem : dto.getItems()) {
+                PurchaseRequestDetail detailToUpdate = null;
+                for (PurchaseRequestDetail detail : details) {
+                    ProductSupplier ps = productSuppliers.stream()
+                            .filter(s -> s.getProductSupplierNumber().equals(detail.getProductSupplierNumber()))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (ps != null && ps.getProductNumber().equals(adjustedItem.getProductNumber())) {
+                        detailToUpdate = detail;
+                        break;
+                    }
+                }
+
+                if (detailToUpdate != null) {
+                    detailToUpdate.setRequestedQuantity(adjustedItem.getRequestedQuantity());
+                    purchaseRequestDetailRepository.save(detailToUpdate);
+                } else {
+                    throw new IllegalArgumentException("Product number " + adjustedItem.getProductNumber() + " is not in the purchase request items.");
+                }
+            }
+        }
     }
 
     @Transactional(readOnly = true)
