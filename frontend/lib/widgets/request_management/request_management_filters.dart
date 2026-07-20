@@ -123,38 +123,97 @@ class _FilterGroup extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: values.entries.map((entry) {
-            final selected = selectedValue == entry.key;
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // On wide layouts stretch the options edge-to-edge as a segmented
+            // row; on narrow layouts fall back to wrapping chips.
+            final isWide = constraints.maxWidth >= 560;
 
-            return FilterChip(
-              label: Text(entry.value),
-              selected: selected,
-              onSelected: (_) => onSelected(entry.key),
-              showCheckmark: false,
-              selectedColor: colorScheme.primary,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              side: BorderSide(
-                color: selected
-                    ? colorScheme.primary
-                    : colorScheme.outlineVariant,
-              ),
-              labelStyle: TextStyle(
-                color: selected
-                    ? colorScheme.onPrimary
-                    : colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            if (!isWide) {
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: values.entries
+                    .map((entry) => _FilterOption(
+                          label: entry.value,
+                          selected: selectedValue == entry.key,
+                          onTap: () => onSelected(entry.key),
+                        ))
+                    .toList(),
+              );
+            }
+
+            final options = values.entries.toList();
+            return Row(
+              children: [
+                for (var i = 0; i < options.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _FilterOption(
+                      label: options[i].value,
+                      selected: selectedValue == options[i].key,
+                      onTap: () => onSelected(options[i].key),
+                      expand: true,
+                    ),
+                  ),
+                ],
+              ],
             );
-          }).toList(),
+          },
         ),
       ],
+    );
+  }
+}
+
+class _FilterOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool expand;
+
+  const _FilterOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.expand = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: selected
+          ? colorScheme.primary
+          : Theme.of(context).scaffoldBackgroundColor,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: expand ? double.infinity : null,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          alignment: expand ? Alignment.center : null,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+            ),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: selected
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

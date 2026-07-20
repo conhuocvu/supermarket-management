@@ -180,7 +180,7 @@ class _LeaveRequestFormState extends ConsumerState<LeaveRequestForm> {
               Text('Leave Type', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: _leaveType,
+                initialValue: _leaveType,
                 decoration: InputDecoration(
                   fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
                   filled: true,
@@ -369,55 +369,6 @@ class _LeaveRequestFormState extends ConsumerState<LeaveRequestForm> {
                   return null;
                 },
                 onSaved: (val) => _reason = val ?? '',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Attachment Bento Card
-        BentoCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.attach_file, color: theme.colorScheme.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Supporting Attachment',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant,
-                    style: BorderStyle.solid,
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.upload_file_outlined, size: 40, color: theme.colorScheme.primary),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Click or drag and drop to upload',
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'PDF, JPG, or PNG (Max 5MB)',
-                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),

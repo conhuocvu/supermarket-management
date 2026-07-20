@@ -52,7 +52,6 @@ import 'screens/promotion_detail_screen.dart';
 import 'screens/sales_dashboard_screen.dart';
 import 'screens/sales_product_list_screen.dart';
 import 'screens/sales_product_detail_screen.dart';
-import 'screens/sales_problem_products_screen.dart';
 import 'screens/sales_problem_product_details_screen.dart';
 import 'screens/sales_report_status_screen.dart';
 import 'screens/sales_suggestion_detail_screen.dart';
@@ -381,11 +380,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                     int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
               ),
             ),
-          ),
-          GoRoute(
-            path: '/sales/problems',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: SalesProblemProductsScreen()),
           ),
           GoRoute(
             path: '/sales/problems/:id',

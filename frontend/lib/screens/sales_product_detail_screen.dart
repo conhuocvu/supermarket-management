@@ -38,12 +38,6 @@ class _SalesProductDetailScreenState
   void _goBack() =>
       context.canPop() ? context.pop() : context.go('/sales/products');
 
-  String _stockStatus(InventoryProductDetail p) {
-    if (p.stock <= 0) return 'Out of Stock';
-    if (p.stock <= p.reorderLevel) return 'Low Stock';
-    return 'In Stock';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -82,7 +76,6 @@ class _SalesProductDetailScreenState
           }
 
           final product = snapshot.data!;
-          final statusColor = _statusColor(_stockStatus(product), theme);
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -121,7 +114,7 @@ class _SalesProductDetailScreenState
                             flex: 3,
                             child: Column(
                               children: [
-                                _buildOverviewCard(context, product, statusColor),
+                                _buildOverviewCard(context, product),
                                 const SizedBox(height: 16),
                                 _buildStatisticsCard(context, product),
                               ],
@@ -142,7 +135,7 @@ class _SalesProductDetailScreenState
                       )
                     : Column(
                         children: [
-                          _buildOverviewCard(context, product, statusColor),
+                          _buildOverviewCard(context, product),
                           const SizedBox(height: 16),
                           _buildStatisticsCard(context, product),
                           const SizedBox(height: 16),
@@ -161,7 +154,7 @@ class _SalesProductDetailScreenState
   }
 
   Widget _buildOverviewCard(BuildContext context,
-      InventoryProductDetail product, Color statusColor) {
+      InventoryProductDetail product) {
     final theme = Theme.of(context);
     final placeholder = Container(
       width: 80,
@@ -215,35 +208,6 @@ class _SalesProductDetailScreenState
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _stockStatus(product),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${product.stock.toStringAsFixed(0)} ${product.unitName} left',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: statusColor,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -444,16 +408,5 @@ class _SalesProductDetailScreenState
         ),
       ],
     );
-  }
-
-  Color _statusColor(String status, ThemeData theme) {
-    switch (status) {
-      case 'Out of Stock':
-        return theme.colorScheme.error;
-      case 'Low Stock':
-        return theme.colorScheme.secondary;
-      default:
-        return theme.colorScheme.primary;
-    }
   }
 }
