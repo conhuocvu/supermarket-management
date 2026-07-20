@@ -183,6 +183,72 @@ class StaffRequestNotifier extends StateNotifier<StaffRequestState> {
     }
   }
 
+  Future<void> adjustClearanceRequest({
+    required StaffRequest request,
+    required double discountPercentage,
+    required String reason,
+    required String status,
+  }) async {
+    if (state.processingRequestKey != null) {
+      return;
+    }
+
+    final normalizedStatus = status.toUpperCase();
+    final requestKey =
+        '${request.requestType.toUpperCase()}:${request.requestNumber}:$normalizedStatus';
+
+    state = state.copyWith(processingRequestKey: requestKey, clearError: true);
+
+    try {
+      await _apiService.adjustClearanceRequest(
+        requestNumber: request.requestNumber,
+        discountPercentage: discountPercentage,
+        reason: reason,
+        status: normalizedStatus,
+      );
+
+      await loadRequests();
+    } catch (error) {
+      state = state.copyWith(errorMessage: _cleanError(error));
+      rethrow;
+    } finally {
+      state = state.copyWith(clearProcessing: true);
+    }
+  }
+
+  Future<void> adjustPurchaseRequest({
+    required StaffRequest request,
+    required String? expectedDeliveryDate,
+    required String status,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    if (state.processingRequestKey != null) {
+      return;
+    }
+
+    final normalizedStatus = status.toUpperCase();
+    final requestKey =
+        '${request.requestType.toUpperCase()}:${request.requestNumber}:$normalizedStatus';
+
+    state = state.copyWith(processingRequestKey: requestKey, clearError: true);
+
+    try {
+      await _apiService.adjustPurchaseRequest(
+        requestNumber: request.requestNumber,
+        expectedDeliveryDate: expectedDeliveryDate,
+        status: normalizedStatus,
+        items: items,
+      );
+
+      await loadRequests();
+    } catch (error) {
+      state = state.copyWith(errorMessage: _cleanError(error));
+      rethrow;
+    } finally {
+      state = state.copyWith(clearProcessing: true);
+    }
+  }
+
   Future<void> updateRequestType(String requestType) async {
     if (state.requestType == requestType) {
       return;

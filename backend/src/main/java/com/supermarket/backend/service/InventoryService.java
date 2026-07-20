@@ -976,6 +976,64 @@ public class InventoryService {
         purchaseRequestRepository.save(pr);
     }
 
+    @Transactional
+    public void adjustPurchaseRequest(Integer prNumber, com.supermarket.backend.dto.PurchaseRequestAdjustDTO dto) {
+        PurchaseRequest pr = purchaseRequestRepository.findById(prNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Purchase request not found: " + prNumber));
+
+        if (!"PENDING".equals(pr.getStatus())) {
+            throw new IllegalStateException("Only PENDING purchase requests can be adjusted.");
+        }
+
+        if (dto.getExpectedDeliveryDate() != null) {
+            pr.setExpectedDeliveryDate(dto.getExpectedDeliveryDate());
+        }
+
+        if (dto.getStatus() != null && !dto.getStatus().trim().isEmpty()) {
+            String safeStatus = dto.getStatus().trim().toUpperCase();
+            if ("APPROVED".equals(safeStatus) || "REJECTED".equals(safeStatus) || "PENDING".equals(safeStatus)) {
+                pr.setStatus(safeStatus);
+                if ("APPROVED".equals(safeStatus)) {
+                    pr.setApprovedDate(LocalDateTime.now());
+                }
+            } else {
+                throw new IllegalArgumentException("Invalid status update: " + dto.getStatus());
+            }
+        }
+
+        purchaseRequestRepository.save(pr);
+
+        if (dto.getItems() != null && !dto.getItems().isEmpty()) {
+            List<PurchaseRequestDetail> details = purchaseRequestDetailRepository.findByPurchaseRequestNumber(prNumber);
+            List<Integer> psNumbers = details.stream()
+                    .map(PurchaseRequestDetail::getProductSupplierNumber)
+                    .collect(Collectors.toList());
+            List<ProductSupplier> productSuppliers = productSupplierRepository.findAllById(psNumbers);
+
+            for (com.supermarket.backend.dto.PurchaseRequestAdjustItemDTO adjustedItem : dto.getItems()) {
+                PurchaseRequestDetail detailToUpdate = null;
+                for (PurchaseRequestDetail detail : details) {
+                    ProductSupplier ps = productSuppliers.stream()
+                            .filter(s -> s.getProductSupplierNumber().equals(detail.getProductSupplierNumber()))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (ps != null && ps.getProductNumber().equals(adjustedItem.getProductNumber())) {
+                        detailToUpdate = detail;
+                        break;
+                    }
+                }
+
+                if (detailToUpdate != null) {
+                    detailToUpdate.setRequestedQuantity(adjustedItem.getRequestedQuantity());
+                    purchaseRequestDetailRepository.save(detailToUpdate);
+                } else {
+                    throw new IllegalArgumentException("Product number " + adjustedItem.getProductNumber() + " is not in the purchase request items.");
+                }
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public PurchaseRequestFormDataDTO getPurchaseRequestFormData() {
         // Load ALL data in bulk (4 queries total) to avoid N+1 problem

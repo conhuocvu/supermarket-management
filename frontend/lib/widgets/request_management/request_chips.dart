@@ -10,16 +10,27 @@ class RequestTypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isLeave = request.isLeaveRequest;
-    final backgroundColor = isLeave
-        ? colorScheme.secondaryContainer
-        : colorScheme.tertiaryContainer;
-    final textColor = isLeave
-        ? colorScheme.onSecondaryContainer
-        : colorScheme.onTertiaryContainer;
-    final icon = isLeave
-        ? Icons.event_available_rounded
-        : Icons.swap_horiz_rounded;
+    late final Color backgroundColor;
+    late final Color textColor;
+    late final IconData icon;
+
+    if (request.isLeaveRequest) {
+      backgroundColor = colorScheme.secondaryContainer;
+      textColor = colorScheme.onSecondaryContainer;
+      icon = Icons.event_available_rounded;
+    } else if (request.isShiftChangeRequest) {
+      backgroundColor = colorScheme.tertiaryContainer;
+      textColor = colorScheme.onTertiaryContainer;
+      icon = Icons.swap_horiz_rounded;
+    } else if (request.isClearanceRequest) {
+      backgroundColor = colorScheme.primaryContainer;
+      textColor = colorScheme.onPrimaryContainer;
+      icon = Icons.percent_rounded;
+    } else {
+      backgroundColor = colorScheme.surfaceContainerHighest;
+      textColor = colorScheme.onSurfaceVariant;
+      icon = Icons.shopping_cart_checkout_rounded;
+    }
 
     return Container(
       constraints: const BoxConstraints(minHeight: 36),

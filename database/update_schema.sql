@@ -153,3 +153,6 @@ ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact_person VARCHAR(255);
 ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address VARCHAR(255);
 ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS category VARCHAR(255);
 ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 15. Add PENDING value to promotion_status enum if not exists
+ALTER TYPE public.promotion_status ADD VALUE IF NOT EXISTS 'PENDING';

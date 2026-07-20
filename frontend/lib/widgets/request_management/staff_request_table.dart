@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/staff_request.dart';
 import '../../providers/staff_request_provider.dart';
+import 'clearance_detail_dialog.dart';
+import 'purchase_request_detail_dialog.dart';
 import 'request_action_buttons.dart';
 import 'request_chips.dart';
 import 'request_management_formatters.dart';
@@ -39,6 +41,7 @@ class StaffRequestTable extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
+                showCheckboxColumn: false,
                 headingRowColor: WidgetStateProperty.all(
                   colorScheme.surfaceContainerHighest,
                 ),
@@ -73,6 +76,7 @@ class StaffRequestTable extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return DataRow(
+      onSelectChanged: (_) => _showRequestDetails(context, request),
       cells: [
         DataCell(
           Text(
@@ -129,5 +133,19 @@ class StaffRequestTable extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  void _showRequestDetails(BuildContext context, StaffRequest request) {
+    if (request.isClearanceRequest) {
+      showDialog(
+        context: context,
+        builder: (context) => ClearanceDetailDialog(request: request),
+      );
+    } else if (request.isPurchaseRequest) {
+      showDialog(
+        context: context,
+        builder: (context) => PurchaseRequestDetailDialog(request: request),
+      );
+    }
   }
 }
