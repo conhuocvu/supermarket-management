@@ -49,10 +49,46 @@ class AppScaffold extends ConsumerWidget {
 
     final isManager = currentPath.startsWith('/manager');
     final bool isInWorkspace = currentPath.startsWith('/stock');
+    final bool isSales = currentPath.startsWith('/sales');
     final bool isCashier = currentPath.startsWith('/cashier');
     final sidebarWidth = (isManager || isCashier) ? 220.0 : 256.0;
 
-    final List<Map<String, dynamic>> menuItems = isManager
+    final List<Map<String, dynamic>> salesMenuItems = [
+      {
+        'title': 'Workspace Home',
+        'icon': Icons.home_outlined,
+        'route': '/dashboard',
+        'active': false,
+      },
+      {
+        'title': 'Dashboard',
+        'icon': Icons.dashboard_outlined,
+        'route': '/sales',
+        'active': currentPath == '/sales',
+      },
+      {
+        'title': 'Product List',
+        'icon': Icons.list_alt_outlined,
+        'route': '/sales/products',
+        'active': currentPath.startsWith('/sales/products'),
+      },
+      {
+        'title': 'Problem Products',
+        'icon': Icons.warning_amber_outlined,
+        'route': '/sales/problems',
+        'active': currentPath.startsWith('/sales/problems'),
+      },
+      {
+        'title': 'Report Status',
+        'icon': Icons.rule_folder_outlined,
+        'route': '/sales/reports',
+        'active': currentPath.startsWith('/sales/reports'),
+      },
+    ];
+
+    final List<Map<String, dynamic>> menuItems = isSales
+        ? salesMenuItems
+        : isManager
         ? [
             {
               'title': 'Workspace Home',

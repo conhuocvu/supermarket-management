@@ -1,0 +1,318 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../models/inventory_product.dart';
+import '../providers/shell_layout_provider.dart';
+import '../services/api_service.dart';
+import '../widgets/bento_card.dart';
+
+/// Sales Associate product update suggestion form. Products come from the real
+/// inventory API; submit posts to /api/product-reports/suggestions which stores
+/// the suggestion and notifies Managers.
+class SalesProductUpdateForm extends ConsumerStatefulWidget {
+  final int? prefilledProductNumber;
+
+  const SalesProductUpdateForm({super.key, this.prefilledProductNumber});
+
+  @override
+  ConsumerState<SalesProductUpdateForm> createState() =>
+      _SalesProductUpdateFormState();
+}
+
+class _SalesProductUpdateFormState
+    extends ConsumerState<SalesProductUpdateForm> {
+  final _formKey = GlobalKey<FormState>();
+  late Future<List<InventoryProduct>> _productsFuture;
+
+  int? _selectedProductNumber;
+  String _suggestedName = '';
+  String _suggestedPriceText = '';
+  String _reason = '';
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedProductNumber = widget.prefilledProductNumber;
+    _productsFuture = _loadProducts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(shellLayoutProvider.notifier).update(
+            title: 'Suggest Product Update',
+            breadcrumbs: ['Sales', 'Suggest Update'],
+          );
+    });
+  }
+
+  Future<List<InventoryProduct>> _loadProducts() async {
+    final data = await ApiService().fetchInventoryProducts(size: 100);
+    return (data['items'] as List<InventoryProduct>)
+        .where((p) => p.status == 'ACTIVE')
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return FutureBuilder<List<InventoryProduct>>(
+        future: _productsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load products.\n${snapshot.error}',
+                    textAlign: TextAlign.center,
+                    style:
+                        theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () =>
+                        setState(() => _productsFuture = _loadProducts()),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final products = snapshot.data ?? [];
+          if (products.isEmpty) {
+            return const Center(child: Text('No products available.'));
+          }
+          final validSelection = products
+                  .any((p) => p.productNumber == _selectedProductNumber)
+              ? _selectedProductNumber
+              : products.first.productNumber;
+          final selected =
+              products.firstWhere((p) => p.productNumber == validSelection);
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                        ),
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go('/sales'),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Suggest Product Update',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  BentoCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Select Product to Suggest Changes',
+                            style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<int>(
+                          initialValue: validSelection,
+                          isExpanded: true,
+                          decoration: _fieldDecoration(theme),
+                          items: products.map((p) {
+                            return DropdownMenuItem<int>(
+                              value: p.productNumber,
+                              child: Text(
+                                '${p.barcode} - ${p.productName}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) =>
+                              setState(() => _selectedProductNumber = val),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Current: ${selected.productName} — '
+                          '${selected.sellingPrice.toStringAsFixed(0)} đ',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  BentoCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Suggested Changes',
+                            style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 16),
+                        Text('Product Name (optional)',
+                            style: theme.textTheme.bodySmall),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          key: ValueKey('name-$validSelection'),
+                          initialValue: selected.productName,
+                          decoration: _fieldDecoration(theme),
+                          onSaved: (val) => _suggestedName = val ?? '',
+                        ),
+                        const SizedBox(height: 12),
+                        Text('Selling Price (đ, optional)',
+                            style: theme.textTheme.bodySmall),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          key: ValueKey('price-$validSelection'),
+                          initialValue:
+                              selected.sellingPrice.toStringAsFixed(0),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: _fieldDecoration(theme),
+                          validator: (val) {
+                            if (val == null || val.isEmpty) return null;
+                            if (double.tryParse(val) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            return null;
+                          },
+                          onSaved: (val) => _suggestedPriceText = val ?? '',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  BentoCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Rationale for Adjustments',
+                            style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          maxLines: 3,
+                          decoration: _fieldDecoration(theme,
+                              hint:
+                                  'Please detail reasoning e.g., competitor pricing alignment, wholesale cost hikes...'),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please provide a reason';
+                            }
+                            return null;
+                          },
+                          onSaved: (val) => _reason = val ?? '',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.send, color: Colors.white),
+                      label: Text(
+                          _submitting ? 'Submitting...' : 'Submit Suggestion',
+                          style: const TextStyle(color: Colors.white)),
+                      onPressed: _submitting
+                          ? null
+                          : () => _submit(selected),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          );
+        });
+  }
+
+  Future<void> _submit(InventoryProduct selected) async {
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
+
+    final theme = Theme.of(context);
+
+    // Only send fields that actually changed
+    final nameChanged = _suggestedName.trim().isNotEmpty &&
+        _suggestedName.trim() != selected.productName;
+    final price = double.tryParse(_suggestedPriceText);
+    final priceChanged = price != null && price != selected.sellingPrice;
+
+    setState(() => _submitting = true);
+    try {
+      final created = await ApiService().createProductUpdateSuggestion(
+        productNumber: selected.productNumber,
+        suggestedName: nameChanged ? _suggestedName.trim() : null,
+        suggestedSellingPrice: priceChanged ? price : null,
+        reason: _reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Suggestion #${created['reportNumber']} submitted and sent to Manager.'),
+          backgroundColor: theme.colorScheme.primary,
+        ),
+      );
+      context.canPop() ? context.pop() : context.go('/sales');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to submit suggestion: $e'),
+          backgroundColor: theme.colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  InputDecoration _fieldDecoration(ThemeData theme, {String? hint}) {
+    return InputDecoration(
+      hintText: hint,
+      fillColor:
+          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+      filled: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+}
