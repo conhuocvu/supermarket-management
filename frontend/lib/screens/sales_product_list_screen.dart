@@ -82,13 +82,6 @@ class _SalesProductListScreenState
         .isAfter(today.add(Duration(days: p.expiryWarningDays)));
   }
 
-  String _stockStatus(InventoryProduct p) {
-    if (_isExpired(p)) return 'Expired';
-    if (p.stock <= 0) return 'Out of Stock';
-    if (p.stock <= p.reorderLevel) return 'Low Stock';
-    return 'In Stock';
-  }
-
   bool _matchesFilter(InventoryProduct p) {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty &&
@@ -97,10 +90,6 @@ class _SalesProductListScreenState
       return false;
     }
     switch (_statusFilter) {
-      case 'LOW_STOCK':
-        return _stockStatus(p) == 'Low Stock';
-      case 'OUT_OF_STOCK':
-        return _stockStatus(p) == 'Out of Stock';
       case 'EXPIRED':
         return _isExpired(p);
       case 'NEAR_EXPIRY':
@@ -228,9 +217,6 @@ class _SalesProductListScreenState
             ),
             items: const [
               DropdownMenuItem(value: 'ALL', child: Text('All Products')),
-              DropdownMenuItem(value: 'LOW_STOCK', child: Text('Low Stock')),
-              DropdownMenuItem(
-                  value: 'OUT_OF_STOCK', child: Text('Out of Stock')),
               DropdownMenuItem(
                   value: 'NEAR_EXPIRY', child: Text('Near Expiry')),
               DropdownMenuItem(value: 'EXPIRED', child: Text('Expired')),
@@ -273,8 +259,6 @@ class _SalesProductListScreenState
       separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final item = items[index];
-        final status = _stockStatus(item);
-        final statusColor = _statusColor(status, theme);
 
         return InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -331,22 +315,6 @@ class _SalesProductListScreenState
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              status,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -359,24 +327,12 @@ class _SalesProductListScreenState
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            currencyFormat.format(item.sellingPrice),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          Text(
-                            '${item.stock.toStringAsFixed(0)} ${item.unitName}',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: statusColor,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        currencyFormat.format(item.sellingPrice),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -458,16 +414,10 @@ class _SalesProductListScreenState
               columns: const [
                 DataColumn(label: Text('Product Name')),
                 DataColumn(label: Text('Category')),
-                DataColumn(label: Text('Stock')),
                 DataColumn(label: Text('Price')),
-                DataColumn(label: Text('Status')),
                 DataColumn(label: Text('Actions')),
               ],
               rows: items.map((item) {
-                final status = _stockStatus(item);
-                final statusColor = _statusColor(status, theme);
-                final isLowStock = item.stock <= item.reorderLevel;
-
                 return DataRow(
                   onSelectChanged: (_) =>
                       _openDetail(context, item.productNumber),
@@ -515,52 +465,7 @@ class _SalesProductListScreenState
                       ),
                     ),
                     DataCell(Text(item.categoryName)),
-                    DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${item.stock.toStringAsFixed(0)} ${item.unitName}',
-                            style: TextStyle(
-                              color: isLowStock
-                                  ? theme.colorScheme.error
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: isLowStock
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          if (isLowStock)
-                            Text(
-                              'Low stock (< ${item.reorderLevel.toStringAsFixed(0)})',
-                              style: TextStyle(
-                                color: theme.colorScheme.error,
-                                fontSize: 10,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
                     DataCell(Text(currencyFormat.format(item.sellingPrice))),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
                     DataCell(
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -645,18 +550,6 @@ class _SalesProductListScreenState
       ));
     }
 
-    if (item.stock <= item.reorderLevel && item.stock > 0) {
-      badges.add(_buildSmallBadge(
-        context: context,
-        icon: Icons.unfold_more_double_rounded,
-        label:
-            'Low Stock (${item.stock.toStringAsFixed(0)} < ${item.reorderLevel.toStringAsFixed(0)})',
-        backgroundColor:
-            theme.colorScheme.primaryContainer.withValues(alpha: 0.8),
-        textColor: theme.colorScheme.onPrimaryContainer,
-      ));
-    }
-
     if (badges.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -694,18 +587,5 @@ class _SalesProductListScreenState
         ],
       ),
     );
-  }
-
-  Color _statusColor(String status, ThemeData theme) {
-    switch (status) {
-      case 'Expired':
-        return Colors.deepOrange;
-      case 'Out of Stock':
-        return theme.colorScheme.error;
-      case 'Low Stock':
-        return theme.colorScheme.secondary;
-      default:
-        return theme.colorScheme.primary;
-    }
   }
 }

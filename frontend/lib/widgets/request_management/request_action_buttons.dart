@@ -54,6 +54,8 @@ class RequestActionButtons extends StatelessWidget {
               label: const Text('Adjust'),
               style: TextButton.styleFrom(
                 foregroundColor: colorScheme.primary,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -77,6 +79,8 @@ class RequestActionButtons extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: colorScheme.error,
           side: BorderSide(color: colorScheme.error),
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -102,6 +106,8 @@ class RequestActionButtons extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
