@@ -19,6 +19,7 @@ import '../models/clearance_proposal.dart';
 import '../models/promotion.dart';
 import '../models/disposal_form_data.dart';
 import '../models/product_report.dart';
+import '../models/reports_dashboard_data.dart';
 
 class ApiService {
   final Dio _dio;
@@ -107,6 +108,58 @@ class ApiService {
         throw Exception(
           'Failed to load manager dashboard data: HTTP ${response.statusCode}',
         );
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<ReportsDashboardData> fetchReportsDashboardData({String? startDate, String? endDate}) async {
+    try {
+      final response = await _dio.get(
+        '/reports/dashboard',
+        queryParameters: {
+          if (startDate != null) 'startDate': startDate,
+          if (endDate != null) 'endDate': endDate,
+        },
+      );
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['success'] == true) {
+          return ReportsDashboardData.fromJson(body['data']);
+        } else {
+          throw Exception(
+            body['message'] ?? 'Failed to load reports dashboard data.',
+          );
+        }
+      } else {
+        throw Exception(
+          'Failed to load reports dashboard data: HTTP ${response.statusCode}',
+        );
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  Future<Uint8List> downloadReportsPdf({String? startDate, String? endDate}) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/reports/dashboard/download',
+        queryParameters: {
+          if (startDate != null) 'startDate': startDate,
+          if (endDate != null) 'endDate': endDate,
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return Uint8List.fromList(response.data!);
+      } else {
+        throw Exception('Failed to download PDF: HTTP ${response.statusCode}');
       }
     } on DioException catch (e) {
       throw Exception(_handleDioError(e));
@@ -915,6 +968,8 @@ class ApiService {
   Future<Map<String, dynamic>> fetchStaffList({
     String? keyword,
     String? status,
+    int? roleNumber,
+    int? shiftNumber,
     int page = 0,
     int size = 6,
   }) async {
@@ -925,6 +980,12 @@ class ApiService {
       }
       if (status != null && status != 'ALL') {
         queryParams['status'] = status;
+      }
+      if (roleNumber != null) {
+        queryParams['roleNumber'] = roleNumber;
+      }
+      if (shiftNumber != null) {
+        queryParams['shiftNumber'] = shiftNumber;
       }
 
       final response = await _dio.get('/staff', queryParameters: queryParams);

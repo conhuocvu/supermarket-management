@@ -22,7 +22,7 @@ class AppScaffold extends ConsumerWidget {
     ).routeInformationProvider.value.uri.path;
 
     final shellState = ref.watch(shellLayoutProvider);
-    
+
     String displayTitle = title ?? shellState.title;
     List<String> displayBreadcrumbs = shellState.breadcrumbs;
     final displayActions = actions ?? shellState.actions;
@@ -30,15 +30,22 @@ class AppScaffold extends ConsumerWidget {
     if (currentPath == '/manager/staff') {
       displayTitle = 'Staff Management';
       displayBreadcrumbs = ['Manager', 'Staff'];
-    } else if (currentPath.startsWith('/manager/staff/') && currentPath != '/manager/staff') {
+    } else if (currentPath.startsWith('/manager/staff/') &&
+        currentPath != '/manager/staff') {
       displayTitle = 'Staff Details';
       displayBreadcrumbs = ['Manager', 'Staff', 'Details'];
     } else if (currentPath == '/manager/promotion') {
-      displayTitle = 'Promotions';
-      displayBreadcrumbs = ['Manager', 'Promotions'];
+      displayTitle = 'Promotion Management';
+      displayBreadcrumbs = ['Manager', 'Promotion '];
     } else if (currentPath == '/manager/supplier') {
       displayTitle = 'Supplier Management';
       displayBreadcrumbs = ['Manager', 'Suppliers'];
+    } else if (currentPath == '/manager/requests') {
+      displayTitle = 'Request Management';
+      displayBreadcrumbs = ['Manager', 'Requests'];
+    } else if (currentPath == '/manager/reports') {
+      displayTitle = 'Reports Dashboard';
+      displayBreadcrumbs = ['Manager', 'Reports'];
     }
 
     final authState = ref.watch(authProvider);
@@ -48,7 +55,8 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final isManager = currentPath.startsWith('/manager') ||
+    final isManager =
+        currentPath.startsWith('/manager') ||
         authState.profile?.roleNumber == UserRoles.manager;
     final bool isInWorkspace = currentPath.startsWith('/stock');
     final bool isSales = currentPath.startsWith('/sales');
@@ -153,7 +161,8 @@ class AppScaffold extends ConsumerWidget {
               'title': 'New Invoice',
               'icon': Icons.receipt_long_outlined,
               'route': '/cashier/new-invoice',
-              'active': currentPath == '/cashier/new-invoice' ||
+              'active':
+                  currentPath == '/cashier/new-invoice' ||
                   currentPath.startsWith('/cashier/pos/') ||
                   currentPath.startsWith('/cashier/checkout/') ||
                   currentPath.startsWith('/cashier/receipt/'),
@@ -294,8 +303,9 @@ class AppScaffold extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -378,8 +388,9 @@ class AppScaffold extends ConsumerWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: theme.colorScheme.primary
-                        .withValues(alpha: 0.12),
+                    backgroundColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.12,
+                    ),
                     child: Icon(
                       Icons.person_outline,
                       size: 20,
@@ -422,8 +433,7 @@ class AppScaffold extends ConsumerWidget {
                       color: theme.colorScheme.error,
                       size: 20,
                     ),
-                    onPressed: () =>
-                        ref.read(authProvider.notifier).signOut(),
+                    onPressed: () => ref.read(authProvider.notifier).signOut(),
                   ),
                 ],
               ),
@@ -490,7 +500,8 @@ class AppScaffold extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty) ...[
+                        if (shellState.subtitle != null &&
+                            shellState.subtitle!.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
                             shellState.subtitle!,
@@ -501,49 +512,45 @@ class AppScaffold extends ConsumerWidget {
                         ] else if (displayBreadcrumbs.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Row(
-                            children: displayBreadcrumbs
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                                  final idx = entry.key;
-                                  final label = entry.value;
-                                  final isLast =
-                                      idx == displayBreadcrumbs.length - 1;
-                                  return Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        label,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: isLast
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                          color: isLast
-                                              ? theme.colorScheme.onSurface
-                                              : theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                        ),
+                            children: displayBreadcrumbs.asMap().entries.map((
+                              entry,
+                            ) {
+                              final idx = entry.key;
+                              final label = entry.value;
+                              final isLast =
+                                  idx == displayBreadcrumbs.length - 1;
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isLast
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isLast
+                                          ? theme.colorScheme.onSurface
+                                          : theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  if (!isLast)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
                                       ),
-                                      if (!isLast)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          child: Icon(
-                                            Icons.chevron_right,
-                                            size: 14,
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant
-                                                .withValues(alpha: 0.5),
-                                          ),
-                                        ),
-                                    ],
-                                  );
-                                })
-                                .toList(),
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        size: 14,
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }).toList(),
                           ),
                         ],
                       ],
@@ -569,7 +576,8 @@ class AppScaffold extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(displayTitle, style: theme.textTheme.titleLarge),
-              if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty)
+              if (shellState.subtitle != null &&
+                  shellState.subtitle!.isNotEmpty)
                 Text(
                   shellState.subtitle!,
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -603,9 +611,7 @@ class AppScaffold extends ConsumerWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: displayBreadcrumbs.asMap().entries.map((
-                      entry,
-                    ) {
+                    children: displayBreadcrumbs.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final label = entry.value;
                       final isLast = idx == displayBreadcrumbs.length - 1;

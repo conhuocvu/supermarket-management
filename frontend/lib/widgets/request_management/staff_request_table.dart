@@ -59,7 +59,7 @@ class StaffRequestTable extends StatelessWidget {
                       horizontalMargin: 16,
                       columnSpacing: 20,
                       columns: const [
-                        DataColumn(label: Text('Request')),
+                        DataColumn(label: Text('RequestID')),
                         DataColumn(label: Text('Employee')),
                         DataColumn(label: Text('Type')),
                         DataColumn(label: Text('Request details')),
@@ -67,8 +67,13 @@ class StaffRequestTable extends StatelessWidget {
                         DataColumn(label: Text('Status')),
                         DataColumn(label: Text('Actions')),
                       ],
-                      rows: state.items.map((request) {
-                        return _buildDataRow(context, request);
+                      rows: state.items.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final request = entry.value;
+                        final seqNum =
+                            state.totalItems -
+                            (state.page * state.size + index);
+                        return _buildDataRow(context, request, seqNum);
                       }).toList(),
                     ),
                   ),
@@ -81,17 +86,18 @@ class StaffRequestTable extends StatelessWidget {
     );
   }
 
-  DataRow _buildDataRow(BuildContext context, StaffRequest request) {
+  DataRow _buildDataRow(
+    BuildContext context,
+    StaffRequest request,
+    int seqNum,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return DataRow(
       onSelectChanged: (_) => _showRequestDetails(context, request),
       cells: [
         DataCell(
-          Text(
-            '#${request.requestNumber}',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
+          Text('#$seqNum', style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
         DataCell(
           SizedBox(

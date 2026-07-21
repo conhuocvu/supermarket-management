@@ -12,7 +12,8 @@ class PromotionListScreen extends ConsumerStatefulWidget {
   const PromotionListScreen({super.key});
 
   @override
-  ConsumerState<PromotionListScreen> createState() => _PromotionListScreenState();
+  ConsumerState<PromotionListScreen> createState() =>
+      _PromotionListScreenState();
 }
 
 class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
@@ -70,9 +71,7 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
           const SizedBox(height: 24),
 
           // ── Main Body ────────────────────────────────────────────
-          Expanded(
-            child: _buildBody(context, theme, state),
-          ),
+          Expanded(child: _buildBody(context, theme, state)),
         ],
       ),
     );
@@ -89,8 +88,9 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
       return ErrorView(
         title: 'Unable to load promotion data.',
         description: state.error!,
-        onRetry: () =>
-            ref.read(promotionListProvider.notifier).loadPromotions(isRefresh: true),
+        onRetry: () => ref
+            .read(promotionListProvider.notifier)
+            .loadPromotions(isRefresh: true),
       );
     }
 
@@ -98,56 +98,45 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
       return _buildEmptyState(context, theme);
     }
 
-    final featuredList = state.promotions.where((p) => p.isFeatured).toList();
-    final normalList = state.promotions.where((p) => !p.isFeatured).toList();
-
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Featured Banner ─────────────────────────────────────────
-          if (featuredList.isNotEmpty) ...[
-            ...featuredList.map((p) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _FeaturedBanner(promotion: p),
-                )),
-          ],
-
-          // ── Normal List Table Card ──────────────────────────────────
-          if (normalList.isNotEmpty) ...[
-            Card(
-              elevation: 2,
-              shadowColor: Colors.black.withValues(alpha: 0.04),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  _buildTable(context, theme, normalList),
-                  const Divider(height: 1),
-                  _PaginationControls(
-                    page: state.page,
-                    totalPages: state.totalPages,
-                    totalElements: state.totalElements,
-                    pageSize: state.pageSize,
-                    onPageChanged: (p) => ref.read(promotionListProvider.notifier).goToPage(p),
-                  ),
-                ],
+          Card(
+            elevation: 2,
+            shadowColor: Colors.black.withValues(alpha: 0.04),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
             ),
-          ],
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _buildTable(context, theme, state.promotions),
+                const Divider(height: 1),
+                _PaginationControls(
+                  page: state.page,
+                  totalPages: state.totalPages,
+                  totalElements: state.totalElements,
+                  pageSize: state.pageSize,
+                  onPageChanged: (p) =>
+                      ref.read(promotionListProvider.notifier).goToPage(p),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTable(BuildContext context, ThemeData theme, List<Promotion> items) {
+  Widget _buildTable(
+    BuildContext context,
+    ThemeData theme,
+    List<Promotion> items,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -186,7 +175,9 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
 
                   return DataRow(
                     onSelectChanged: (_) {
-                      context.go('/manager/promotion/${promotion.promotionNumber}');
+                      context.go(
+                        '/manager/promotion/${promotion.promotionNumber}',
+                      );
                     },
                     cells: [
                       DataCell(
@@ -208,51 +199,99 @@ class _PromotionListScreenState extends ConsumerState<PromotionListScreen> {
                       DataCell(_buildStatusBadge(context, promotion.status)),
                       DataCell(Text(durationText)),
                       DataCell(
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert_rounded),
-                          onSelected: (value) async {
-                            if (value == 'view') {
-                              context.go('/manager/promotion/${promotion.promotionNumber}');
-                            } else if (value == 'edit') {
-                              final updated = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => EditPromotionDialog(promotion: promotion),
-                              );
-                              if (updated == true && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Promotion updated successfully.'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            } else if (value == 'deactivate') {
-                              final deactivated = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => DeactivatePromotionDialog(promotion: promotion),
-                              );
-                              if (deactivated == true && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Promotion deactivated successfully.'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'view',
-                              child: Text('View Details'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => context.go(
+                                '/manager/promotion/${promotion.promotionNumber}',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('View Details'),
                             ),
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Edit Promotion'),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () async {
+                                final updated = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) =>
+                                      EditPromotionDialog(promotion: promotion),
+                                );
+                                if (updated == true && context.mounted) {
+                                  ref
+                                      .read(promotionListProvider.notifier)
+                                      .loadPromotions(isRefresh: true);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Promotion updated successfully.',
+                                      ),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('Edit'),
                             ),
-                            const PopupMenuItem(
-                              value: 'deactivate',
-                              child: Text('Deactivate Promotion'),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: (promotion.status == 'EXPIRED' ||
+                                      promotion.status == 'INACTIVE')
+                                  ? null
+                                  : () async {
+                                      final deactivated = await showDialog<bool>(
+                                        context: context,
+                                        builder: (_) =>
+                                            DeactivatePromotionDialog(
+                                          promotion: promotion,
+                                        ),
+                                      );
+                                      if (deactivated == true &&
+                                          context.mounted) {
+                                        ref
+                                            .read(promotionListProvider.notifier)
+                                            .loadPromotions(isRefresh: true);
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Promotion deactivated successfully.',
+                                            ),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      }
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('Deactivate'),
                             ),
                           ],
                         ),
@@ -375,47 +414,49 @@ class _SummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (ctx, constraints) {
-      final isWide = constraints.maxWidth >= 600;
-      return GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: isWide ? 4 : 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: isWide ? 2.2 : 1.5,
-        children: [
-          _SummaryCard(
-            label: 'Active',
-            value: isLoading ? '—' : '$activeCount',
-            icon: Icons.check_circle_outline_rounded,
-            iconColor: const Color(0xFF22C55E),
-            iconBg: const Color(0xFF22C55E).withValues(alpha: 0.1),
-          ),
-          _SummaryCard(
-            label: 'Scheduled',
-            value: isLoading ? '—' : '$scheduledCount',
-            icon: Icons.schedule_rounded,
-            iconColor: const Color(0xFFF4A261),
-            iconBg: const Color(0xFFF4A261).withValues(alpha: 0.1),
-          ),
-          _SummaryCard(
-            label: 'Expired',
-            value: isLoading ? '—' : '$expiredCount',
-            icon: Icons.history_rounded,
-            iconColor: const Color(0xFFDC2626),
-            iconBg: const Color(0xFFDC2626).withValues(alpha: 0.1),
-          ),
-          _SummaryCard(
-            label: 'Avg Discount',
-            value: isLoading ? '—' : '$avgDiscount%',
-            icon: Icons.percent_rounded,
-            iconColor: const Color(0xFF3B82F6),
-            iconBg: const Color(0xFF3B82F6).withValues(alpha: 0.1),
-          ),
-        ],
-      );
-    });
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: isWide ? 4 : 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: isWide ? 2.2 : 1.5,
+          children: [
+            _SummaryCard(
+              label: 'Active',
+              value: isLoading ? '—' : '$activeCount',
+              icon: Icons.check_circle_outline_rounded,
+              iconColor: const Color(0xFF22C55E),
+              iconBg: const Color(0xFF22C55E).withValues(alpha: 0.1),
+            ),
+            _SummaryCard(
+              label: 'Scheduled',
+              value: isLoading ? '—' : '$scheduledCount',
+              icon: Icons.schedule_rounded,
+              iconColor: const Color(0xFFF4A261),
+              iconBg: const Color(0xFFF4A261).withValues(alpha: 0.1),
+            ),
+            _SummaryCard(
+              label: 'Expired',
+              value: isLoading ? '—' : '$expiredCount',
+              icon: Icons.history_rounded,
+              iconColor: const Color(0xFFDC2626),
+              iconBg: const Color(0xFFDC2626).withValues(alpha: 0.1),
+            ),
+            _SummaryCard(
+              label: 'Avg Discount',
+              value: isLoading ? '—' : '$avgDiscount%',
+              icon: Icons.percent_rounded,
+              iconColor: const Color(0xFF3B82F6),
+              iconBg: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -542,15 +583,11 @@ class _SearchFilterBar extends StatelessWidget {
                   : null,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 0,
@@ -568,8 +605,9 @@ class _SearchFilterBar extends StatelessWidget {
 
         final filterDropdown = PopupMenuButton<String>(
           onSelected: onFilterChanged,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 4,
           offset: const Offset(0, 52),
           itemBuilder: (ctx) => filters.map((f) {
@@ -577,8 +615,7 @@ class _SearchFilterBar extends StatelessWidget {
             final label = filterLabels[f] ?? f;
             return PopupMenuItem<String>(
               value: f,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Row(
                 children: [
                   Icon(
@@ -622,8 +659,9 @@ class _SearchFilterBar extends StatelessWidget {
               boxShadow: selectedFilter != 'ALL'
                   ? [
                       BoxShadow(
-                        color: theme.colorScheme.primary
-                            .withValues(alpha: 0.25),
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.25,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -720,220 +758,6 @@ class _SearchFilterBar extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Featured Banner (Bottom)
-// ────────────────────────────────────────────────────────────────────────────
-
-class _FeaturedBanner extends StatelessWidget {
-  final Promotion promotion;
-
-  const _FeaturedBanner({required this.promotion});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final width = MediaQuery.of(context).size.width;
-    final isDesktop = width >= 750;
-
-    final bannerContent = Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: isDesktop
-            ? IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(flex: 4, child: _buildImage(theme)),
-                    Expanded(flex: 6, child: _buildDetails(theme, context)),
-                  ],
-                ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1.8,
-                    child: _buildImage(theme),
-                  ),
-                  _buildDetails(theme, context),
-                ],
-              ),
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12, top: 16),
-          child: Text(
-            'Featured Event',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTap: () => context.go('/manager/promotion/${promotion.promotionNumber}'),
-          child: bannerContent,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImage(ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: promotion.imageUrl != null && promotion.imageUrl!.isNotEmpty
-                ? Image.network(
-                    promotion.imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => const Icon(
-                      Icons.campaign_outlined,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
-                  )
-                : const Icon(
-                    Icons.campaign_outlined,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
-          ),
-          Positioned(
-            top: 12,
-            left: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'FEATURED',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetails(ThemeData theme, BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            promotion.category.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 0.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            promotion.promotionName,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 22,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (promotion.description != null) ...[
-            Text(
-              promotion.description!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.4,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'GLOBAL CODE',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 9,
-                        color: theme.colorScheme.outline,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      promotion.promoCode,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 40,
-                child: OutlinedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('UC-PM-01 Manage Featured is not implemented yet.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text('Manage'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

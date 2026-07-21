@@ -15,6 +15,8 @@ class StaffListState {
   final int onShiftCount;
   final String searchQuery;
   final String statusFilter; // ALL | ON_DUTY | OFF_DUTY | ON_LEAVE
+  final int? selectedRoleNumber;
+  final int? selectedShiftNumber;
   final int currentPage;
   final int totalPages;
 
@@ -26,6 +28,8 @@ class StaffListState {
     this.onShiftCount = 0,
     this.searchQuery = '',
     this.statusFilter = 'ALL',
+    this.selectedRoleNumber,
+    this.selectedShiftNumber,
     this.currentPage = 0,
     this.totalPages = 1,
   });
@@ -39,6 +43,10 @@ class StaffListState {
     int? onShiftCount,
     String? searchQuery,
     String? statusFilter,
+    int? selectedRoleNumber,
+    bool clearRoleFilter = false,
+    int? selectedShiftNumber,
+    bool clearShiftFilter = false,
     int? currentPage,
     int? totalPages,
   }) {
@@ -50,6 +58,8 @@ class StaffListState {
       onShiftCount: onShiftCount ?? this.onShiftCount,
       searchQuery: searchQuery ?? this.searchQuery,
       statusFilter: statusFilter ?? this.statusFilter,
+      selectedRoleNumber: clearRoleFilter ? null : (selectedRoleNumber ?? this.selectedRoleNumber),
+      selectedShiftNumber: clearShiftFilter ? null : (selectedShiftNumber ?? this.selectedShiftNumber),
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
     );
@@ -76,6 +86,8 @@ class StaffListNotifier extends StateNotifier<StaffListState> {
       final result = await _apiService.fetchStaffList(
         keyword: state.searchQuery.isEmpty ? null : state.searchQuery,
         status: state.statusFilter,
+        roleNumber: state.selectedRoleNumber,
+        shiftNumber: state.selectedShiftNumber,
         page: state.currentPage,
         size: 6,
       );
@@ -110,7 +122,36 @@ class StaffListNotifier extends StateNotifier<StaffListState> {
   }
 
   void setStatusFilter(String status) {
-    state = state.copyWith(statusFilter: status, searchQuery: '', currentPage: 0);
+    state = state.copyWith(statusFilter: status, currentPage: 0);
+    loadStaff(isRefresh: true);
+  }
+
+  void setRoleFilter(int? roleNumber) {
+    state = state.copyWith(
+      selectedRoleNumber: roleNumber,
+      clearRoleFilter: roleNumber == null,
+      currentPage: 0,
+    );
+    loadStaff(isRefresh: true);
+  }
+
+  void setShiftFilter(int? shiftNumber) {
+    state = state.copyWith(
+      selectedShiftNumber: shiftNumber,
+      clearShiftFilter: shiftNumber == null,
+      currentPage: 0,
+    );
+    loadStaff(isRefresh: true);
+  }
+
+  void resetFilters() {
+    state = state.copyWith(
+      searchQuery: '',
+      statusFilter: 'ALL',
+      clearRoleFilter: true,
+      clearShiftFilter: true,
+      currentPage: 0,
+    );
     loadStaff(isRefresh: true);
   }
 
