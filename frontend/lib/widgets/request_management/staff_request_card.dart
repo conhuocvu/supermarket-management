@@ -11,12 +11,14 @@ import 'request_management_formatters.dart';
 class StaffRequestCard extends StatelessWidget {
   final StaffRequest request;
   final StaffRequestState state;
+  final int? seqNum;
   final Future<void> Function(StaffRequest, String) onUpdateStatus;
 
   const StaffRequestCard({
     super.key,
     required this.request,
     required this.state,
+    this.seqNum,
     required this.onUpdateStatus,
   });
 
@@ -75,7 +77,9 @@ class StaffRequestCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Request #${request.requestNumber}',
+                        seqNum != null
+                            ? 'Request #$seqNum'
+                            : 'Request #${request.requestNumber}',
                         style: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 13,

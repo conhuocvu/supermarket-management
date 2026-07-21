@@ -6,6 +6,8 @@ import '../models/staff_member.dart';
 import '../providers/staff_provider.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/error_view.dart';
+import 'staff_detail_screen.dart';
+import '../core/providers/api_provider.dart';
 
 class StaffListScreen extends ConsumerStatefulWidget {
   const StaffListScreen({super.key});
@@ -17,16 +19,9 @@ class StaffListScreen extends ConsumerStatefulWidget {
 class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  String? _loadingStaffId;
 
   static const _pageSize = 6;
-
-  static const _filters = ['ALL', 'ON_DUTY', 'OFF_DUTY', 'ON_LEAVE'];
-  static const _filterLabels = {
-    'ALL': 'All Staff',
-    'ON_DUTY': 'On Duty',
-    'OFF_DUTY': 'Off Duty',
-    'ON_LEAVE': 'On Leave',
-  };
 
   @override
   void dispose() {
@@ -35,37 +30,102 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     super.dispose();
   }
 
+  Future<void> _handleSetRole(StaffMember member) async {
+    final rolesAsync = ref.read(rolesMetaProvider);
+    final roles = rolesAsync.valueOrNull ?? [];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => SetRoleDialog(
+        userId: member.userId,
+        currentRoleNumber: member.roleNumber,
+        roles: roles,
+        onSaved: () {
+          ref.read(staffListProvider.notifier).loadStaff(isRefresh: true);
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleAssignShift(StaffMember member) async {
+    if (_loadingStaffId != null) return;
+
+    setState(() {
+      _loadingStaffId = member.userId;
+    });
+
+    final theme = Theme.of(context);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final staffDetail = await api.fetchStaffDetail(member.userId);
+      
+      setState(() {
+        _loadingStaffId = null;
+      });
+      
+      final shiftsAsync = ref.read(shiftsMetaProvider);
+      final shifts = shiftsAsync.valueOrNull ?? [];
+      
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AssignShiftDialog(
+            userId: member.userId,
+            staffName: member.fullName,
+            weeklySchedule: staffDetail['weeklySchedule'] as List? ?? [],
+            availableShifts: shifts,
+            onSaved: () {
+              ref.read(staffListProvider.notifier).loadStaff(isRefresh: true);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _loadingStaffId = null;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load staff schedule: $e'),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(staffListProvider);
     final theme = Theme.of(context);
+
+    // Warm up metadata providers for roles and shifts so filters can populate
+    ref.watch(rolesMetaProvider);
+    ref.watch(shiftsMetaProvider);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Summary Cards ─────────────────────────────────────────
-          _SummaryCards(
-            totalStaff: state.totalStaff,
-            onShiftCount: state.onShiftCount,
-            isLoading: state.isLoading,
+          // Title
+          Text(
+            'Staff Management',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 20),
 
-          // ── Search + Filter Row ──────────────────────────────────
-          _SearchFilterBar(
+          // ── Search + Filter Grid ──────────────────────────────────
+          _FiltersSection(
             searchController: _searchController,
             searchFocus: _searchFocus,
-            selectedFilter: state.statusFilter,
-            filterLabels: _filterLabels,
-            filters: _filters,
             onSearch: (q) {
               ref.read(staffListProvider.notifier).search(q);
-            },
-            onFilterChanged: (f) {
-              _searchController.clear();
-              ref.read(staffListProvider.notifier).setStatusFilter(f);
             },
           ),
           const SizedBox(height: 20),
@@ -106,21 +166,20 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(
-            alpha: 0.5,
-          ),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Expanded(child: _buildTable(context, theme, pageStaff)),
+          Expanded(child: _buildTable(context, theme, pageStaff, state)),
           const Divider(height: 1),
           _PaginationBar(
             currentPage: state.currentPage,
             totalPages: state.totalPages,
             totalItems: state.totalStaff,
             pageSize: _pageSize,
+            currentCount: pageStaff.length,
             onPageChanged: (p) {
               ref.read(staffListProvider.notifier).setPage(p);
             },
@@ -130,7 +189,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     );
   }
 
-  Widget _buildTable(BuildContext context, ThemeData theme, List<StaffMember> items) {
+  Widget _buildTable(BuildContext context, ThemeData theme, List<StaffMember> items, StaffListState state) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -150,68 +209,111 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                   fontWeight: FontWeight.w600,
                 ),
                 columns: const [
-                  DataColumn(label: Text('Staff Member')),
-                  DataColumn(label: Text('Work Status')),
-                  DataColumn(label: Text('Shift Today')),
+                  DataColumn(label: Text('Staff ID')),
+                  DataColumn(label: Text('Full Name')),
+                  DataColumn(label: Text('Phone Number')),
+                  DataColumn(label: Text('Email')),
+                  DataColumn(label: Text('Role')),
+                  DataColumn(label: Text('Current Shift')),
+                  DataColumn(label: Text('Status')),
                   DataColumn(label: Text('Actions')),
                 ],
-                rows: items.map((member) {
-                  final hasShift = member.shiftName != null && member.shiftName!.isNotEmpty;
-                  final isOnLeave = member.workStatus == 'ON_LEAVE';
+                rows: items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final member = entry.value;
+                  final idNumber = (state.currentPage * _pageSize) + index + 1;
+                  final staffIdStr = '#STF-${idNumber.toString().padLeft(3, '0')}';
 
-                  String shiftText = 'No Shift Today';
-                  if (isOnLeave) {
-                    shiftText = 'On Leave';
-                  } else if (hasShift) {
-                    shiftText = '${member.shiftName} (${member.shiftTimeRange})';
-                  }
+                  final isOnLeave = member.workStatus == 'ON_LEAVE';
+                  final shiftText = isOnLeave ? 'Leave' : (member.shiftName ?? '—');
 
                   return DataRow(
-                    onSelectChanged: (_) {
-                      context.push('/manager/staff/${member.userId}');
-                    },
                     cells: [
+                      // Staff ID
+                      DataCell(
+                        Text(
+                          staffIdStr,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      // Full Name
                       DataCell(
                         Row(
                           children: [
                             _StaffAvatar(member: member),
                             const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  member.fullName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  member.roleName,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              member.fullName,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                       ),
-                      DataCell(_buildStatusBadge(context, member.workStatus)),
-                      DataCell(Text(shiftText)),
+                      // Phone Number
+                      DataCell(Text(member.phone)),
+                      // Email
+                      DataCell(Text(member.email ?? '—')),
+                      // Role (styled box)
                       DataCell(
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert_rounded),
-                          onSelected: (val) {
-                            if (val == 'profile') {
-                              context.push('/manager/staff/${member.userId}');
-                            }
-                          },
-                          itemBuilder: (ctx) => [
-                            const PopupMenuItem(
-                              value: 'profile',
-                              child: Text('View Profile'),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: theme.colorScheme.outlineVariant),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            member.roleName,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Current Shift
+                      DataCell(Text(shiftText)),
+                      // Status
+                      DataCell(_buildStatusCell(context, member)),
+                      // Actions (three buttons)
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => context.push('/manager/staff/${member.userId}'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('View Details'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () => _handleSetRole(member),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('Set Role'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: _loadingStaffId != null ? null : () => _handleAssignShift(member),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: _loadingStaffId == member.userId
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Assign Shift'),
                             ),
                           ],
                         ),
@@ -227,54 +329,68 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     );
   }
 
-  Widget _buildStatusBadge(BuildContext context, String workStatus) {
+  Widget _buildStatusCell(BuildContext context, StaffMember member) {
     final theme = Theme.of(context);
-    Color color;
-    Color bgColor;
-    String label;
+    final isSuspended = member.status == 'SUSPENDED' || member.status == 'INACTIVE';
+    final isOnLeave = member.workStatus == 'ON_LEAVE';
 
-    switch (workStatus) {
-      case 'ON_DUTY':
-        label = 'On Duty';
-        color = theme.colorScheme.primary;
-        bgColor = theme.colorScheme.primary.withValues(alpha: 0.1);
-        break;
-      case 'ON_LEAVE':
-        label = 'On Leave';
-        color = theme.colorScheme.secondary;
-        bgColor = theme.colorScheme.secondary.withValues(alpha: 0.1);
-        break;
-      default:
-        label = 'Off Duty';
-        color = theme.colorScheme.outline;
-        bgColor = theme.colorScheme.outline.withValues(alpha: 0.1);
+    if (isSuspended) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.error),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'Suspended',
+          style: TextStyle(
+            color: theme.colorScheme.error,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    if (isOnLeave) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.orange),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Text(
+          'On Leave',
+          style: TextStyle(
+            color: Colors.orange,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: const BoxDecoration(
+            color: Colors.green,
+            shape: BoxShape.circle,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 6),
+        const Text(
+          'Active',
+          style: TextStyle(
+            color: Colors.green,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -307,13 +423,245 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           OutlinedButton.icon(
             onPressed: () {
               _searchController.clear();
-              ref.read(staffListProvider.notifier).setStatusFilter('ALL');
+              ref.read(staffListProvider.notifier).resetFilters();
             },
             icon: const Icon(Icons.refresh),
             label: const Text('Reset Filters'),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Filters Section
+// ────────────────────────────────────────────────────────────────────────────
+
+class _FiltersSection extends ConsumerWidget {
+  final TextEditingController searchController;
+  final FocusNode searchFocus;
+  final ValueChanged<String> onSearch;
+
+  const _FiltersSection({
+    required this.searchController,
+    required this.searchFocus,
+    required this.onSearch,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(staffListProvider);
+    final notifier = ref.read(staffListProvider.notifier);
+    final theme = Theme.of(context);
+
+    final rolesAsync = ref.watch(rolesMetaProvider);
+    final shiftsAsync = ref.watch(shiftsMetaProvider);
+
+    final roles = rolesAsync.valueOrNull ?? [];
+    final shifts = shiftsAsync.valueOrNull ?? [];
+
+    final List<DropdownMenuItem<int?>> roleItems = [
+      const DropdownMenuItem(value: null, child: Text('All Roles')),
+      ...roles.map((r) => DropdownMenuItem(
+            value: r['roleNumber'] as int?,
+            child: Text(r['roleName'] as String? ?? ''),
+          )),
+    ];
+
+    final List<DropdownMenuItem<String>> statusItems = const [
+      DropdownMenuItem(value: 'ALL', child: Text('All Status')),
+      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
+      DropdownMenuItem(value: 'ON_LEAVE', child: Text('On Leave')),
+      DropdownMenuItem(value: 'SUSPENDED', child: Text('Suspended')),
+    ];
+
+    final List<DropdownMenuItem<int?>> shiftItems = [
+      const DropdownMenuItem(value: null, child: Text('All Shifts')),
+      ...shifts.map((s) => DropdownMenuItem(
+            value: s['shiftNumber'] as int?,
+            child: Text(s['shiftName'] as String? ?? ''),
+          )),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final isMedium = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+
+        final searchWidget = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Search Staff',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 48,
+              child: TextField(
+                controller: searchController,
+                focusNode: searchFocus,
+                style: theme.textTheme.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: 'Search staff by name, phone...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            searchController.clear();
+                            onSearch('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+                onSubmitted: onSearch,
+                onChanged: (v) {
+                  if (v.isEmpty) onSearch('');
+                },
+              ),
+            ),
+          ],
+        );
+
+        Widget buildDropdown<T>({
+          required String label,
+          required T value,
+          required List<DropdownMenuItem<T>> items,
+          required ValueChanged<T?> onChanged,
+        }) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 48,
+                child: DropdownButtonFormField<T>(
+                  value: value,
+                  items: items,
+                  onChanged: onChanged,
+                  style: theme.textTheme.bodyMedium,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    filled: true,
+                    fillColor: theme.colorScheme.surface,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final roleWidget = buildDropdown<int?>(
+          label: 'Role',
+          value: state.selectedRoleNumber,
+          items: roleItems,
+          onChanged: (v) => notifier.setRoleFilter(v),
+        );
+
+        final statusWidget = buildDropdown<String>(
+          label: 'Status',
+          value: state.statusFilter,
+          items: statusItems,
+          onChanged: (v) => notifier.setStatusFilter(v ?? 'ALL'),
+        );
+
+        final shiftWidget = buildDropdown<int?>(
+          label: 'Shift',
+          value: state.selectedShiftNumber,
+          items: shiftItems,
+          onChanged: (v) => notifier.setShiftFilter(v),
+        );
+
+        if (isWide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(flex: 2, child: searchWidget),
+              const SizedBox(width: 16),
+              Expanded(child: roleWidget),
+              const SizedBox(width: 16),
+              Expanded(child: statusWidget),
+              const SizedBox(width: 16),
+              Expanded(child: shiftWidget),
+            ],
+          );
+        }
+
+        if (isMedium) {
+          return Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: searchWidget),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: roleWidget),
+                  const SizedBox(width: 12),
+                  Expanded(child: statusWidget),
+                  const SizedBox(width: 12),
+                  Expanded(child: shiftWidget),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            searchWidget,
+            const SizedBox(height: 12),
+            roleWidget,
+            const SizedBox(height: 12),
+            statusWidget,
+            const SizedBox(height: 12),
+            shiftWidget,
+          ],
+        );
+      },
     );
   }
 }
@@ -327,6 +675,7 @@ class _PaginationBar extends StatelessWidget {
   final int totalPages;
   final int totalItems;
   final int pageSize;
+  final int currentCount;
   final ValueChanged<int> onPageChanged;
 
   const _PaginationBar({
@@ -334,35 +683,28 @@ class _PaginationBar extends StatelessWidget {
     required this.totalPages,
     required this.totalItems,
     required this.pageSize,
+    required this.currentCount,
     required this.onPageChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final start = totalItems == 0 ? 0 : currentPage * pageSize + 1;
-    final end = ((currentPage + 1) * pageSize).clamp(0, totalItems);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         children: [
-          // ── Item count label ──────────────────────────────
+          // Showing label matching wireframe
           Text(
-            'Showing $start–$end of $totalItems staff',
+            'Showing $currentCount of $totalItems staff members',
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const Spacer(),
 
-          // ── Page buttons ──────────────────────────────────
-          _PageButton(
-            icon: Icons.first_page_rounded,
-            enabled: currentPage > 0,
-            onTap: () => onPageChanged(0),
-          ),
-          const SizedBox(width: 4),
+          // Page buttons
           _PageButton(
             icon: Icons.chevron_left_rounded,
             enabled: currentPage > 0,
@@ -370,7 +712,6 @@ class _PaginationBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // ── Page number pills ─────────────────────────────
           ...List.generate(totalPages, (i) {
             final isActive = i == currentPage;
             return GestureDetector(
@@ -381,25 +722,18 @@ class _PaginationBar extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? theme.colorScheme.primary
-                      : Colors.transparent,
+                  color: isActive ? theme.colorScheme.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isActive
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outlineVariant,
+                    color: isActive ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
                   ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '${i + 1}',
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: isActive
-                        ? Colors.white
-                        : theme.colorScheme.onSurfaceVariant,
-                    fontWeight:
-                        isActive ? FontWeight.w700 : FontWeight.w400,
+                    color: isActive ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),
               ),
@@ -411,12 +745,6 @@ class _PaginationBar extends StatelessWidget {
             icon: Icons.chevron_right_rounded,
             enabled: currentPage < totalPages - 1,
             onTap: () => onPageChanged(currentPage + 1),
-          ),
-          const SizedBox(width: 4),
-          _PageButton(
-            icon: Icons.last_page_rounded,
-            enabled: currentPage < totalPages - 1,
-            onTap: () => onPageChanged(totalPages - 1),
           ),
         ],
       ),
@@ -465,363 +793,6 @@ class _PageButton extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Summary Cards
-// ────────────────────────────────────────────────────────────────────────────
-
-class _SummaryCards extends StatelessWidget {
-  final int totalStaff;
-  final int onShiftCount;
-  final bool isLoading;
-
-  const _SummaryCards({
-    required this.totalStaff,
-    required this.onShiftCount,
-    required this.isLoading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: _SummaryCard(
-            label: 'Total Staff',
-            value: isLoading ? '—' : '$totalStaff',
-            icon: Icons.people_alt_outlined,
-            iconColor: theme.colorScheme.primary,
-            iconBg: theme.colorScheme.primary.withValues(alpha: 0.1),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _SummaryCard(
-            label: 'On Shift',
-            value: isLoading ? '—' : '$onShiftCount',
-            icon: Icons.access_time_outlined,
-            iconColor: theme.colorScheme.primary,
-            iconBg: theme.colorScheme.primary.withValues(alpha: 0.1),
-            badge: isLoading ? null : 'Live',
-            badgeColor: theme.colorScheme.primary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String? badge;
-  final Color? badgeColor;
-
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    this.badge,
-    this.badgeColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 22, color: iconColor),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      value,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    if (badge != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: badgeColor?.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: badgeColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              badge!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: badgeColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Search + Filter Bar
-// ────────────────────────────────────────────────────────────────────────────
-
-class _SearchFilterBar extends StatelessWidget {
-  final TextEditingController searchController;
-  final FocusNode searchFocus;
-  final String selectedFilter;
-  final Map<String, String> filterLabels;
-  final List<String> filters;
-  final ValueChanged<String> onSearch;
-  final ValueChanged<String> onFilterChanged;
-
-  const _SearchFilterBar({
-    required this.searchController,
-    required this.searchFocus,
-    required this.selectedFilter,
-    required this.filterLabels,
-    required this.filters,
-    required this.onSearch,
-    required this.onFilterChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 640;
-
-        final searchField = SizedBox(
-          height: 48,
-          child: TextField(
-            controller: searchController,
-            focusNode: searchFocus,
-            decoration: InputDecoration(
-              hintText: 'Search by name or phone...',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              suffixIcon: searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        searchController.clear();
-                        onSearch('');
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
-              ),
-              filled: true,
-              fillColor: theme.colorScheme.surface,
-            ),
-            onSubmitted: onSearch,
-            onChanged: (v) {
-              if (v.isEmpty) onSearch('');
-            },
-          ),
-        );
-
-        final filterDropdown = PopupMenuButton<String>(
-          onSelected: onFilterChanged,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 4,
-          offset: const Offset(0, 52),
-          itemBuilder: (ctx) => filters.map((f) {
-            final isSelected = f == selectedFilter;
-            final label = filterLabels[f] ?? f;
-            return PopupMenuItem<String>(
-              value: f,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_off,
-                    size: 18,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w400,
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: selectedFilter != 'ALL'
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: selectedFilter != 'ALL'
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.outlineVariant,
-              ),
-              boxShadow: selectedFilter != 'ALL'
-                  ? [
-                      BoxShadow(
-                        color: theme.colorScheme.primary
-                            .withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.filter_list_rounded,
-                  size: 18,
-                  color: selectedFilter != 'ALL'
-                      ? Colors.white
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  filterLabels[selectedFilter] ?? selectedFilter,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: selectedFilter != 'ALL'
-                        ? Colors.white
-                        : theme.colorScheme.onSurfaceVariant,
-                    fontWeight: selectedFilter != 'ALL'
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.arrow_drop_down_rounded,
-                  size: 20,
-                  color: selectedFilter != 'ALL'
-                      ? Colors.white
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        );
-
-        if (isWide) {
-          return Row(
-            children: [
-              Expanded(flex: 2, child: searchField),
-              const SizedBox(width: 12),
-              filterDropdown,
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            searchField,
-            const SizedBox(height: 12),
-            filterDropdown,
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Staff Avatar
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -836,8 +807,8 @@ class _StaffAvatar extends StatelessWidget {
     final initials = _initials(member.fullName);
 
     return Container(
-      width: 40,
-      height: 40,
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         color: theme.colorScheme.primary.withValues(alpha: 0.1),
@@ -864,7 +835,7 @@ class _StaffAvatar extends StatelessWidget {
       child: Text(
         initials,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: FontWeight.bold,
           color: color,
         ),

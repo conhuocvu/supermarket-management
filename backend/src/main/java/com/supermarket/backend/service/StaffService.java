@@ -23,13 +23,13 @@ public class StaffService {
 
 
 
-    public StaffSummaryDTO getStaffList(String keyword, String workStatus, int page, int size) {
+    public StaffSummaryDTO getStaffList(String keyword, String workStatus, Integer roleNumber, Integer shiftNumber, int page, int size) {
         try {
             String searchPattern = (keyword == null || keyword.trim().isEmpty()) ? null : keyword.trim();
             String statusFilter = (workStatus == null || workStatus.trim().isEmpty()) ? "ALL" : workStatus.trim();
 
-            long totalStaff = staffRepository.countStaffList(searchPattern, statusFilter);
-            long onShiftCount = staffRepository.countOnShiftStaffList(searchPattern, statusFilter);
+            long totalStaff = staffRepository.countStaffList(searchPattern, statusFilter, roleNumber, shiftNumber);
+            long onShiftCount = staffRepository.countOnShiftStaffList(searchPattern, statusFilter, roleNumber, shiftNumber);
 
             int limit = size;
             int offset = page * size;
@@ -37,7 +37,7 @@ public class StaffService {
                 offset = 0;
             }
 
-            List<Object[]> rows = staffRepository.getStaffList(searchPattern, statusFilter, limit, offset);
+            List<Object[]> rows = staffRepository.getStaffList(searchPattern, statusFilter, roleNumber, shiftNumber, limit, offset);
 
             List<StaffListDTO> staffList = new ArrayList<>();
 
@@ -53,6 +53,7 @@ public class StaffService {
                 String startTime  = row[8] != null ? (String) row[8] : null;
                 String endTime    = row[9] != null ? (String) row[9] : null;
                 boolean onLeave   = row[10] != null; // leave_number
+                String email      = row[11] != null ? (String) row[11] : "";
 
                 // Determine work status
                 String computed;
@@ -68,6 +69,7 @@ public class StaffService {
                         .userId(userId)
                         .fullName(fullName)
                         .phone(phone)
+                        .email(email)
                         .avatarUrl(avatarUrl)
                         .status(status)
                         .roleNumber(roleNum)

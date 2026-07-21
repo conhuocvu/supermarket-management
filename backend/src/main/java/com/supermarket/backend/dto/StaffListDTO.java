@@ -13,6 +13,7 @@ public class StaffListDTO {
     private String userId;
     private String fullName;
     private String phone;
+    private String email;
     private String avatarUrl;
     private String status;
     private Integer roleNumber;

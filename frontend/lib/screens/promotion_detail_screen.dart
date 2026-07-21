@@ -35,12 +35,12 @@ class _PromotionDetailScreenState extends ConsumerState<PromotionDetailScreen> {
               Builder(
                 builder: (context) => IconButton(
                   icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Back to Promotions',
+                  tooltip: 'Back to Promotion Management',
                   onPressed: () => context.go('/manager/promotion'),
                 ),
               ),
             ],
-            breadcrumbs: ['Manager', 'Promotions', 'Loading...'],
+            breadcrumbs: ['Manager', 'Promotion Management', 'Loading...'],
           );
     });
   }
@@ -61,12 +61,12 @@ class _PromotionDetailScreenState extends ConsumerState<PromotionDetailScreen> {
                   Builder(
                     builder: (context) => IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      tooltip: 'Back to Promotions',
+                      tooltip: 'Back to Promotion Management',
                       onPressed: () => context.go('/manager/promotion'),
                     ),
                   ),
                 ],
-                breadcrumbs: ['Manager', 'Promotions', name],
+                breadcrumbs: ['Manager', 'Promotion Management', name],
               );
         });
       },
@@ -100,7 +100,7 @@ class _PromotionDetailScreenState extends ConsumerState<PromotionDetailScreen> {
                   OutlinedButton.icon(
                     onPressed: () => context.pop(),
                     icon: const Icon(Icons.arrow_back),
-                    label: const Text('Back to Promotions'),
+                    label: const Text('Back to Promotion Management'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(

@@ -64,6 +64,7 @@ import 'screens/expiring_product_list_screen.dart';
 import 'screens/clearance_proposal_screen.dart';
 import 'screens/remove_expired_product_screen.dart';
 import 'screens/product_report_list_screen.dart';
+import 'screens/reports_dashboard_screen.dart';
 import 'widgets/app_scaffold.dart';
 import 'core/theme/app_theme.dart';
 
@@ -307,6 +308,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/manager',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: ManagerDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/manager/reports',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ReportsDashboardScreen()),
           ),
           GoRoute(
             path: '/manager/requests',
