@@ -62,8 +62,8 @@ class _InventoryTransactionListScreenState
             labelStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             unselectedLabelStyle: theme.textTheme.titleMedium,
             tabs: const [
-              Tab(text: 'Pending Tasks'),
-              Tab(text: 'Transaction History'),
+              Tab(text: '[Pending Tasks]'),
+              Tab(text: '[Transaction History]'),
             ],
           ),
         ),

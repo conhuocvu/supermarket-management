@@ -9,29 +9,22 @@ import '../providers/dashboard_provider.dart';
 import '../providers/inventory_products_provider.dart';
 import '../providers/shell_layout_provider.dart';
 
-/// Formats integers with dots as thousand separators (Vietnamese style: 100.000).
-class _ThousandsSeparatorFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    // Strip all non-digit characters
-    final digits = newValue.text.replaceAll('.', '');
-    if (digits.isEmpty) return newValue.copyWith(text: '');
+/// Custom painter for crossed lines placeholder image box
+class CrossBoxPainter extends CustomPainter {
+  final Color color;
+  CrossBoxPainter({required this.color});
 
-    // Insert dot every 3 digits from the right
-    final buffer = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(digits[i]);
-    }
-    final formatted = buffer.toString();
-    return newValue.copyWith(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset.zero, Offset(size.width, size.height), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), paint);
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class ProductFormScreen extends ConsumerStatefulWidget {
@@ -84,13 +77,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _descriptionController.text = p.description;
       _status = p.status;
       _imageUrl = p.imageUrl;
-      
-      // Load supplier mapping
+
       _loadProductSupplierDetails();
     }
   }
 
-  /// Formats a double to Vietnamese dot-separated integer string (e.g. 100000.0 → "100.000")
   String _formatPrice(double price) {
     final intVal = price.toInt().toString();
     final buffer = StringBuffer();
@@ -141,7 +132,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
       if (result != null && result.files.single.path != null) {
         final fileSize = result.files.single.size;
-        // Check if file is larger than 2MB (2 * 1024 * 1024 bytes)
         if (fileSize > 2 * 1024 * 1024) {
           setState(() {
             _errorMessage = 'File size exceeds the limit (maximum 2MB).';
@@ -189,24 +179,30 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _errorMessage = null;
     });
 
+    final barcodeText = _barcodeController.text.trim();
+    final barcode = barcodeText.isNotEmpty
+        ? barcodeText
+        : 'BAR-${DateTime.now().millisecondsSinceEpoch}';
+
     final payload = {
       'productName': _nameController.text.trim(),
-      'barcode': _barcodeController.text.trim(),
+      'barcode': barcode,
       'categoryNumber': _selectedCategoryNumber,
       'inventoryUnitNumber': _selectedUnitNumber,
       'supplierNumber': _selectedSupplierNumber,
-      'sellingPrice': _priceController.text.trim().isEmpty 
-          ? 0.0 
-          : double.parse(_priceController.text.replaceAll('.', '')),
-      'reorderLevel': double.parse(_reorderController.text),
+      'sellingPrice': _priceController.text.trim().isEmpty
+          ? 0.0
+          : (double.tryParse(_priceController.text.replaceAll('.', '')) ?? 0.0),
+      'reorderLevel': double.tryParse(_reorderController.text) ?? 10.0,
       'status': _status,
       'description': _descriptionController.text.trim(),
       'imageUrl': _imageUrl,
-      'expiryWarningDays': int.parse(_expiryController.text),
+      'expiryWarningDays': int.tryParse(_expiryController.text) ?? 30,
     };
 
     if (!isEditMode) {
-      payload['initialQuantity'] = double.parse(_initialQtyController.text);
+      payload['initialQuantity'] =
+          double.tryParse(_initialQtyController.text) ?? 0.0;
     }
 
     try {
@@ -253,17 +249,16 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       ref
           .read(shellLayoutProvider.notifier)
           .update(
-            title: isEditMode ? 'Edit Product' : 'Add New Product',
+            title: isEditMode ? 'EDIT PRODUCT' : 'ADD PRODUCT',
             actions: [],
             breadcrumbs: [
               'Inventory',
               'Products',
-              isEditMode ? 'Edit Product' : 'Add Product',
+              isEditMode ? 'Edit Product' : 'Create New Product',
             ],
           );
     });
 
-    // Match selected category and unit for edit mode
     categoriesState.whenData((categories) {
       if (isEditMode &&
           widget.product != null &&
@@ -273,7 +268,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         );
         if (matches.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
+            if (mounted && _selectedCategoryNumber == null) {
               setState(() {
                 _selectedCategoryNumber = matches.first.categoryNumber;
               });
@@ -284,13 +279,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     });
 
     unitsState.whenData((units) {
-      if (isEditMode && widget.product != null && _selectedUnitNumber == null) {
+      if (isEditMode &&
+          widget.product != null &&
+          _selectedUnitNumber == null) {
         final matches = units.where(
           (u) => u['unitName'] == widget.product!.unitName,
         );
         if (matches.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
+            if (mounted && _selectedUnitNumber == null) {
               setState(() {
                 _selectedUnitNumber = matches.first['unitNumber'] as int?;
               });
@@ -302,23 +299,27 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     final inputDecorationTheme = InputDecoration(
       filled: true,
-      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: theme.colorScheme.error, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.error, width: 1.5),
       ),
     );
 
@@ -329,156 +330,334 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         context.pop(result ?? false);
       },
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: const Color(0xFFF8F9FF),
         body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        style: IconButton.styleFrom(
-                          backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                        ),
-                        onPressed: () => context.pop(false),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  if (_errorMessage != null) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.errorContainer.withValues(alpha: 0.2),
-                        border: Border.all(
-                          color: theme.colorScheme.error.withValues(alpha: 0.3),
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: theme.colorScheme.error,
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header back button
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                theme.colorScheme.surfaceContainerHighest,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                color: theme.colorScheme.onErrorContainer,
+                          onPressed: () => context.pop(false),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    if (_errorMessage != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer.withValues(
+                            alpha: 0.2,
+                          ),
+                          border: Border.all(
+                            color: theme.colorScheme.error.withValues(alpha: 0.3),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: theme.colorScheme.error,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onErrorContainer,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                      const SizedBox(height: 20),
+                    ],
 
-                  // Card containing the entire form
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: theme.colorScheme.outlineVariant),
-                    ),
-                    color: theme.colorScheme.surface,
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Top section: Image Selector and basic fields
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isWide = constraints.maxWidth > 800;
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    flex: isWide ? 1 : 2,
-                                    child: _buildImageSelector(theme),
+                    // Card containing the wireframe layout
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                      ),
+                      color: Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Row 1: Product Name & Category
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isMobile = constraints.maxWidth < 600;
+                                if (isMobile) {
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildProductNameField(theme, inputDecorationTheme),
+                                      const SizedBox(height: 20),
+                                      _buildCategoryField(theme, categoriesState, inputDecorationTheme),
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: _buildProductNameField(theme, inputDecorationTheme)),
+                                    const SizedBox(width: 24),
+                                    Expanded(child: _buildCategoryField(theme, categoriesState, inputDecorationTheme)),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Row 2: Unit, Supplier, Shelf Life (Days)
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isMobile = constraints.maxWidth < 700;
+                                if (isMobile) {
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildUnitField(theme, unitsState, inputDecorationTheme),
+                                      const SizedBox(height: 20),
+                                      _buildSupplierField(theme, suppliersState, inputDecorationTheme),
+                                      const SizedBox(height: 20),
+                                      _buildShelfLifeField(theme, inputDecorationTheme),
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 1, child: _buildUnitField(theme, unitsState, inputDecorationTheme)),
+                                    const SizedBox(width: 20),
+                                    Expanded(flex: 1, child: _buildSupplierField(theme, suppliersState, inputDecorationTheme)),
+                                    const SizedBox(width: 20),
+                                    Expanded(flex: 1, child: _buildShelfLifeField(theme, inputDecorationTheme)),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Row 3: Description
+                            _buildLabel('Description', theme),
+                            TextFormField(
+                              controller: _descriptionController,
+                              maxLines: 4,
+                              decoration: inputDecorationTheme.copyWith(
+                                hintText:
+                                    '[Provide detailed product description and handling requirements here...]',
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+
+                            // Row 4: Product Reference Image
+                            _buildImageSelector(theme),
+                            const SizedBox(height: 32),
+
+                            // Divider
+                            const Divider(color: Color(0xFFE5E7EB), height: 1),
+                            const SizedBox(height: 24),
+
+                            // Row 5: Action Buttons (Cancel & Save Product)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: _isSaving ? null : () => context.pop(false),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                    foregroundColor: const Color(0xFF1F2937),
                                   ),
-                                  if (isWide) const SizedBox(width: 24),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (!isWide) const SizedBox(height: 24),
-                                        _buildFormFields(
-                                          theme,
-                                          categoriesState,
-                                          unitsState,
-                                          suppliersState,
-                                          inputDecorationTheme,
-                                        ),
-                                      ],
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                FilledButton(
+                                  onPressed: _isSaving || _isUploadingImage
+                                      ? null
+                                      : _saveProduct,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                                  child: _isSaving
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          isEditMode ? 'Save Product' : 'Save Product',
+                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        ),
+                                ),
+                              ],
+                            ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Actions row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        onPressed: _isSaving ? null : () => context.pop(false),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(120, 48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 16),
-                      FilledButton(
-                        onPressed: _isSaving || _isUploadingImage ? null : _saveProduct,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(140, 48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                isEditMode ? 'Update Product' : 'Save Product',
-                              ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProductNameField(ThemeData theme, InputDecoration inputDecoration) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel('Product Name', theme),
+        TextFormField(
+          controller: _nameController,
+          decoration: inputDecoration.copyWith(
+            hintText: '[Enter Product Name Here]',
+          ),
+          validator: (val) => val == null || val.trim().isEmpty
+              ? 'Product name is required'
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryField(
+    ThemeData theme,
+    AsyncValue<List<dynamic>> categoriesState,
+    InputDecoration inputDecoration,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel('Category', theme),
+        categoriesState.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => const Text('Error loading categories'),
+          data: (categories) => DropdownButtonFormField<int?>(
+            initialValue: _selectedCategoryNumber,
+            decoration: inputDecoration.copyWith(
+              hintText: '[Select Category]',
+            ),
+            items: categories.map((c) {
+              return DropdownMenuItem<int?>(
+                value: c.categoryNumber,
+                child: Text(c.categoryName),
+              );
+            }).toList(),
+            onChanged: (val) => setState(() => _selectedCategoryNumber = val),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUnitField(
+    ThemeData theme,
+    AsyncValue<List<dynamic>> unitsState,
+    InputDecoration inputDecoration,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel('Unit', theme),
+        unitsState.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => const Text('Error loading units'),
+          data: (units) => DropdownButtonFormField<int?>(
+            initialValue: _selectedUnitNumber,
+            decoration: inputDecoration.copyWith(
+              hintText: '[e.g. kg, box, pc]',
+            ),
+            items: units.map((u) {
+              return DropdownMenuItem<int?>(
+                value: u['unitNumber'] as int?,
+                child: Text(u['unitName'] ?? ''),
+              );
+            }).toList(),
+            onChanged: (val) => setState(() => _selectedUnitNumber = val),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSupplierField(
+    ThemeData theme,
+    AsyncValue<List<dynamic>> suppliersState,
+    InputDecoration inputDecoration,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel('Supplier', theme),
+        suppliersState.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => const Text('Error loading suppliers'),
+          data: (suppliers) => DropdownButtonFormField<int?>(
+            initialValue: _selectedSupplierNumber,
+            decoration: inputDecoration.copyWith(
+              hintText: '[Search Supplier]',
+            ),
+            items: suppliers.map((s) {
+              return DropdownMenuItem<int?>(
+                value: s['supplierNumber'] as int?,
+                child: Text(s['supplierName'] ?? ''),
+              );
+            }).toList(),
+            onChanged: (val) => setState(() => _selectedSupplierNumber = val),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShelfLifeField(ThemeData theme, InputDecoration inputDecoration) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel('Shelf Life (Days)', theme),
+        TextFormField(
+          controller: _expiryController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: inputDecoration.copyWith(hintText: '[00]'),
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) return 'Shelf life is required';
+            final numVal = int.tryParse(val);
+            if (numVal == null || numVal < 0) return 'Invalid value';
+            return null;
+          },
+        ),
+      ],
     );
   }
 
@@ -488,403 +667,77 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       children: [
         _buildLabel('Product Reference Image', theme),
         const SizedBox(height: 8),
-        Container(
-          height: 240,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant,
-              style: BorderStyle.solid,
-              width: 1.5,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFD1D5DB), width: 1.5),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_imageUrl.isNotEmpty)
+                    Image.network(
+                      _imageUrl,
+                      fit: BoxFit.cover,
+                      width: 110,
+                      height: 110,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image_outlined, size: 36, color: Colors.grey),
+                    )
+                  else
+                    CustomPaint(
+                      size: const Size(110, 110),
+                      painter: CrossBoxPainter(color: const Color(0xFFD1D5DB)),
+                      child: const Center(
+                        child: Icon(Icons.image_outlined, size: 32, color: Colors.grey),
+                      ),
+                    ),
+                  if (_isUploadingImage)
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: _isUploadingImage || _isSaving ? null : _pickAndUploadImage,
-            child: Stack(
-              alignment: Alignment.center,
+            const SizedBox(width: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_imageUrl.isNotEmpty)
-                  Image.network(
-                    _imageUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (context, error, stackTrace) => Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.broken_image_outlined,
-                          size: 48,
-                          color: theme.colorScheme.error,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text('Failed to load image'),
-                      ],
-                    ),
-                  )
-                else
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.image_outlined,
-                        size: 48,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Upload Image',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Max size: 2MB. JPG or PNG only.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                if (_isUploadingImage)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                OutlinedButton(
+                  onPressed: _isUploadingImage || _isSaving ? null : _pickAndUploadImage,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    side: const BorderSide(color: Colors.black, width: 1.5),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
-                if (_imageUrl.isNotEmpty && !_isUploadingImage && !_isSaving)
-                  Positioned(
-                    bottom: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.edit, size: 16, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text(
-                            'Change',
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: Text(
+                    _imageUrl.isNotEmpty ? 'Change Image' : 'Upload Image',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Max size: 2MB. JPG or PNG only.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
               ],
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormFields(
-    ThemeData theme,
-    AsyncValue<List<dynamic>> categoriesState,
-    AsyncValue<List<dynamic>> unitsState,
-    AsyncValue<List<dynamic>> suppliersState,
-    InputDecoration inputDecoration,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Product Name & Barcode
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Product Name *', theme),
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: inputDecoration.copyWith(
-                      hintText: 'Enter product name',
-                    ),
-                    validator: (val) => val == null || val.trim().isEmpty
-                        ? 'Product name is required'
-                        : null,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Barcode *', theme),
-                  TextFormField(
-                    controller: _barcodeController,
-                    enabled: !isEditMode, // Product code cannot be modified after creation (BR-I-02)
-                    decoration: inputDecoration.copyWith(
-                      hintText: 'Enter product barcode',
-                    ),
-                    validator: (val) => val == null || val.trim().isEmpty
-                        ? 'Barcode is required'
-                        : null,
-                  ),
-                ],
-              ),
-            ),
           ],
-        ),
-        const SizedBox(height: 20),
-
-        // Category & Unit Row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Category *', theme),
-                  categoriesState.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => const Text('Error loading categories'),
-                    data: (categories) => DropdownButtonFormField<int?>(
-                      initialValue: _selectedCategoryNumber,
-                      decoration: inputDecoration.copyWith(
-                        hintText: 'Select category',
-                      ),
-                      items: categories.map((c) {
-                        return DropdownMenuItem<int?>(
-                          value: c.categoryNumber,
-                          child: Text(c.categoryName),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedCategoryNumber = val),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Unit *', theme),
-                  unitsState.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => const Text('Error loading units'),
-                    data: (units) => DropdownButtonFormField<int?>(
-                      initialValue: _selectedUnitNumber,
-                      decoration: inputDecoration.copyWith(
-                        hintText: 'Select unit',
-                      ),
-                      items: units.map((u) {
-                        return DropdownMenuItem<int?>(
-                          value: u['unitNumber'] as int?,
-                          child: Text(u['unitName'] ?? ''),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedUnitNumber = val),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Supplier & Status Row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Supplier *', theme),
-                  suppliersState.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => const Text('Error loading suppliers'),
-                    data: (suppliers) => DropdownButtonFormField<int?>(
-                      initialValue: _selectedSupplierNumber,
-                      decoration: inputDecoration.copyWith(
-                        hintText: 'Select Supplier',
-                      ),
-                      items: suppliers.map((s) {
-                        return DropdownMenuItem<int?>(
-                          value: s['supplierNumber'] as int?,
-                          child: Text(s['supplierName'] ?? ''),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedSupplierNumber = val),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Status *', theme),
-                  DropdownButtonFormField<String>(
-                    initialValue: _status,
-                    decoration: inputDecoration,
-                    items: const [
-                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
-                      DropdownMenuItem(value: 'INACTIVE', child: Text('Inactive')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _status = val);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Selling Price & Reorder Level Row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Selling Price (VND)', theme),
-                  TextFormField(
-                    controller: _priceController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [_ThousandsSeparatorFormatter()],
-                    decoration: inputDecoration.copyWith(
-                      hintText: 'e.g. 100.000',
-                      suffixText: 'VND',
-                    ),
-                    validator: (val) {
-                      if (val != null && val.trim().isNotEmpty) {
-                        final numVal = double.tryParse(val.replaceAll('.', ''));
-                        if (numVal != null && numVal < 0) return 'Price cannot be negative';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Reorder Level *', theme),
-                  TextFormField(
-                    controller: _reorderController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
-                    ],
-                    decoration: inputDecoration.copyWith(
-                      hintText: 'e.g. 10',
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Reorder level is required';
-                      final numVal = double.tryParse(val);
-                      if (numVal == null || numVal < 0) return 'Value cannot be negative';
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Shelf Life (Expiry warning) & Initial / Current Stock Row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Shelf Life (Days) *', theme),
-                  TextFormField(
-                    controller: _expiryController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: inputDecoration.copyWith(
-                      hintText: 'e.g. 30',
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Shelf life is required';
-                      final numVal = int.tryParse(val);
-                      if (numVal == null || numVal < 0) return 'Invalid value';
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel(
-                    isEditMode ? 'Current Stock (Read-only)' : 'Initial Stock *',
-                    theme,
-                  ),
-                  TextFormField(
-                    controller: isEditMode
-                        ? _stockDisplayController
-                        : _initialQtyController,
-                    enabled: !isEditMode,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
-                    ],
-                    decoration: inputDecoration,
-                    validator: (val) {
-                      if (!isEditMode) {
-                        if (val == null || val.trim().isEmpty) return 'Initial stock is required';
-                        final numVal = double.tryParse(val);
-                        if (numVal == null || numVal < 0) return 'Value cannot be negative';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Description
-        _buildLabel('Description', theme),
-        TextFormField(
-          controller: _descriptionController,
-          maxLines: 4,
-          decoration: inputDecoration.copyWith(
-            hintText: 'Provide detailed product description...',
-          ),
         ),
       ],
     );
@@ -892,12 +745,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Widget _buildLabel(String text, ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+      padding: const EdgeInsets.only(bottom: 8.0, left: 2.0),
       child: Text(
         text,
-        style: theme.textTheme.labelLarge?.copyWith(
+        style: theme.textTheme.titleSmall?.copyWith(
           fontWeight: FontWeight.bold,
-          color: theme.colorScheme.onSurfaceVariant,
+          color: const Color(0xFF1F2937),
         ),
       ),
     );

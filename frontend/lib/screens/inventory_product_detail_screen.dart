@@ -58,28 +58,21 @@ class _InventoryProductDetailScreenState
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
   bool _hasAnyChange = false;
 
-  void _setProductDetailHeader(String productName) {
+  void _setProductDetailHeader() {
     ref
         .read(shellLayoutProvider.notifier)
         .update(
           title: 'Product Details',
           actions: [],
-          breadcrumbs: ['Inventory', 'Products', productName],
+          breadcrumbs: ['Inventory', 'Products', 'Product Details'],
         );
   }
 
   @override
   void initState() {
     super.initState();
-    // Initial shell update while loading
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(shellLayoutProvider.notifier)
-          .update(
-            title: 'Product Details',
-            actions: [],
-            breadcrumbs: ['Inventory', 'Products', 'Loading...'],
-          );
+      _setProductDetailHeader();
     });
   }
 
@@ -95,7 +88,7 @@ class _InventoryProductDetailScreenState
       (previous, next) {
         next.whenOrNull(
           data: (product) {
-            _setProductDetailHeader(product.productName);
+            _setProductDetailHeader();
           },
         );
       },
@@ -146,7 +139,7 @@ class _InventoryProductDetailScreenState
                     padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Container(
-                        height: 250,
+                        height: 320,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: const Color(0xFFF3F5F4),
@@ -182,6 +175,7 @@ class _InventoryProductDetailScreenState
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
+                    decoration: TextDecoration.underline,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -203,7 +197,7 @@ class _InventoryProductDetailScreenState
                             ),
                           ),
                         )
-                      : Container(
+                      : SizedBox(
                           width: double.infinity,
                           child: DataTable(
                             headingRowColor: WidgetStateProperty.all(
@@ -276,7 +270,7 @@ class _InventoryProductDetailScreenState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'BARCODE / SKU',
+                                'SKU',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.bold,
@@ -306,30 +300,12 @@ class _InventoryProductDetailScreenState
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Color(
-                                        0xFF246955,
-                                      ), // primary-container
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      product.categoryName,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            color: const Color(0xFF00503e),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                '[${product.categoryName}]',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: const Color(0xFF00503e),
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -405,7 +381,7 @@ class _InventoryProductDetailScreenState
                         const Divider(color: Color(0xFFE5E7EB)),
                         _buildInfoRow(
                           'Primary Supplier',
-                          product.supplierName,
+                          '[${product.supplierName}]',
                           theme,
                           isHighlightValue: true,
                         ),
@@ -523,12 +499,13 @@ class _InventoryProductDetailScreenState
                                       status: product.status,
                                       description: product.description,
                                       imageUrl: product.imageUrl,
-                                      expiryWarningDays: product.expiryWarningDays,
+                                      expiryWarningDays:
+                                          product.expiryWarningDays,
                                       expiryDate: product.expiryDate,
                                     ),
                                   );
                                   if (!context.mounted) return;
-                                  _setProductDetailHeader(product.productName);
+                                  _setProductDetailHeader();
                                   if (result == true) {
                                     setState(() {
                                       _hasAnyChange = true;
@@ -647,26 +624,13 @@ class _InventoryProductDetailScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Top Header back button
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.colorScheme.surfaceVariant,
-                          ),
-                          onPressed: () => context.pop(_hasAnyChange),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            product.productName,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                      ),
+                      onPressed: () => context.pop(_hasAnyChange),
                     ),
                     const SizedBox(height: 24),
                     isDesktop

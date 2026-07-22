@@ -160,11 +160,11 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Back Button
+            // Back Button (No text next to it)
             IconButton(
               icon: const Icon(Icons.arrow_back),
               style: IconButton.styleFrom(
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
               ),
               onPressed: () => context.go('/stock/expiring-products'),
             ),
@@ -175,371 +175,323 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+                color: theme.colorScheme.inverseSurface,
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: theme.colorScheme.error, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: theme.colorScheme.onInverseSurface,
+                    size: 18,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'SYSTEM NOTICE: DISPOSAL PROTOCOL ACTIVE',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.error,
+                      'SYSTEM NOTICE: DISPOSAL PROTOCOL #W-99 ACTIVE',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onInverseSurface,
+                        fontFamily: 'monospace',
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                        letterSpacing: 1.0,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // Item Identification Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
+            // Card 1: Item Identification
+            Card(
+              elevation: 2,
+              shadowColor: Colors.black.withValues(alpha: 0.04),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Item Identification',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Verify the product details before finalizing disposal.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // Product Name + Available Quantity
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'PRODUCT NAME',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              data.productName,
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'AVAILABLE QUANTITY',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$qtyString ${data.unitName}',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.error,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // SKU + Expiry Chips
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      _buildInfoChip(theme, 'SKU', data.barcode),
-                      _buildInfoChip(theme, 'BATCH', data.batchNumber),
-                      if (data.expiryDate != null)
-                        _buildInfoChip(theme, 'EXPIRY', data.expiryDate!),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Disposal Authorization Form Card
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Form Header
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer.withValues(alpha: 0.1),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      'Disposal Authorization Form',
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Item Identification',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 12),
 
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Disposal Quantity
-                        Text(
-                          'Disposal Quantity',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 180,
-                              child: TextFormField(
-                                controller: _quantityController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                                ],
-                                decoration: InputDecoration(
-                                  suffixText: data.unitName,
-                                  filled: true,
-                                  fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide(color: theme.colorScheme.error),
-                                  ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Product Name',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                  letterSpacing: 0.5,
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Required';
-                                  }
-                                  final q = double.tryParse(value.trim());
-                                  if (q == null || q <= 0) {
-                                    return 'Must be > 0';
-                                  }
-                                  if (q > data.remainingQuantity) {
-                                    return 'Max $qtyString';
-                                  }
-                                  return null;
-                                },
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Text(
-                              'to be removed from inventory',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontStyle: FontStyle.italic,
+                              const SizedBox(height: 4),
+                              Text(
+                                data.productName,
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Maximum allowable: $qtyString ${data.unitName} (Current warehouse stock)',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 24),
-
-                        // Disposal Reason
-                        Text(
-                          'Disposal Reason',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedReason,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-                            ),
-                          ),
-                          items: _reasonOptions.map((reason) {
-                            return DropdownMenuItem(
-                              value: reason,
-                              child: Text(reason),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedReason = val);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Defaulted to Past Expiration Date. Change if disposing due to physical damage or quality issue.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Additional Observations (Optional)
-                        Text(
-                          'ADDITIONAL OBSERVATIONS (OPTIONAL)',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _observationsController,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            hintText: 'Enter details regarding disposal condition here...',
-                            filled: true,
-                            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Divider
-                        const Divider(),
-                        const SizedBox(height: 16),
-
-                        // Action Buttons
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
-                              onPressed: _isSubmitting ? null : () => context.go('/stock/expiring-products'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Available Quantity',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                  letterSpacing: 0.5,
+                                ),
                               ),
-                              child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 16),
-                            FilledButton.icon(
-                              onPressed: _isSubmitting ? null : () => _submitDisposal(data),
-                              icon: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.delete_forever),
-                              label: Text(_isSubmitting ? 'Processing...' : 'Confirm Disposal'),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                backgroundColor: theme.colorScheme.error,
+                              const SizedBox(height: 4),
+                              Text(
+                                '$qtyString ${data.unitName}',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        _buildInfoChip(theme, 'SKU', data.barcode),
+                        if (data.expiryDate != null)
+                          _buildInfoChip(theme, 'Expiry', data.expiryDate!),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.errorContainer.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            'EXPIRED',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.error,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Recent Handling Activity Footer
+            // Card 2: Disposal Authorization Form
+            Card(
+              elevation: 2,
+              shadowColor: Colors.black.withValues(alpha: 0.04),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Disposal Authorization Form',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                        decorationColor: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Field 1: Disposal Quantity
+                    Text(
+                      'Disposal Quantity',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 140,
+                          child: TextFormField(
+                            controller: _quantityController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                            ],
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Required';
+                              }
+                              final q = double.tryParse(value.trim());
+                              if (q == null || q <= 0) {
+                                return 'Must be > 0';
+                              }
+                              if (q > data.remainingQuantity) {
+                                return 'Max $qtyString';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${data.unitName} for destruction',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '* Cannot exceed available warehouse stock.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Field 2: Disposal Reason
+                    Text(
+                      'Disposal Reason',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedReason,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: _reasonOptions.map((reason) {
+                        return DropdownMenuItem(
+                          value: reason,
+                          child: Text(reason),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedReason = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Field 3: Additional Observations (Optional)
+                    Text(
+                      'Additional Observations (Optional)',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _observationsController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: '[Enter details regarding disposal condition here...]',
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    const Divider(),
+                    const SizedBox(height: 16),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        OutlinedButton(
+                          onPressed: _isSubmitting ? null : () => context.go('/stock/expiring-products'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: _isSubmitting ? null : () => _submitDisposal(data),
+                          icon: _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.delete_forever_outlined, size: 18),
+                          label: Text(_isSubmitting ? 'Processing...' : 'Confirm Disposal'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: theme.colorScheme.error,
+                            foregroundColor: theme.colorScheme.onError,
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Card 3: Recent Handling Activity Footer
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
@@ -550,9 +502,10 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: theme.colorScheme.outlineVariant),
                     ),
-                    child: Icon(Icons.history, color: theme.colorScheme.onSurfaceVariant, size: 20),
+                    child: Icon(Icons.history, color: theme.colorScheme.onSurfaceVariant, size: 22),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -567,9 +520,10 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Disposal transactions will immediately update inventory stock counts and create an audit log.',
+                          'Last disposal event recorded 2 hours ago by Staff #102.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
@@ -586,29 +540,20 @@ class _RemoveExpiredProductScreenState extends ConsumerState<RemoveExpiredProduc
 
   Widget _buildInfoChip(ThemeData theme, String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$label: ',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          Text(
-            value,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'monospace',
+          color: theme.colorScheme.onSurface,
+        ),
       ),
     );
   }

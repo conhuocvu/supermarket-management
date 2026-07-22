@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
+import '../core/theme/app_theme.dart';
 import '../models/category_item.dart';
 import '../providers/category_provider.dart';
 import '../providers/shell_layout_provider.dart';
@@ -17,8 +17,7 @@ class CategoryListScreen extends ConsumerStatefulWidget {
       _CategoryListScreenState();
 }
 
-class _CategoryListScreenState
-    extends ConsumerState<CategoryListScreen> {
+class _CategoryListScreenState extends ConsumerState<CategoryListScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -64,7 +63,7 @@ class _CategoryListScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFilterHeader(context, state),
+              _buildFilterHeader(context, theme, state),
               const SizedBox(height: 24),
               Expanded(
                 child: Card(
@@ -78,7 +77,8 @@ class _CategoryListScreenState
                       ),
                     ),
                   ),
-                  child: _buildBody(state),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildBody(context, theme, state),
                 ),
               ),
             ],
@@ -88,14 +88,100 @@ class _CategoryListScreenState
     );
   }
 
-  Widget _buildBody(CategoryListState state) {
+  Widget _buildFilterHeader(
+    BuildContext context,
+    ThemeData theme,
+    CategoryListState state,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 700;
+
+        Widget overviewTitle = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Overview of all active storage categories',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.normal,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 48,
+              height: 3,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        );
+
+        Widget addBtn = SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () async {
+              final result = await context.push('/stock/categories/add');
+              if (result == true && context.mounted) {
+                ref
+                    .read(categoryListProvider.notifier)
+                    .loadCategories(isRefresh: true);
+              }
+            },
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text(
+              'Add Category',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+            ),
+          ),
+        );
+
+        if (isWide) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              overviewTitle,
+              addBtn,
+            ],
+          );
+        } else {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              overviewTitle,
+              const SizedBox(height: 16),
+              addBtn,
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    ThemeData theme,
+    CategoryListState state,
+  ) {
     if (state.isLoading) return const LoadingView();
     if (state.error != null) {
       return ErrorView(
         title: 'Category data cannot be loaded.',
         description: state.error!.replaceAll('Exception: ', ''),
-        onRetry: () =>
-            ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true),
+        onRetry: () => ref
+            .read(categoryListProvider.notifier)
+            .loadCategories(isRefresh: true),
       );
     }
     if (state.categories.isEmpty) {
@@ -113,95 +199,18 @@ class _CategoryListScreenState
 
     return Column(
       children: [
-        Expanded(child: _buildTable(context, state.categories)),
+        Expanded(child: _buildTable(context, theme, state.categories)),
         const Divider(height: 1),
-        _buildPagination(context, state),
+        _buildPagination(context, theme, state),
       ],
     );
   }
 
-  Widget _buildFilterHeader(BuildContext context, CategoryListState state) {
-    final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 700;
-
-        Widget searchField = SizedBox(
-          height: 48,
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search categories...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(categoryListProvider.notifier).search('');
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
-              ),
-            ),
-            onSubmitted: (val) {
-              ref.read(categoryListProvider.notifier).search(val);
-            },
-          ),
-        );
-
-        Widget addBtn = SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: () async {
-              final result = await context.push('/stock/categories/add');
-              if (result == true && context.mounted) {
-                ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true);
-              }
-            },
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('Add Category'),
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-            ),
-          ),
-        );
-
-        if (isWide) {
-          return Row(
-            children: [
-              Expanded(child: searchField),
-              const SizedBox(width: 16),
-              addBtn,
-            ],
-          );
-        } else {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              searchField,
-              const SizedBox(height: 16),
-              addBtn,
-            ],
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildTable(BuildContext context, List<CategoryItem> items) {
-    final theme = Theme.of(context);
-    
+  Widget _buildTable(
+    BuildContext context,
+    ThemeData theme,
+    List<CategoryItem> items,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -220,39 +229,28 @@ class _CategoryListScreenState
                   fontWeight: FontWeight.w600,
                 ),
                 columns: const [
-                  DataColumn(label: Text('ID')),
-                  DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Parent Name')),
-                  DataColumn(label: Text('Description')),
+                  DataColumn(label: Text('Category Name')),
                   DataColumn(label: Text('Status')),
                   DataColumn(label: Text('Actions')),
                 ],
                 rows: items.map((item) {
                   final bool isActive = item.status == 'ACTIVE';
                   return DataRow(
-                    color: WidgetStateProperty.resolveWith<Color?>(
-                      (Set<WidgetState> states) {
-                        if (!isActive) {
-                          return theme.colorScheme.onSurface.withValues(alpha: 0.05);
-                        }
-                        return null; // Use default
-                      },
-                    ),
                     cells: [
-                      DataCell(Text('#${item.categoryNumber}')),
-                      DataCell(Text(
-                        item.categoryName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      )),
-                      DataCell(Text(item.parentCategoryName ?? '-')),
-                      DataCell(Text(item.description ?? '-')),
-                      DataCell(_buildStatusBadge(item.status)),
                       DataCell(
-                        _buildActionButtons(context, item),
+                        Text(
+                          item.categoryName,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isActive
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                          ),
+                        ),
                       ),
+                      DataCell(_buildStatusBadge(theme, item.status)),
+                      DataCell(_buildActionButtons(context, theme, item)),
                     ],
                   );
                 }).toList(),
@@ -264,71 +262,72 @@ class _CategoryListScreenState
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(ThemeData theme, String status) {
     final bool isActive = status == 'ACTIVE';
-    final color = isActive ? AppTheme.primaryColor : AppTheme.errorColor;
-    final bgColor = isActive 
-        ? AppTheme.primaryColor.withValues(alpha: 0.1) 
-        : AppTheme.errorColor.withValues(alpha: 0.1);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+    return Text(
+      isActive ? 'Active' : 'Deactive',
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: isActive
+            ? theme.colorScheme.onSurface
+            : theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, CategoryItem item) {
+  Widget _buildActionButtons(
+    BuildContext context,
+    ThemeData theme,
+    CategoryItem item,
+  ) {
     final isActive = item.status == 'ACTIVE';
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
+          icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
           tooltip: 'Edit Category',
           onPressed: () async {
-            final result = await context.push('/stock/categories/edit/${item.categoryNumber}');
+            final result = await context.push(
+              '/stock/categories/edit/${item.categoryNumber}',
+            );
             if (result == true && context.mounted) {
-              ref.read(categoryListProvider.notifier).loadCategories(isRefresh: true);
+              ref
+                  .read(categoryListProvider.notifier)
+                  .loadCategories(isRefresh: true);
             }
           },
         ),
         IconButton(
           icon: Icon(
             isActive ? Icons.toggle_on : Icons.toggle_off,
-            color: isActive ? AppTheme.primaryColor : Colors.grey,
+            color: isActive ? theme.colorScheme.primary : Colors.grey,
             size: 28,
           ),
           tooltip: isActive ? 'Deactivate Category' : 'Activate Category',
-          onPressed: () => _confirmToggleStatus(context, item),
+          onPressed: () => _confirmToggleStatus(context, theme, item),
         ),
       ],
     );
   }
-  
-  Future<void> _confirmToggleStatus(BuildContext context, CategoryItem item) async {
+
+  Future<void> _confirmToggleStatus(
+    BuildContext context,
+    ThemeData theme,
+    CategoryItem item,
+  ) async {
     final isActive = item.status == 'ACTIVE';
     final newStatus = isActive ? 'INACTIVE' : 'ACTIVE';
-    
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isActive ? 'Deactivate Category?' : 'Activate Category?'),
         content: Text(
-          isActive 
-            ? 'Are you sure you want to deactivate ${item.categoryName}?'
-            : 'Are you sure you want to activate ${item.categoryName}?',
+          isActive
+              ? 'Are you sure you want to deactivate ${item.categoryName}?'
+              : 'Are you sure you want to activate ${item.categoryName}?',
         ),
         actions: [
           TextButton(
@@ -338,70 +337,137 @@ class _CategoryListScreenState
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: isActive ? AppTheme.errorColor : AppTheme.primaryColor,
+              backgroundColor:
+                  isActive ? theme.colorScheme.error : theme.colorScheme.primary,
             ),
             child: Text(isActive ? 'Deactivate' : 'Activate'),
           ),
         ],
       ),
     );
-    
+
     if (confirm == true) {
       try {
-        await ref.read(categoryListProvider.notifier)
+        await ref
+            .read(categoryListProvider.notifier)
             .updateCategoryStatus(item.categoryNumber, newStatus);
-            
+
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Category status has been updated successfully.'),
-            backgroundColor: AppTheme.primaryColor,
+          SnackBar(
+            content: const Text('Category status has been updated successfully.'),
+            backgroundColor: theme.colorScheme.primary,
           ),
         );
       } catch (e) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Category status cannot be updated.'),
-            backgroundColor: AppTheme.errorColor,
+          SnackBar(
+            content: const Text('Category status cannot be updated.'),
+            backgroundColor: theme.colorScheme.error,
           ),
         );
       }
     }
   }
 
-  Widget _buildPagination(BuildContext context, CategoryListState state) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Showing page ${state.currentPage + 1} of ${state.totalPages} (${state.totalItems} items)',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+  Widget _buildPagination(
+    BuildContext context,
+    ThemeData theme,
+    CategoryListState state,
+  ) {
+    final currentPage = state.currentPage + 1; // 1-indexed for display
+    final totalPages = state.totalPages == 0 ? 1 : state.totalPages;
+
+    List<int> pagesToShow = [];
+    if (totalPages <= 5) {
+      pagesToShow = List.generate(totalPages, (i) => i + 1);
+    } else {
+      if (currentPage <= 3) {
+        pagesToShow = [1, 2, 3, -1, totalPages];
+      } else if (currentPage >= totalPages - 2) {
+        pagesToShow = [1, -1, totalPages - 2, totalPages - 1, totalPages];
+      } else {
+        pagesToShow = [
+          1,
+          -1,
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          -1,
+          totalPages,
+        ];
+      }
+    }
+
+    List<Widget> pageBoxes = [];
+
+    for (final page in pagesToShow) {
+      if (page == -1) {
+        pageBoxes.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+            child: Text(
+              '...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: state.currentPage > 0
-                    ? () => ref.read(categoryListProvider.notifier).loadPreviousPage()
-                    : null,
+        );
+      } else {
+        final isSelected = page == currentPage;
+        pageBoxes.add(
+          InkWell(
+            onTap: () {
+              ref.read(categoryListProvider.notifier).goToPage(page - 1);
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4.0),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.surface,
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outlineVariant,
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(6),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: state.currentPage < state.totalPages - 1
-                    ? () => ref.read(categoryListProvider.notifier).loadNextPage()
-                    : null,
+              child: Center(
+                child: Text(
+                  '$page',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isSelected
+                        ? Colors.white
+                        : theme.colorScheme.onSurface,
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
-        ],
+        );
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: pageBoxes,
+          ),
+        ),
       ),
     );
   }

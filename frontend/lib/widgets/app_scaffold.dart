@@ -59,6 +59,9 @@ class AppScaffold extends ConsumerWidget {
         currentPath.startsWith('/manager') ||
         authState.profile?.roleNumber == UserRoles.manager;
     final bool isInWorkspace = currentPath.startsWith('/stock');
+    final bool isStockController =
+        authState.profile?.roleNumber == UserRoles.stockController ||
+        isInWorkspace;
     final bool isSales = currentPath.startsWith('/sales');
     final bool isCashier = currentPath.startsWith('/cashier');
     final sidebarWidth = (isManager || isCashier) ? 220.0 : 256.0;
@@ -288,18 +291,20 @@ class AppScaffold extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'SMS',
+                    isStockController ? 'Inventory Staff' : 'SMS',
                     style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
+                      fontSize: isStockController ? 22 : 36,
+                      fontWeight: FontWeight.bold,
                       color: theme.colorScheme.primary,
-                      letterSpacing: -1.5,
-                      height: 1,
+                      letterSpacing: isStockController ? -0.5 : -1.5,
+                      height: 1.1,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Supermarket Management',
+                    isStockController
+                        ? 'Warehouse v1.0'
+                        : 'Supermarket Management',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -312,10 +317,11 @@ class AppScaffold extends ConsumerWidget {
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(),
-            ),
+            if (!isStockController)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(),
+              ),
             const SizedBox(height: 16),
             Expanded(
               child: ListView.builder(
@@ -324,56 +330,64 @@ class AppScaffold extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final item = menuItems[index];
                   final isActive = item['active'] as bool;
+                  final hasActiveItem = menuItems.any(
+                    (element) => element['active'] == true,
+                  );
+                  final isDimmed = isStockController && hasActiveItem && !isActive;
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: InkWell(
-                      onTap: () {
-                        if (!isDesktop) {
-                          Navigator.pop(context);
-                        }
-                        final route = item['route'] as String?;
-                        if (route != null) {
-                          context.go(route);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? theme.colorScheme.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              item['icon'] as IconData,
-                              size: 20,
-                              color: isActive
-                                  ? Colors.white
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item['title'] as String,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: isActive
-                                      ? Colors.white
-                                      : theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: isActive
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                    child: Opacity(
+                      opacity: isDimmed ? 0.45 : 1.0,
+                      child: InkWell(
+                        onTap: () {
+                          if (!isDesktop) {
+                            Navigator.pop(context);
+                          }
+                          final route = item['route'] as String?;
+                          if (route != null) {
+                            context.go(route);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? theme.colorScheme.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                item['icon'] as IconData,
+                                size: 20,
+                                color: isActive
+                                    ? Colors.white
+                                    : theme.colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  item['title'] as String,
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: isActive
+                                        ? Colors.white
+                                        : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: isActive
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -381,63 +395,66 @@ class AppScaffold extends ConsumerWidget {
                 },
               ),
             ),
-            const Divider(color: Color(0xFFBFC9C3), height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.12,
+            if (!isStockController) ...[
+              const Divider(color: Color(0xFFBFC9C3), height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: theme.colorScheme.primary.withValues(
+                        alpha: 0.12,
+                      ),
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                        Text(
-                          isManager
-                              ? 'Store Manager'
-                              : (isCashier ? 'Cashier' : roleName),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.7),
+                          Text(
+                            isManager
+                                ? 'Store Manager'
+                                : (isCashier ? 'Cashier' : roleName),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.7),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Logout',
-                    icon: Icon(
-                      Icons.logout_outlined,
-                      color: theme.colorScheme.error,
-                      size: 20,
+                    IconButton(
+                      tooltip: 'Logout',
+                      icon: Icon(
+                        Icons.logout_outlined,
+                        color: theme.colorScheme.error,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          ref.read(authProvider.notifier).signOut(),
                     ),
-                    onPressed: () => ref.read(authProvider.notifier).signOut(),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       );
@@ -496,6 +513,18 @@ class AppScaffold extends ConsumerWidget {
                               children: [
                                 const NotificationBell(),
                                 ...displayActions,
+                                if (isStockController)
+                                  TextButton(
+                                    onPressed: () =>
+                                        ref.read(authProvider.notifier).signOut(),
+                                    child: Text(
+                                      'Logout',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ],
@@ -589,7 +618,21 @@ class AppScaffold extends ConsumerWidget {
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
-          actions: [const NotificationBell(), ...displayActions],
+          actions: [
+            const NotificationBell(),
+            ...displayActions,
+            if (isStockController)
+              TextButton(
+                onPressed: () => ref.read(authProvider.notifier).signOut(),
+                child: Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
           iconTheme: IconThemeData(color: theme.colorScheme.primary),
         ),
         drawer: Drawer(child: buildSidebarContent()),

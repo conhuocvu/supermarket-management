@@ -229,6 +229,9 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
       return;
     }
 
+    await _checkDiscrepancies();
+    if (!mounted) return;
+
     // Check for unreported discrepancies
     List<StockInItemState> unreportedDiscrepancies = [];
     for (var item in _items) {
@@ -313,21 +316,25 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
     final customInputDecoration = InputDecoration(
       filled: true,
       fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: theme.colorScheme.error, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
       ),
     );
@@ -351,367 +358,408 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // Single Beautiful Card containing everything, matching ProductFormScreen style
+              // Section 1: PURCHASE REQUEST INFORMATION header
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 22, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'PURCHASE REQUEST INFORMATION',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // PR Info Card
               Card(
-                elevation: 0,
+                elevation: 2,
+                shadowColor: Colors.black.withValues(alpha: 0.04),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
                 ),
-                color: theme.colorScheme.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header Section
-                      Row(
-                        children: [
-                          Icon(Icons.receipt_long_outlined, color: theme.colorScheme.primary, size: 28),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Stock-In Form Details',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // PR Info block grid
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                          ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 650;
+                      final items = [
+                        _buildInfoColumn(context, 'Purchase Request ID', '#PR-${widget.purchaseRequestNumber}', isHighlight: true),
+                        _buildInfoColumn(context, 'Supplier', _supplierName.isNotEmpty ? _supplierName : 'Supplier'),
+                        _buildInfoColumn(
+                          context,
+                          'Request Date',
+                          _requestDate != null ? DateFormat('yyyy-MM-dd').format(_requestDate!) : '-',
                         ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isWide = constraints.maxWidth > 600;
-                            return Wrap(
-                              spacing: 24,
-                              runSpacing: 16,
-                              children: [
-                                SizedBox(
-                                  width: isWide ? 200 : double.infinity,
-                                  child: _buildInfoColumn(
-                                    context: context,
-                                    label: 'Purchase Request ID',
-                                    value: '#PR-${widget.purchaseRequestNumber}',
-                                    isHighlight: true,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: isWide ? 220 : double.infinity,
-                                  child: _buildInfoColumn(
-                                    context: context,
-                                    label: 'Supplier',
-                                    value: _supplierName,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: isWide ? 180 : double.infinity,
-                                  child: _buildInfoColumn(
-                                    context: context,
-                                    label: 'Request Date',
-                                    value: _requestDate != null
-                                        ? DateFormat('yyyy-MM-dd').format(_requestDate!)
-                                        : '-',
-                                  ),
-                                ),
-                                _buildStatusBadge(context, _prStatus),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 32),
+                        _buildPRStatusBadge(context, _prStatus.isNotEmpty ? _prStatus : 'Approved'),
+                      ];
 
-                      // Items list title & verify button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.inventory_2_outlined, color: theme.colorScheme.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Request Items & Delivered Quantities',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: _checkDiscrepancies,
-                            icon: const Icon(Icons.compare_arrows),
-                            label: const Text('Verify Quantities'),
-                            style: OutlinedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Table Area
-                      Form(
-                        key: _formKey,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.8)),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              headingRowColor: WidgetStateProperty.all(
-                                theme.colorScheme.surfaceContainerLow,
-                              ),
-                              headingTextStyle: theme.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              columns: const [
-                                DataColumn(label: Text('Product')),
-                                DataColumn(label: Text('Req. Qty'), numeric: true),
-                                DataColumn(label: Text('Rec. Qty')),
-                                DataColumn(label: Text('Import Price')),
-                                DataColumn(label: Text('Mfg. Date')),
-                                DataColumn(label: Text('Exp. Date')),
-                                DataColumn(label: Text('Notes')),
-                                DataColumn(label: Text('Report Reason')),
-                                DataColumn(label: Text('Status')),
-                              ],
-                              rows: _items.map((item) {
-                                final numberInputDecoration = customInputDecoration.copyWith(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                );
-
-                                return DataRow(
-                                  cells: [
-                                    DataCell(
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            item.productName,
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                          Text(
-                                            'SKU: ${item.sku}',
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: theme.colorScheme.onSurfaceVariant,
-                                              fontFamily: 'Courier Prime',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Center(
-                                        child: Text(
-                                          item.requestedQuantity.toStringAsFixed(0),
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      SizedBox(
-                                        width: 80,
-                                        child: TextFormField(
-                                          controller: item.deliveredQtyController,
-                                          keyboardType: TextInputType.number,
-                                          textAlign: TextAlign.center,
-                                          decoration: numberInputDecoration.copyWith(
-                                            errorStyle: const TextStyle(height: 0),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(
-                                                color: item.hasDiscrepancy ? theme.colorScheme.error : theme.colorScheme.primary,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(
-                                                color: item.hasDiscrepancy ? theme.colorScheme.error : theme.colorScheme.outlineVariant,
-                                              ),
-                                            ),
-                                          ),
-                                          onChanged: (val) {
-                                            final qty = double.tryParse(val) ?? 0.0;
-                                            setState(() {
-                                              item.hasDiscrepancy = qty != item.requestedQuantity;
-                                              item.status = item.hasDiscrepancy ? 'Partial' : 'Completed';
-                                            });
-                                          },
-                                          validator: (val) {
-                                            if (val == null || val.trim().isEmpty) return '';
-                                            final qty = double.tryParse(val);
-                                            if (qty == null || qty < 0) return '';
-                                            return null;
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Text(
-                                        '\$${item.importPrice.toStringAsFixed(2)}',
-                                        style: const TextStyle(fontFamily: 'Courier Prime'),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      InkWell(
-                                        onTap: () => _selectDate(context, true, item),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: theme.colorScheme.outlineVariant),
-                                          ),
-                                          child: Text(
-                                            item.manufacturingDate != null
-                                                ? DateFormat('yyyy-MM-dd').format(item.manufacturingDate!)
-                                                : 'Select Date',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      InkWell(
-                                        onTap: () => _selectDate(context, false, item),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: theme.colorScheme.outlineVariant),
-                                          ),
-                                          child: Text(
-                                            item.expiryDate != null
-                                                ? DateFormat('yyyy-MM-dd').format(item.expiryDate!)
-                                                : 'Select Date',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      SizedBox(
-                                        width: 150,
-                                        child: TextFormField(
-                                          controller: item.notesController,
-                                          decoration: customInputDecoration.copyWith(
-                                            hintText: 'Add notes...',
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      SizedBox(
-                                        width: 150,
-                                        child: TextFormField(
-                                          controller: item.reportReasonController,
-                                          readOnly: true,
-                                          decoration: customInputDecoration.copyWith(
-                                            hintText: item.hasDiscrepancy ? 'Report reason...' : '',
-                                            hintStyle: TextStyle(
-                                              color: item.hasDiscrepancy ? theme.colorScheme.error.withValues(alpha: 0.7) : null,
-                                            ),
-                                            errorStyle: const TextStyle(height: 0),
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          ),
-                                          onTap: item.hasDiscrepancy
-                                              ? () => _showReportDeliveryIssuePopup(item)
-                                              : null,
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: item.status == 'Completed'
-                                              ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                                              : theme.colorScheme.secondary.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: item.status == 'Completed'
-                                                ? theme.colorScheme.primary.withValues(alpha: 0.3)
-                                                : theme.colorScheme.secondary.withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          item.status.toUpperCase(),
-                                          style: TextStyle(
-                                            color: item.status == 'Completed'
-                                                ? theme.colorScheme.primary
-                                                : theme.colorScheme.secondary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                      if (isWide) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: items,
+                        );
+                      } else {
+                        return Wrap(
+                          spacing: 24,
+                          runSpacing: 16,
+                          children: items,
+                        );
+                      }
+                    },
                   ),
                 ),
               ),
+              const SizedBox(height: 32),
 
-              const SizedBox(height: 24),
-
-              // Action Buttons Row at the bottom
+              // Section 2: REQUEST ITEMS TABLE header
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(
-                    onPressed: () => context.pop(false),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(120, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                  Icon(Icons.list_alt_rounded, size: 22, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'REQUEST ITEMS TABLE',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton(
-                    onPressed: _isSaving ? null : _confirmStockIn,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(180, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                          )
-                        : const Text('Confirm Stock-In'),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+
+              // Table Form Card
+              Card(
+                elevation: 2,
+                shadowColor: Colors.black.withValues(alpha: 0.04),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(
+                        theme.colorScheme.surfaceContainerLow,
+                      ),
+                      headingRowHeight: 56,
+                      dataRowMinHeight: 64,
+                      dataRowMaxHeight: 64,
+                      horizontalMargin: 20,
+                      columnSpacing: 20,
+                      headingTextStyle: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      columns: const [
+                        DataColumn(label: Text('Product')),
+                        DataColumn(label: Text('Req. Qty'), numeric: true),
+                        DataColumn(label: Text('Rec. Qty')),
+                        DataColumn(label: Text('Purchase Price')),
+                        DataColumn(label: Text('Mfg. Date')),
+                        DataColumn(label: Text('Exp. Date')),
+                        DataColumn(label: Text('Notes')),
+                        DataColumn(label: Text('Report Reason')),
+                        DataColumn(label: Text('Status')),
+                      ],
+                      rows: _items.map((item) {
+                        final cellInputDecoration = customInputDecoration.copyWith(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        );
+                        final cellBoxDecoration = BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          border: Border.all(color: theme.colorScheme.outlineVariant),
+                          borderRadius: BorderRadius.circular(12),
+                        );
+
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              SizedBox(
+                                width: 140,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      item.productName,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              Center(
+                                child: Text(
+                                  item.requestedQuantity.toStringAsFixed(0),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                width: 75,
+                                height: 40,
+                                child: TextFormField(
+                                  controller: item.deliveredQtyController,
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  decoration: cellInputDecoration.copyWith(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                  ),
+                                  onChanged: (val) {
+                                    final qty = double.tryParse(val) ?? 0.0;
+                                    setState(() {
+                                      item.hasDiscrepancy = qty != item.requestedQuantity;
+                                      item.status = item.hasDiscrepancy ? 'Partially Received' : 'Completed';
+                                    });
+                                  },
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) return '';
+                                    final qty = double.tryParse(val);
+                                    if (qty == null || qty < 0) return '';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                width: 125,
+                                height: 40,
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: cellBoxDecoration,
+                                  child: Text(
+                                    NumberFormat.currency(
+                                      locale: 'vi_VN',
+                                      symbol: '₫',
+                                      decimalDigits: 0,
+                                    ).format(item.importPrice),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                height: 40,
+                                child: InkWell(
+                                  onTap: () => _selectDate(context, true, item),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    decoration: cellBoxDecoration,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          item.manufacturingDate != null
+                                              ? DateFormat('MM/dd/yyyy').format(item.manufacturingDate!)
+                                              : 'MM/DD/YYYY',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.primary),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                height: 40,
+                                child: InkWell(
+                                  onTap: () => _selectDate(context, false, item),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    decoration: cellBoxDecoration,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          item.expiryDate != null
+                                              ? DateFormat('MM/dd/yyyy').format(item.expiryDate!)
+                                              : 'MM/DD/YYYY',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.primary),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                width: 110,
+                                height: 40,
+                                child: TextFormField(
+                                  controller: item.notesController,
+                                  style: const TextStyle(fontSize: 13),
+                                  decoration: cellInputDecoration.copyWith(
+                                    hintText: 'No',
+                                  ),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                width: 110,
+                                height: 40,
+                                child: TextFormField(
+                                  controller: item.reportReasonController,
+                                  readOnly: true,
+                                  style: const TextStyle(fontSize: 13),
+                                  decoration: cellInputDecoration.copyWith(
+                                    hintText: item.hasDiscrepancy ? '[Report]' : '[Reason]',
+                                  ),
+                                  onTap: item.hasDiscrepancy
+                                      ? () => _showReportDeliveryIssuePopup(item)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              _buildItemStatusBadge(theme, item.status),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Section 3: Bottom Callout & Action Buttons Row
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 700;
+
+                  Widget calloutBox = Container(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.lightbulb_outline, size: 20, color: theme.colorScheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '"This screen is used to confirm actual received inventory based on an approved purchase request."',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  Widget actionButtons = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => context.pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      FilledButton(
+                        onPressed: _isSaving ? null : _confirmStockIn,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Text(
+                                'Confirm Stock-In',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                      ),
+                    ],
+                  );
+
+                  if (isWide) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        calloutBox,
+                        actionButtons,
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        calloutBox,
+                        const SizedBox(height: 24),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: actionButtons,
+                        ),
+                      ],
+                    );
+                  }
+                },
               ),
             ],
           ),
@@ -720,10 +768,10 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
     );
   }
 
-  Widget _buildInfoColumn({
-    required BuildContext context,
-    required String label,
-    required String value,
+  Widget _buildInfoColumn(
+    BuildContext context,
+    String label,
+    String value, {
     bool isHighlight = false,
   }) {
     final theme = Theme.of(context);
@@ -731,61 +779,96 @@ class _StockInFormScreenState extends ConsumerState<StockInFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label.toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Text(
           value,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: isHighlight ? theme.colorScheme.primary : null,
+            color: isHighlight ? theme.colorScheme.primary : theme.colorScheme.onSurface,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatusBadge(BuildContext context, String status) {
+  Widget _buildPRStatusBadge(BuildContext context, String status) {
     final theme = Theme.of(context);
     final isApproved = status.toUpperCase() == 'APPROVED';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isApproved
-            ? theme.colorScheme.primary.withValues(alpha: 0.1)
-            : theme.colorScheme.secondary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isApproved
-              ? theme.colorScheme.primary.withValues(alpha: 0.3)
-              : theme.colorScheme.secondary.withValues(alpha: 0.3),
+    final color = isApproved ? AppTheme.primaryColor : AppTheme.errorColor;
+    final bgColor = isApproved
+        ? AppTheme.primaryColor.withValues(alpha: 0.1)
+        : AppTheme.errorColor.withValues(alpha: 0.1);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Status',
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                status,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildItemStatusBadge(ThemeData theme, String status) {
+    final isCompleted = status == 'Completed';
+    final color = isCompleted ? AppTheme.primaryColor : AppTheme.errorColor;
+    final bgColor = isCompleted
+        ? AppTheme.primaryColor.withValues(alpha: 0.1)
+        : AppTheme.errorColor.withValues(alpha: 0.1);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: isApproved ? theme.colorScheme.primary : theme.colorScheme.secondary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            status,
-            style: TextStyle(
-              color: isApproved ? theme.colorScheme.primary : theme.colorScheme.secondary,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        ],
+      child: Text(
+        isCompleted ? 'Completed' : 'Partially Received',
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -988,7 +1071,7 @@ class _ReportDeliveryIssueDialogState extends State<ReportDeliveryIssueDialog> {
                 // Issue Type Dropdown
                 _buildLabel('Issue Type *', theme),
                 DropdownButtonFormField<String>(
-                  value: _selectedIssueType,
+                  initialValue: _selectedIssueType,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),

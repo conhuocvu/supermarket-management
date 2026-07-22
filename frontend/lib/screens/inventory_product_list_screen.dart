@@ -6,7 +6,6 @@ import '../providers/shell_layout_provider.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/empty_view.dart';
 import '../widgets/error_view.dart';
-import '../widgets/status_chip.dart';
 import '../models/inventory_product.dart';
 import 'package:intl/intl.dart';
 
@@ -37,7 +36,7 @@ class _InventoryProductListScreenState
     ref
         .read(shellLayoutProvider.notifier)
         .update(
-          title: 'Product Management',
+          title: 'Inventory Dashboard',
           actions: [],
           breadcrumbs: ['Inventory', 'Products'],
         );
@@ -161,142 +160,237 @@ class _InventoryProductListScreenState
     AsyncValue<List<dynamic>> categoriesState,
   ) {
     final theme = Theme.of(context);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 700;
+        final isWide = constraints.maxWidth >= 750;
 
-        Widget searchField = SizedBox(
-          height: 48,
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search products by name or barcode...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref
-                            .read(inventoryProductsProvider.notifier)
-                            .setSearchKeyword('');
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
+        Widget searchColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'SEARCH PRODUCTS',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            onChanged: (val) {
-              ref
-                  .read(inventoryProductsProvider.notifier)
-                  .setSearchKeyword(val);
-            },
-          ),
-        );
-
-        Widget categoryDropdown = categoriesState.when(
-          loading: () => const SizedBox(
-            height: 48,
-            child: Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          ),
-          error: (err, stack) => const Text('Error loading categories'),
-          data: (categories) => SizedBox(
-            height: 48,
-            child: DropdownButtonFormField<int?>(
-              key: ValueKey(state.selectedCategoryNumber),
-              initialValue: state.selectedCategoryNumber,
-              isExpanded: true,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.outlineVariant,
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 48,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search products...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref
+                                .read(inventoryProductsProvider.notifier)
+                                .setSearchKeyword('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 0,
+                    horizontal: 16,
                   ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 0,
+                onChanged: (val) {
+                  ref
+                      .read(inventoryProductsProvider.notifier)
+                      .setSearchKeyword(val);
+                },
+              ),
+            ),
+          ],
+        );
+
+        Widget categoryColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'CATEGORY FILTER',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            categoriesState.when(
+              loading: () => const SizedBox(
+                height: 48,
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
               ),
-              hint: const Text(
-                'All Categories',
-                overflow: TextOverflow.ellipsis,
-              ),
-              items: [
-                const DropdownMenuItem<int?>(
-                  value: null,
+              error: (err, stack) => const SizedBox(
+                height: 48,
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
+                    'Error loading categories',
+                    style: TextStyle(fontSize: 12, color: Colors.red),
+                  ),
+                ),
+              ),
+              data: (categories) => SizedBox(
+                height: 48,
+                child: DropdownButtonFormField<int?>(
+                  key: ValueKey(state.selectedCategoryNumber),
+                  initialValue: state.selectedCategoryNumber,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 0,
+                    ),
+                  ),
+                  hint: const Text(
                     'All Categories',
                     overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                ...categories.map(
-                  (c) => DropdownMenuItem<int?>(
-                    value: c.categoryNumber,
-                    child: Text(
-                      c.categoryName,
-                      overflow: TextOverflow.ellipsis,
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(
+                        'All Categories',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
+                    ...categories.map(
+                      (c) => DropdownMenuItem<int?>(
+                        value: c.categoryNumber,
+                        child: Text(
+                          c.categoryName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    ref
+                        .read(inventoryProductsProvider.notifier)
+                        .setCategoryNumber(val);
+                  },
                 ),
-              ],
-              onChanged: (val) {
-                ref
-                    .read(inventoryProductsProvider.notifier)
-                    .setCategoryNumber(val);
-              },
+              ),
             ),
-          ),
+          ],
         );
 
-        Widget warningDropdown = SizedBox(
+        Widget purchaseSelectedButton = SizedBox(
           height: 48,
-          child: DropdownButtonFormField<String>(
-            value: state.warningFilter ?? 'NONE',
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 0,
-              ),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'NONE', child: Text('No Warning Filter')),
-              DropdownMenuItem(value: 'ALL', child: Text('All Warnings')),
-              DropdownMenuItem(value: 'LOW_STOCK', child: Text('Low Stock')),
-              DropdownMenuItem(
-                value: 'NEAR_EXPIRY',
-                child: Text('Near Expiry'),
-              ),
-              DropdownMenuItem(value: 'EXPIRED', child: Text('Expired')),
-            ],
-            onChanged: (val) {
-              if (val != null) {
-                ref
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final selectedProds = ref
+                  .read(inventoryProductsProvider)
+                  .selectedProductNumbers;
+              if (selectedProds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      'Please select at least one product from the table first.',
+                    ),
+                    backgroundColor: theme.colorScheme.error,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await ref
                     .read(inventoryProductsProvider.notifier)
-                    .setWarningFilter(val);
+                    .submitPurchaseRequest();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Products have been added to the purchase request.',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Purchase request failed: $e'),
+                      backgroundColor: theme.colorScheme.error,
+                    ),
+                  );
+                }
               }
             },
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: theme.colorScheme.primary),
+              foregroundColor: theme.colorScheme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            icon: const Icon(Icons.shopping_basket_outlined, size: 20),
+            label: const Text(
+              'Purchase Selected',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         );
 
-        final List<Widget> actionButtons = [
-          IconButton.filled(
+        Widget addNewProductButton = SizedBox(
+          height: 48,
+          child: FilledButton.icon(
             onPressed: () async {
               final hasChanged = await context.push<bool>(
                 '/stock/products/add',
@@ -307,42 +401,48 @@ class _InventoryProductListScreenState
                 ref.read(inventoryProductsProvider.notifier).loadProducts();
               }
             },
-            icon: const Icon(Icons.add),
-            tooltip: 'Add New Product',
-            style: IconButton.styleFrom(
-              minimumSize: const Size(48, 48),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+            ),
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text(
+              'Add New Product',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-        ];
+        );
 
         if (isWide) {
           return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(flex: 2, child: searchField),
+              Expanded(flex: 2, child: searchColumn),
               const SizedBox(width: 16),
-              Expanded(flex: 1, child: categoryDropdown),
+              Expanded(flex: 2, child: categoryColumn),
               const SizedBox(width: 16),
-              Expanded(flex: 1, child: warningDropdown),
+              purchaseSelectedButton,
               const SizedBox(width: 16),
-              ...actionButtons,
+              addNewProductButton,
             ],
           );
         } else {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              searchField,
+              searchColumn,
               const SizedBox(height: 16),
-              categoryDropdown,
+              categoryColumn,
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: warningDropdown),
+                  Expanded(child: purchaseSelectedButton),
                   const SizedBox(width: 16),
-                  ...actionButtons,
+                  Expanded(child: addNewProductButton),
                 ],
               ),
             ],
@@ -759,11 +859,9 @@ class _InventoryProductListScreenState
                     DataCell(
                       Opacity(
                         opacity: isInactive ? 0.5 : 1.0,
-                        child: StatusChip(
-                          label: item.status == 'ACTIVE'
-                              ? 'Active'
-                              : 'Inactive',
-                          type: item.status == 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
+                        child: Text(
+                          item.status == 'ACTIVE' ? 'Active' : 'Deactive',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                       ),
                     ),
@@ -879,82 +977,157 @@ class _InventoryProductListScreenState
   Widget _buildPagination(BuildContext context, InventoryProductsState state) {
     final theme = Theme.of(context);
     final currentPage = state.currentPage;
-    final totalPages = state.totalPages;
+    final displayTotalPages = state.totalPages == 0 ? 1 : state.totalPages;
+    final canPrev = currentPage > 0;
+    final canNext = currentPage < displayTotalPages - 1;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Showing page ${currentPage + 1} of ${totalPages == 0 ? 1 : totalPages} (${state.totalItems} total items)',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: currentPage > 0
-                    ? () => ref
-                          .read(inventoryProductsProvider.notifier)
-                          .setPage(currentPage - 1)
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              ...List.generate(totalPages, (index) {
-                final isCurrent = index == currentPage;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: InkWell(
-                    onTap: () => ref
-                        .read(inventoryProductsProvider.notifier)
-                        .setPage(index),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isCurrent
-                            ? null
-                            : Border.all(
-                                color: theme.colorScheme.outlineVariant,
-                              ),
-                      ),
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          color: isCurrent
-                              ? Colors.white
-                              : theme.colorScheme.onSurface,
-                          fontWeight: isCurrent
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
+              SizedBox(
+                height: 36,
+                child: OutlinedButton(
+                  onPressed: canPrev
+                      ? () => ref
+                            .read(inventoryProductsProvider.notifier)
+                            .setPage(currentPage - 1)
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: canPrev
+                          ? theme.colorScheme.outlineVariant
+                          : theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.4,
+                            ),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: Text(
+                    'Prev',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: canPrev
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.38),
                     ),
                   ),
-                );
-              }),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: currentPage < totalPages - 1
-                    ? () => ref
-                          .read(inventoryProductsProvider.notifier)
-                          .setPage(currentPage + 1)
-                    : null,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Page [${currentPage + 1}] of $displayTotalPages',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 16),
+              SizedBox(
+                height: 36,
+                child: OutlinedButton(
+                  onPressed: canNext
+                      ? () => ref
+                            .read(inventoryProductsProvider.notifier)
+                            .setPage(currentPage + 1)
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: canNext
+                          ? theme.colorScheme.outlineVariant
+                          : theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.4,
+                            ),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: Text(
+                    'Next',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: canNext
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.38),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            children: [
+              Text(
+                '© 2024 Inventory Staff Tooling - Built for [Internal Stakeholder Review]',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.7,
+                  ),
+                  letterSpacing: 0.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_box_outlined,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.7,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Requirement Validated',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Icon(
+                    Icons.edit_outlined,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.7,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Draft State',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
