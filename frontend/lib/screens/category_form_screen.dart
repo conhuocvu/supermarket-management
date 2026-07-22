@@ -30,20 +30,21 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   List<CategoryItem> _availableCategories = [];
   String? _status;
 
+  bool get isEditMode => widget.categoryNumber != null;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isEdit = widget.categoryNumber != null;
       ref
           .read(shellLayoutProvider.notifier)
           .update(
-            title: isEdit ? 'Edit Category' : 'Add New Category',
+            title: isEditMode ? 'EDIT CATEGORY' : 'ADD CATEGORY',
             actions: [],
             breadcrumbs: [
               'Inventory',
               'Categories',
-              isEdit ? 'Edit Category' : 'Add Category',
+              isEditMode ? 'Edit Category' : 'Add Category',
             ],
           );
     });
@@ -66,7 +67,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
       final items = response['data']['items'] as List<dynamic>;
       _availableCategories = items
           .map((e) => CategoryItem.fromJson(e as Map<String, dynamic>))
-          .where((c) => c.categoryNumber != widget.categoryNumber) // prevent self as parent
+          .where((c) => c.categoryNumber != widget.categoryNumber)
           .toList();
 
       if (widget.categoryNumber != null) {
@@ -167,23 +168,27 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
 
     final customInputDecoration = InputDecoration(
       filled: true,
-      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: theme.colorScheme.error, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.error, width: 1.5),
       ),
     );
 
@@ -192,7 +197,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32.0),
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -207,120 +212,89 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                color: const Color(0xFFE5E7EB),
+                width: 1.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildFormField(
-                          label: 'Category Name',
-                          child: TextFormField(
-                            controller: _nameController,
-                            decoration: customInputDecoration.copyWith(
-                              hintText: 'Enter Category Name',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Category Name is required';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 32),
-                      Expanded(
-                        child: _buildFormField(
-                          label: 'Parent Category',
-                          child: DropdownMenu<int?>(
-                            initialSelection: _selectedParentCategory,
-                            expandedInsets: EdgeInsets.zero,
-                            inputDecorationTheme: InputDecorationTheme(
-                              filled: customInputDecoration.filled,
-                              fillColor: customInputDecoration.fillColor,
-                              contentPadding: customInputDecoration.contentPadding,
-                              border: customInputDecoration.border,
-                              focusedBorder: customInputDecoration.focusedBorder,
-                              errorBorder: customInputDecoration.errorBorder,
-                              focusedErrorBorder: customInputDecoration.focusedErrorBorder,
-                            ),
-                            hintText: 'Select Parent Category',
-                            enableFilter: true,
-                            enableSearch: true,
-                            onSelected: (int? value) {
-                              setState(() {
-                                _selectedParentCategory = value;
-                              });
-                            },
-                            dropdownMenuEntries: [
-                              const DropdownMenuEntry<int?>(
-                                value: null,
-                                label: 'None (Root Category)',
-                              ),
-                              ..._availableCategories.map((cat) {
-                                return DropdownMenuEntry<int?>(
-                                  value: cat.categoryNumber,
-                                  label: cat.categoryName,
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                  // Row 1: Category Name & Parent Category
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isMobile = constraints.maxWidth < 600;
+                      if (isMobile) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildCategoryNameField(customInputDecoration),
+                            const SizedBox(height: 20),
+                            _buildParentCategoryField(customInputDecoration),
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildCategoryNameField(customInputDecoration)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildParentCategoryField(customInputDecoration)),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+
+                  // Row 2: Description
                   _buildFormField(
-                    label: 'Description',
+                    label: 'DESCRIPTION',
                     child: TextFormField(
                       controller: _descriptionController,
                       maxLines: 4,
                       decoration: customInputDecoration.copyWith(
-                        hintText: 'Provide a brief overview of the category purposes',
+                        hintText: '[Provide a brief overview of the category purposes]',
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+
+                  // Row 3: Internal Notes
                   _buildFormField(
-                    label: 'Internal Notes (Visible to Staff Only)',
+                    label: 'INTERNAL NOTES (VISIBLE TO STAFF ONLY)',
                     child: TextFormField(
                       controller: _internalNotesController,
                       maxLines: 3,
                       decoration: customInputDecoration.copyWith(
-                        hintText: 'Enter any confidential or administrative notes here',
+                        hintText: '[Enter any confidential or administrative notes here]',
                       ),
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
+
+                  // Row 4: Action Buttons (SAVE CATEGORY & CANCEL)
                   Row(
                     children: [
                       FilledButton(
                         onPressed: _isSaving ? null : _saveCategory,
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: _isSaving
                             ? const SizedBox(
@@ -331,15 +305,35 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Save Category'),
+                            : const Text(
+                                'SAVE CATEGORY',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 16),
-                      TextButton(
-                        onPressed: () => context.pop(),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                      OutlinedButton(
+                        onPressed: () => context.pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 16,
+                          ),
+                          side: const BorderSide(color: Color(0xFF1F2937), width: 1.5),
+                          foregroundColor: const Color(0xFF1F2937),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                        child: const Text('Cancel'),
+                        child: const Text(
+                          'CANCEL',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -352,6 +346,52 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     );
   }
 
+  Widget _buildCategoryNameField(InputDecoration customInputDecoration) {
+    return _buildFormField(
+      label: 'CATEGORY NAME',
+      child: TextFormField(
+        controller: _nameController,
+        decoration: customInputDecoration.copyWith(
+          hintText: '[Enter Category Name Here]',
+        ),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Category Name is required';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildParentCategoryField(InputDecoration customInputDecoration) {
+    return _buildFormField(
+      label: 'PARENT CATEGORY',
+      child: DropdownButtonFormField<int?>(
+        initialValue: _selectedParentCategory,
+        decoration: customInputDecoration.copyWith(
+          hintText: '[Select Parent Category]',
+        ),
+        items: [
+          const DropdownMenuItem<int?>(
+            value: null,
+            child: Text('None (Root Category)'),
+          ),
+          ..._availableCategories.map((cat) {
+            return DropdownMenuItem<int?>(
+              value: cat.categoryNumber,
+              child: Text(cat.categoryName),
+            );
+          }),
+        ],
+        onChanged: (val) {
+          setState(() {
+            _selectedParentCategory = val;
+          });
+        },
+      ),
+    );
+  }
 
   Widget _buildFormField({required String label, required Widget child}) {
     return Column(
@@ -359,9 +399,12 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.8,
+            color: Color(0xFF1F2937),
+          ),
         ),
         const SizedBox(height: 8),
         child,

@@ -22,7 +22,7 @@ class AppScaffold extends ConsumerWidget {
     ).routeInformationProvider.value.uri.path;
 
     final shellState = ref.watch(shellLayoutProvider);
-    
+
     String displayTitle = title ?? shellState.title;
     List<String> displayBreadcrumbs = shellState.breadcrumbs;
     final displayActions = actions ?? shellState.actions;
@@ -30,15 +30,22 @@ class AppScaffold extends ConsumerWidget {
     if (currentPath == '/manager/staff') {
       displayTitle = 'Staff Management';
       displayBreadcrumbs = ['Manager', 'Staff'];
-    } else if (currentPath.startsWith('/manager/staff/') && currentPath != '/manager/staff') {
+    } else if (currentPath.startsWith('/manager/staff/') &&
+        currentPath != '/manager/staff') {
       displayTitle = 'Staff Details';
       displayBreadcrumbs = ['Manager', 'Staff', 'Details'];
     } else if (currentPath == '/manager/promotion') {
-      displayTitle = 'Promotions';
-      displayBreadcrumbs = ['Manager', 'Promotions'];
+      displayTitle = 'Promotion Management';
+      displayBreadcrumbs = ['Manager', 'Promotion '];
     } else if (currentPath == '/manager/supplier') {
       displayTitle = 'Supplier Management';
       displayBreadcrumbs = ['Manager', 'Suppliers'];
+    } else if (currentPath == '/manager/requests') {
+      displayTitle = 'Request Management';
+      displayBreadcrumbs = ['Manager', 'Requests'];
+    } else if (currentPath == '/manager/reports') {
+      displayTitle = 'Reports Dashboard';
+      displayBreadcrumbs = ['Manager', 'Reports'];
     }
 
     final authState = ref.watch(authProvider);
@@ -48,9 +55,13 @@ class AppScaffold extends ConsumerWidget {
         'Inventory Staff';
     final roleName = authState.profile?.roleName ?? 'Warehouse Staff';
 
-    final isManager = currentPath.startsWith('/manager') ||
+    final isManager =
+        currentPath.startsWith('/manager') ||
         authState.profile?.roleNumber == UserRoles.manager;
     final bool isInWorkspace = currentPath.startsWith('/stock');
+    final bool isStockController =
+        authState.profile?.roleNumber == UserRoles.stockController ||
+        isInWorkspace;
     final bool isSales = currentPath.startsWith('/sales');
     final bool isCashier = currentPath.startsWith('/cashier');
     final sidebarWidth = (isManager || isCashier) ? 220.0 : 256.0;
@@ -153,7 +164,8 @@ class AppScaffold extends ConsumerWidget {
               'title': 'New Invoice',
               'icon': Icons.receipt_long_outlined,
               'route': '/cashier/new-invoice',
-              'active': currentPath == '/cashier/new-invoice' ||
+              'active':
+                  currentPath == '/cashier/new-invoice' ||
                   currentPath.startsWith('/cashier/pos/') ||
                   currentPath.startsWith('/cashier/checkout/') ||
                   currentPath.startsWith('/cashier/receipt/'),
@@ -279,33 +291,37 @@ class AppScaffold extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'SMS',
+                    isStockController ? 'Inventory Staff' : 'SMS',
                     style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
+                      fontSize: isStockController ? 22 : 36,
+                      fontWeight: FontWeight.bold,
                       color: theme.colorScheme.primary,
-                      letterSpacing: -1.5,
-                      height: 1,
+                      letterSpacing: isStockController ? -0.5 : -1.5,
+                      height: 1.1,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Supermarket Management',
+                    isStockController
+                        ? 'Warehouse v1.0'
+                        : 'Supermarket Management',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                       letterSpacing: 0.3,
                     ),
                   ),
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(),
-            ),
+            if (!isStockController)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(),
+              ),
             const SizedBox(height: 16),
             Expanded(
               child: ListView.builder(
@@ -314,56 +330,64 @@ class AppScaffold extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final item = menuItems[index];
                   final isActive = item['active'] as bool;
+                  final hasActiveItem = menuItems.any(
+                    (element) => element['active'] == true,
+                  );
+                  final isDimmed = isStockController && hasActiveItem && !isActive;
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: InkWell(
-                      onTap: () {
-                        if (!isDesktop) {
-                          Navigator.pop(context);
-                        }
-                        final route = item['route'] as String?;
-                        if (route != null) {
-                          context.go(route);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? theme.colorScheme.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              item['icon'] as IconData,
-                              size: 20,
-                              color: isActive
-                                  ? Colors.white
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item['title'] as String,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: isActive
-                                      ? Colors.white
-                                      : theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: isActive
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                    child: Opacity(
+                      opacity: isDimmed ? 0.45 : 1.0,
+                      child: InkWell(
+                        onTap: () {
+                          if (!isDesktop) {
+                            Navigator.pop(context);
+                          }
+                          final route = item['route'] as String?;
+                          if (route != null) {
+                            context.go(route);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? theme.colorScheme.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                item['icon'] as IconData,
+                                size: 20,
+                                color: isActive
+                                    ? Colors.white
+                                    : theme.colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  item['title'] as String,
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: isActive
+                                        ? Colors.white
+                                        : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: isActive
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -371,63 +395,66 @@ class AppScaffold extends ConsumerWidget {
                 },
               ),
             ),
-            const Divider(color: Color(0xFFBFC9C3), height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: theme.colorScheme.primary
-                        .withValues(alpha: 0.12),
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 20,
-                      color: theme.colorScheme.primary,
+            if (!isStockController) ...[
+              const Divider(color: Color(0xFFBFC9C3), height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: theme.colorScheme.primary.withValues(
+                        alpha: 0.12,
+                      ),
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                        Text(
-                          isManager
-                              ? 'Store Manager'
-                              : (isCashier ? 'Cashier' : roleName),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.7),
+                          Text(
+                            isManager
+                                ? 'Store Manager'
+                                : (isCashier ? 'Cashier' : roleName),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.7),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Logout',
-                    icon: Icon(
-                      Icons.logout_outlined,
-                      color: theme.colorScheme.error,
-                      size: 20,
+                    IconButton(
+                      tooltip: 'Logout',
+                      icon: Icon(
+                        Icons.logout_outlined,
+                        color: theme.colorScheme.error,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          ref.read(authProvider.notifier).signOut(),
                     ),
-                    onPressed: () =>
-                        ref.read(authProvider.notifier).signOut(),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       );
@@ -486,11 +513,24 @@ class AppScaffold extends ConsumerWidget {
                               children: [
                                 const NotificationBell(),
                                 ...displayActions,
+                                if (isStockController)
+                                  TextButton(
+                                    onPressed: () =>
+                                        ref.read(authProvider.notifier).signOut(),
+                                    child: Text(
+                                      'Logout',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ],
                         ),
-                        if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty) ...[
+                        if (shellState.subtitle != null &&
+                            shellState.subtitle!.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
                             shellState.subtitle!,
@@ -501,49 +541,45 @@ class AppScaffold extends ConsumerWidget {
                         ] else if (displayBreadcrumbs.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Row(
-                            children: displayBreadcrumbs
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                                  final idx = entry.key;
-                                  final label = entry.value;
-                                  final isLast =
-                                      idx == displayBreadcrumbs.length - 1;
-                                  return Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        label,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: isLast
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                          color: isLast
-                                              ? theme.colorScheme.onSurface
-                                              : theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                        ),
+                            children: displayBreadcrumbs.asMap().entries.map((
+                              entry,
+                            ) {
+                              final idx = entry.key;
+                              final label = entry.value;
+                              final isLast =
+                                  idx == displayBreadcrumbs.length - 1;
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isLast
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isLast
+                                          ? theme.colorScheme.onSurface
+                                          : theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  if (!isLast)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
                                       ),
-                                      if (!isLast)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          child: Icon(
-                                            Icons.chevron_right,
-                                            size: 14,
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant
-                                                .withValues(alpha: 0.5),
-                                          ),
-                                        ),
-                                    ],
-                                  );
-                                })
-                                .toList(),
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        size: 14,
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }).toList(),
                           ),
                         ],
                       ],
@@ -569,7 +605,8 @@ class AppScaffold extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(displayTitle, style: theme.textTheme.titleLarge),
-              if (shellState.subtitle != null && shellState.subtitle!.isNotEmpty)
+              if (shellState.subtitle != null &&
+                  shellState.subtitle!.isNotEmpty)
                 Text(
                   shellState.subtitle!,
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -581,7 +618,21 @@ class AppScaffold extends ConsumerWidget {
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
-          actions: [const NotificationBell(), ...displayActions],
+          actions: [
+            const NotificationBell(),
+            ...displayActions,
+            if (isStockController)
+              TextButton(
+                onPressed: () => ref.read(authProvider.notifier).signOut(),
+                child: Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
           iconTheme: IconThemeData(color: theme.colorScheme.primary),
         ),
         drawer: Drawer(child: buildSidebarContent()),
@@ -603,9 +654,7 @@ class AppScaffold extends ConsumerWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: displayBreadcrumbs.asMap().entries.map((
-                      entry,
-                    ) {
+                    children: displayBreadcrumbs.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final label = entry.value;
                       final isLast = idx == displayBreadcrumbs.length - 1;

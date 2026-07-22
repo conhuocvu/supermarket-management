@@ -31,7 +31,7 @@ class PromotionListState {
     this.searchQuery = '',
     this.statusFilter = 'ALL',
     this.page = 0,
-    this.pageSize = 10,
+    this.pageSize = 6,
     this.totalPages = 0,
     this.totalElements = 0,
   });

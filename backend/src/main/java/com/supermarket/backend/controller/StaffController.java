@@ -32,10 +32,12 @@ public class StaffController {
     public ResponseEntity<ApiResponse<StaffSummaryDTO>> getStaff(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "status", required = false, defaultValue = "ALL") String status,
+            @RequestParam(value = "roleNumber", required = false) Integer roleNumber,
+            @RequestParam(value = "shiftNumber", required = false) Integer shiftNumber,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "6") int size) {
 
-        StaffSummaryDTO data = staffService.getStaffList(keyword, status, page, size);
+        StaffSummaryDTO data = staffService.getStaffList(keyword, status, roleNumber, shiftNumber, page, size);
         return ResponseEntity.ok(ApiResponse.success("Staff list loaded successfully.", data));
     }
 

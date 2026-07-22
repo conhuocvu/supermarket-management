@@ -33,7 +33,9 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(shellLayoutProvider.notifier).update(
+      ref
+          .read(shellLayoutProvider.notifier)
+          .update(
             title: 'Supplier Management',
             breadcrumbs: ['Manager', 'Suppliers'],
           );
@@ -84,9 +86,7 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
           const SizedBox(height: 20),
 
           // ── Main Body Table ──────────────────────────────────────
-          Expanded(
-            child: _buildBody(context, theme, state),
-          ),
+          Expanded(child: _buildBody(context, theme, state)),
         ],
       ),
     );
@@ -103,8 +103,9 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
       return ErrorView(
         title: 'Unable to load supplier list.',
         description: state.error!,
-        onRetry: () =>
-            ref.read(supplierListProvider.notifier).loadSuppliers(isRefresh: true),
+        onRetry: () => ref
+            .read(supplierListProvider.notifier)
+            .loadSuppliers(isRefresh: true),
       );
     }
 
@@ -118,9 +119,7 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(
-            alpha: 0.5,
-          ),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -142,7 +141,11 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
     );
   }
 
-  Widget _buildTable(BuildContext context, ThemeData theme, List<Supplier> items) {
+  Widget _buildTable(
+    BuildContext context,
+    ThemeData theme,
+    List<Supplier> items,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -162,7 +165,7 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
                   fontWeight: FontWeight.w600,
                 ),
                 columns: const [
-                  DataColumn(label: Text('ID')),
+                  DataColumn(label: Text('Supplier ID')),
                   DataColumn(label: Text('Supplier Name')),
                   DataColumn(label: Text('Phone')),
                   DataColumn(label: Text('Email')),
@@ -179,7 +182,9 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
                         Text(
                           '#${supplier.supplierNumber ?? 0}',
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(alpha: textAlpha),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: textAlpha,
+                            ),
                           ),
                         ),
                       ),
@@ -188,7 +193,9 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
                           supplier.supplierName,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface.withValues(alpha: textAlpha),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: textAlpha,
+                            ),
                           ),
                         ),
                       ),
@@ -198,7 +205,9 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
                               ? supplier.phone!
                               : 'No phone number',
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(alpha: textAlpha),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: textAlpha,
+                            ),
                           ),
                         ),
                       ),
@@ -208,58 +217,102 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
                               ? supplier.email!
                               : 'No email address',
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(alpha: textAlpha),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: textAlpha,
+                            ),
                           ),
                         ),
                       ),
                       DataCell(_buildStatusBadge(context, supplier.status)),
                       DataCell(
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert_rounded),
-                          onSelected: (value) async {
-                            if (value == 'view_details') {
-                              context.push('/manager/supplier/${supplier.supplierNumber}');
-                            } else if (value == 'edit') {
-                              final updated = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => EditSupplierDialog(supplier: supplier),
-                              );
-                              if (updated == true && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Supplier updated successfully.'),
-                                    duration: Duration(seconds: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => context.push(
+                                '/manager/supplier/${supplier.supplierNumber}',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('View Details'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () async {
+                                final updated = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) =>
+                                      EditSupplierDialog(supplier: supplier),
+                                );
+                                if (updated == true && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Supplier updated successfully.',
+                                      ),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('Edit'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () async {
+                                final toggled = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) => ToggleSupplierStatusDialog(
+                                    supplier: supplier,
                                   ),
                                 );
-                              }
-                            } else if (value == 'toggle_status') {
-                              final toggled = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => ToggleSupplierStatusDialog(supplier: supplier),
-                              );
-                              if (toggled == true && context.mounted) {
-                                final verb = supplier.status == 'ACTIVE' ? 'deactivated' : 'activated';
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Supplier $verb successfully.'),
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'view_details',
-                              child: Text('View Details'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Edit Supplier'),
-                            ),
-                            PopupMenuItem(
-                              value: 'toggle_status',
-                              child: Text(supplier.status == 'ACTIVE' ? 'Deactivate' : 'Activate'),
+                                if (toggled == true && context.mounted) {
+                                  final verb = supplier.status == 'ACTIVE'
+                                      ? 'deactivated'
+                                      : 'activated';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Supplier $verb successfully.',
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(
+                                supplier.status == 'ACTIVE'
+                                    ? 'Deactivate'
+                                    : 'Activate',
+                              ),
                             ),
                           ],
                         ),
@@ -278,9 +331,11 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
   Widget _buildStatusBadge(BuildContext context, String status) {
     final theme = Theme.of(context);
     final bool isActive = status == 'ACTIVE';
-    final color = isActive ? theme.colorScheme.primary : theme.colorScheme.error;
-    final bgColor = isActive 
-        ? theme.colorScheme.primary.withValues(alpha: 0.1) 
+    final color = isActive
+        ? theme.colorScheme.primary
+        : theme.colorScheme.error;
+    final bgColor = isActive
+        ? theme.colorScheme.primary.withValues(alpha: 0.1)
         : theme.colorScheme.error.withValues(alpha: 0.1);
 
     return Container(
@@ -371,40 +426,42 @@ class _SummaryCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return LayoutBuilder(builder: (ctx, constraints) {
-      final isWide = constraints.maxWidth >= 600;
-      return GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: isWide ? 3 : 1,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: isWide ? 2.8 : 4.0,
-        children: [
-          _SummaryCard(
-            label: 'Total Suppliers',
-            value: isLoading ? '—' : '$totalSuppliers',
-            icon: Icons.local_shipping_outlined,
-            iconColor: theme.colorScheme.primary,
-            iconBg: theme.colorScheme.primary.withValues(alpha: 0.1),
-          ),
-          _SummaryCard(
-            label: 'Active Only',
-            value: isLoading ? '—' : '$activeCount',
-            icon: Icons.check_circle_outline_rounded,
-            iconColor: const Color(0xFF22C55E),
-            iconBg: const Color(0xFF22C55E).withValues(alpha: 0.1),
-          ),
-          _SummaryCard(
-            label: 'Inactive Only',
-            value: isLoading ? '—' : '$inactiveCount',
-            icon: Icons.block_outlined,
-            iconColor: const Color(0xFFDC2626),
-            iconBg: const Color(0xFFDC2626).withValues(alpha: 0.1),
-          ),
-        ],
-      );
-    });
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: isWide ? 3 : 1,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: isWide ? 2.8 : 4.0,
+          children: [
+            _SummaryCard(
+              label: 'Total Suppliers',
+              value: isLoading ? '—' : '$totalSuppliers',
+              icon: Icons.local_shipping_outlined,
+              iconColor: theme.colorScheme.primary,
+              iconBg: theme.colorScheme.primary.withValues(alpha: 0.1),
+            ),
+            _SummaryCard(
+              label: 'Active Only',
+              value: isLoading ? '—' : '$activeCount',
+              icon: Icons.check_circle_outline_rounded,
+              iconColor: const Color(0xFF22C55E),
+              iconBg: const Color(0xFF22C55E).withValues(alpha: 0.1),
+            ),
+            _SummaryCard(
+              label: 'Inactive Only',
+              value: isLoading ? '—' : '$inactiveCount',
+              icon: Icons.block_outlined,
+              iconColor: const Color(0xFFDC2626),
+              iconBg: const Color(0xFFDC2626).withValues(alpha: 0.1),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -531,15 +588,11 @@ class _SearchFilterBar extends StatelessWidget {
                   : null,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 0,
@@ -557,7 +610,9 @@ class _SearchFilterBar extends StatelessWidget {
 
         final filterDropdown = PopupMenuButton<String>(
           onSelected: onFilterChanged,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 4,
           offset: const Offset(0, 52),
           itemBuilder: (ctx) => filters.map((f) {
@@ -569,16 +624,24 @@ class _SearchFilterBar extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                    isSelected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
                     size: 18,
-                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 10),
                   Text(
                     label,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                      color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -589,15 +652,21 @@ class _SearchFilterBar extends StatelessWidget {
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              color: selectedFilter != 'ALL' ? theme.colorScheme.primary : theme.colorScheme.surface,
+              color: selectedFilter != 'ALL'
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: selectedFilter != 'ALL' ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+                color: selectedFilter != 'ALL'
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outlineVariant,
               ),
               boxShadow: selectedFilter != 'ALL'
                   ? [
                       BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.25,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -610,21 +679,29 @@ class _SearchFilterBar extends StatelessWidget {
                 Icon(
                   Icons.filter_list_rounded,
                   size: 18,
-                  color: selectedFilter != 'ALL' ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                  color: selectedFilter != 'ALL'
+                      ? Colors.white
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   filterLabels[selectedFilter] ?? selectedFilter,
                   style: theme.textTheme.labelLarge?.copyWith(
-                    color: selectedFilter != 'ALL' ? Colors.white : theme.colorScheme.onSurfaceVariant,
-                    fontWeight: selectedFilter != 'ALL' ? FontWeight.w700 : FontWeight.w500,
+                    color: selectedFilter != 'ALL'
+                        ? Colors.white
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: selectedFilter != 'ALL'
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Icon(
                   Icons.arrow_drop_down_rounded,
                   size: 20,
-                  color: selectedFilter != 'ALL' ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                  color: selectedFilter != 'ALL'
+                      ? Colors.white
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ],
             ),
@@ -759,8 +836,7 @@ class _PaginationBar extends StatelessWidget {
                     color: isActive
                         ? Colors.white
                         : theme.colorScheme.onSurfaceVariant,
-                    fontWeight:
-                        isActive ? FontWeight.w700 : FontWeight.w400,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),
               ),

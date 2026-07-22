@@ -42,9 +42,12 @@ class RequestManagementContent extends StatelessWidget {
           itemCount: state.items.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
+            final request = state.items[index];
+            final seqNum = state.totalItems - (state.page * state.size + index);
             return StaffRequestCard(
-              request: state.items[index],
+              request: request,
               state: state,
+              seqNum: seqNum,
               onUpdateStatus: onUpdateStatus,
             );
           },

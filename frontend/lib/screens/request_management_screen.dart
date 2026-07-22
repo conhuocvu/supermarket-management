@@ -38,7 +38,7 @@ class _RequestManagementScreenState
       if (!mounted) return;
       ref.read(shellLayoutProvider.notifier).update(
             title: 'Request Management',
-            subtitle: 'Review leave and shift change requests submitted by staff.',
+            subtitle: null,
             breadcrumbs: ['Manager', 'Requests'],
             actions: [
               IconButton(
@@ -56,12 +56,21 @@ class _RequestManagementScreenState
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 900;
+            final theme = Theme.of(context);
 
             return Padding(
               padding: EdgeInsets.all(isCompact ? 16 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    'Request Management',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   RequestManagementFilters(
                     searchController: _searchController,
                     state: state,

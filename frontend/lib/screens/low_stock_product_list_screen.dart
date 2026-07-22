@@ -16,8 +16,6 @@ class LowStockProductListScreen extends ConsumerStatefulWidget {
 
 class _LowStockProductListScreenState extends ConsumerState<LowStockProductListScreen> {
   final Set<int> _selectedProductNumbers = {};
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
   bool _isCreatingRequest = false;
 
   @override
@@ -29,12 +27,6 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
         breadcrumbs: ['Inventory', 'Low Stock'],
       );
     });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   double _calculateEstimatedReorderCost(List<LowStockProduct> products) {
@@ -112,16 +104,18 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lowStockAsync = ref.watch(lowStockProductsProvider);
+    final purchaseRequestsAsync = ref.watch(purchaseRequestsProvider);
+
+    final pendingCount = purchaseRequestsAsync.maybeWhen(
+      data: (requests) => requests
+          .where((r) => r.status.toUpperCase() == 'PENDING' || r.status.toUpperCase() == 'DRAFT')
+          .length,
+      orElse: () => 0,
+    );
 
     return Scaffold(
       body: lowStockAsync.when(
         data: (products) {
-          final filteredProducts = products.where((p) {
-            final query = _searchQuery.toLowerCase();
-            return p.productName.toLowerCase().contains(query) ||
-                p.sku.toLowerCase().contains(query);
-          }).toList();
-
           final criticalCount = products.where((p) => p.critical).length;
           final estCost = _calculateEstimatedReorderCost(products);
 
@@ -130,7 +124,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Summary Stats Grid
+                // Top Summary Stats Cards (Critical Items, Pending Requests, Est. Reorder Cost)
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final isMobile = constraints.maxWidth < 600;
@@ -147,15 +141,15 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                           title: 'CRITICAL ITEMS',
                           value: criticalCount.toString().padLeft(2, '0'),
                           color: theme.colorScheme.error,
-                          progress: products.isEmpty ? 0.0 : criticalCount / products.length,
+                          progress: products.isEmpty ? 0.0 : (criticalCount / products.length).clamp(0.0, 1.0),
                           progressColor: theme.colorScheme.error,
                         ),
                         _buildStatCard(
                           theme: theme,
-                          title: 'TOTAL LOW STOCK',
-                          value: products.length.toString().padLeft(2, '0'),
+                          title: 'PENDING REQUESTS',
+                          value: pendingCount.toString().padLeft(2, '0'),
                           color: theme.colorScheme.secondary,
-                          progress: products.isEmpty ? 0.0 : (products.length / 20.0).clamp(0.0, 1.0),
+                          progress: (pendingCount / 10.0).clamp(0.0, 1.0),
                           progressColor: theme.colorScheme.secondary,
                         ),
                         _buildStatCard(
@@ -172,47 +166,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                 ),
                 const SizedBox(height: 24),
 
-                // Search Bar and Quick Actions Area
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search items...',
-                            prefixIcon: const Icon(Icons.search),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      setState(() {
-                                        _searchController.clear();
-                                        _searchQuery = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Main Data Table Container
+                // Low Stock Tracking List Table Container
                 Card(
                   elevation: 2,
                   shadowColor: Colors.black.withValues(alpha: 0.04),
@@ -223,10 +177,11 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Header Banner
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                          color: theme.colorScheme.primary,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),
                             topRight: Radius.circular(16),
@@ -238,19 +193,24 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                             Text(
                               'Low Stock Tracking List',
                               style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onPrimary,
                                 fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
                             Text(
-                              'Last updated: ${DateFormat('MMM dd, HH:mm').format(DateTime.now())}',
+                              'TIMESTAMP: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                                color: theme.colorScheme.onPrimary.withValues(alpha: 0.9),
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.0,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      if (filteredProducts.isEmpty)
+                      if (products.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(48.0),
                           child: Column(
@@ -263,9 +223,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                _searchQuery.isEmpty
-                                    ? 'No low-stock products found'
-                                    : 'No matching products found',
+                                'No low-stock products found',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -278,19 +236,21 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: SizedBox(
-                              width: MediaQuery.of(context).size.width - 320,
+                              width: MediaQuery.of(context).size.width - 320 > 800
+                                  ? MediaQuery.of(context).size.width - 320
+                                  : 800,
                               child: DataTable(
                                 headingRowColor: WidgetStateProperty.all(
                                   theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
                                 ),
                                 columns: const [
-                                  DataColumn(label: Text('Product Name')),
-                                  DataColumn(label: Text('Current Stock')),
-                                  DataColumn(label: Text('Reorder Point')),
-                                  DataColumn(label: Text('Suggestion')),
-                                  DataColumn(label: Text('', textAlign: TextAlign.right)),
+                                  DataColumn(label: Text('Product Name', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Current Stock', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Reorder Point', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Suggestion', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Action', style: TextStyle(fontWeight: FontWeight.bold))),
                                 ],
-                                rows: filteredProducts.map((p) {
+                                rows: products.map((p) {
                                   final isSelected = _selectedProductNumbers.contains(p.productNumber);
                                   return DataRow(
                                     selected: isSelected,
@@ -342,7 +302,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                                       ),
                                       DataCell(
                                         Text(
-                                          p.suggestion,
+                                          p.suggestion.isNotEmpty ? p.suggestion : 'Stock Level Low',
                                           style: theme.textTheme.bodyMedium?.copyWith(
                                             color: p.critical ? theme.colorScheme.error : theme.colorScheme.primary,
                                             fontStyle: FontStyle.italic,
@@ -351,41 +311,40 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                                         ),
                                       ),
                                       DataCell(
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: isSelected
-                                              ? FilledButton.icon(
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _selectedProductNumbers.remove(p.productNumber);
-                                                    });
-                                                  },
-                                                  icon: const Icon(Icons.check, size: 16),
-                                                  label: const Text('Selected'),
-                                                  style: FilledButton.styleFrom(
-                                                    backgroundColor: theme.colorScheme.primaryContainer,
-                                                    foregroundColor: theme.colorScheme.onPrimaryContainer,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        isSelected
+                                            ? FilledButton.icon(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _selectedProductNumbers.remove(p.productNumber);
+                                                  });
+                                                },
+                                                icon: const Icon(Icons.check, size: 16),
+                                                label: const Text('Selected'),
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor: theme.colorScheme.primaryContainer,
+                                                  foregroundColor: theme.colorScheme.onPrimaryContainer,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
                                                   ),
-                                                )
-                                              : OutlinedButton(
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _selectedProductNumbers.add(p.productNumber);
-                                                    });
-                                                  },
-                                                  style: OutlinedButton.styleFrom(
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  ),
-                                                  child: const Text('Select Product'),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                                 ),
-                                        ),
+                                              )
+                                            : FilledButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _selectedProductNumbers.add(p.productNumber);
+                                                  });
+                                                },
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor: theme.colorScheme.primary,
+                                                  foregroundColor: theme.colorScheme.onPrimary,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                ),
+                                                child: const Text('Select Product for Purchase'),
+                                              ),
                                       ),
                                     ],
                                   );
@@ -394,6 +353,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                             ),
                           ),
                         ),
+                      // End of Low Stock Items Indicator Footer inside Card
                       Container(
                         padding: const EdgeInsets.all(16.0),
                         alignment: Alignment.center,
@@ -404,10 +364,11 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                           ),
                         ),
                         child: Text(
-                          'End of Low Stock Items - Total Count: ${filteredProducts.length}',
+                          '[ End of Low Stock Items - Total Count: ${products.length} ]',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                             fontStyle: FontStyle.italic,
+                            fontFamily: 'monospace',
                           ),
                         ),
                       ),
@@ -416,34 +377,58 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                 ),
                 const SizedBox(height: 24),
 
-                // Floating Actions Footer
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                // Bottom Actions (Export Report, Print List, Create Purchase Request)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Simulated Report Export
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Report exported as low_stock_report.txt successfully.'),
-                            backgroundColor: theme.colorScheme.primary,
-                            behavior: SnackBarBehavior.floating,
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Report exported as low_stock_report.txt successfully.'),
+                                backgroundColor: theme.colorScheme.primary,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.description_outlined),
+                          label: const Text('Export Report (.txt)'),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.description_outlined),
-                      label: const Text('Export Report (.txt)'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      ),
+                        if (_selectedProductNumbers.isNotEmpty) ...[
+                          const SizedBox(width: 16),
+                          FilledButton.icon(
+                            onPressed: _isCreatingRequest ? null : _createPurchaseRequest,
+                            icon: _isCreatingRequest
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.add_shopping_cart),
+                            label: Text('Create Purchase Request (${_selectedProductNumbers.length})'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: theme.colorScheme.primary,
+                              foregroundColor: theme.colorScheme.onPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () {
-                        // Simulated Print List
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text('List sent to printer successfully.'),
@@ -461,28 +446,6 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                       ),
                     ),
-                    if (_selectedProductNumbers.isNotEmpty) ...[
-                      const SizedBox(width: 16),
-                      FilledButton.icon(
-                        onPressed: _isCreatingRequest ? null : _createPurchaseRequest,
-                        icon: _isCreatingRequest
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Icon(Icons.add_shopping_cart),
-                        label: Text('Create Purchase Request (${_selectedProductNumbers.length})'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],
@@ -591,6 +554,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               letterSpacing: 1.2,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -608,7 +572,7 @@ class _LowStockProductListScreenState extends ConsumerState<LowStockProductListS
               value: progress,
               backgroundColor: progressColor.withValues(alpha: 0.1),
               color: progressColor,
-              minHeight: 6,
+              minHeight: 4,
             ),
           ),
         ],

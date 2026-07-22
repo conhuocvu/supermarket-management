@@ -15,7 +15,7 @@ public class StaffRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public long countStaffList(String keyword, String statusFilter) {
+    public long countStaffList(String keyword, String statusFilter, Integer roleNumber, Integer shiftNumber) {
         String sql = """
                 SELECT COUNT(*)
                 FROM profiles p
@@ -31,14 +31,14 @@ public class StaffRepository {
                 WHERE 1=1
                 """;
 
-        sql = applyFilters(sql, keyword, statusFilter);
+        sql = applyFilters(sql, keyword, statusFilter, roleNumber, shiftNumber);
 
         Query query = entityManager.createNativeQuery(sql);
-        setParameters(query, keyword);
+        setParameters(query, keyword, roleNumber, shiftNumber);
         return ((Number) query.getSingleResult()).longValue();
     }
 
-    public long countOnShiftStaffList(String keyword, String statusFilter) {
+    public long countOnShiftStaffList(String keyword, String statusFilter, Integer roleNumber, Integer shiftNumber) {
         if (statusFilter != null && (statusFilter.equalsIgnoreCase("OFF_DUTY") || statusFilter.equalsIgnoreCase("ON_LEAVE"))) {
             return 0;
         }
@@ -60,15 +60,15 @@ public class StaffRepository {
                   AND s.shift_number IS NOT NULL
                 """;
 
-        sql = applyFilters(sql, keyword, null);
+        sql = applyFilters(sql, keyword, null, roleNumber, shiftNumber);
 
         Query query = entityManager.createNativeQuery(sql);
-        setParameters(query, keyword);
+        setParameters(query, keyword, roleNumber, shiftNumber);
         return ((Number) query.getSingleResult()).longValue();
     }
 
     @SuppressWarnings("unchecked")
-    public List<Object[]> getStaffList(String keyword, String statusFilter, int limit, int offset) {
+    public List<Object[]> getStaffList(String keyword, String statusFilter, Integer roleNumber, Integer shiftNumber, int limit, int offset) {
         String sql = """
                 SELECT
                     p.user_id,
@@ -81,9 +81,11 @@ public class StaffRepository {
                     s.shift_name,
                     CAST(s.start_time AS VARCHAR),
                     CAST(s.end_time   AS VARCHAR),
-                    lr.leave_number
+                    lr.leave_number,
+                    u.email
                 FROM profiles p
                 LEFT JOIN roles r ON p.role_number = r.role_number
+                LEFT JOIN auth.users u ON p.user_id = u.id
                 LEFT JOIN work_schedules ws
                     ON ws.user_id = p.user_id
                     AND ws.work_date = CURRENT_DATE
@@ -96,17 +98,17 @@ public class StaffRepository {
                 WHERE 1=1
                 """;
 
-        sql = applyFilters(sql, keyword, statusFilter);
+        sql = applyFilters(sql, keyword, statusFilter, roleNumber, shiftNumber);
         sql += " ORDER BY p.full_name ASC LIMIT :limit OFFSET :offset";
 
         Query query = entityManager.createNativeQuery(sql);
-        setParameters(query, keyword);
+        setParameters(query, keyword, roleNumber, shiftNumber);
         query.setParameter("limit", limit);
         query.setParameter("offset", offset);
         return query.getResultList();
     }
 
-    private String applyFilters(String sql, String keyword, String statusFilter) {
+    private String applyFilters(String sql, String keyword, String statusFilter, Integer roleNumber, Integer shiftNumber) {
         if (keyword != null && !keyword.isBlank()) {
             sql += " AND (LOWER(p.full_name) LIKE :keyword OR p.phone LIKE :keyword)";
         }
@@ -117,14 +119,32 @@ public class StaffRepository {
                 sql += " AND lr.leave_number IS NULL AND s.shift_number IS NOT NULL";
             } else if (statusFilter.equalsIgnoreCase("OFF_DUTY")) {
                 sql += " AND lr.leave_number IS NULL AND s.shift_number IS NULL";
+            } else if (statusFilter.equalsIgnoreCase("ACTIVE")) {
+                sql += " AND p.status = 'ACTIVE'";
+            } else if (statusFilter.equalsIgnoreCase("SUSPENDED")) {
+                sql += " AND p.status = 'SUSPENDED'";
+            } else if (statusFilter.equalsIgnoreCase("INACTIVE")) {
+                sql += " AND p.status = 'INACTIVE'";
             }
+        }
+        if (roleNumber != null) {
+            sql += " AND p.role_number = :roleNumber";
+        }
+        if (shiftNumber != null) {
+            sql += " AND s.shift_number = :shiftNumber";
         }
         return sql;
     }
 
-    private void setParameters(Query query, String keyword) {
+    private void setParameters(Query query, String keyword, Integer roleNumber, Integer shiftNumber) {
         if (keyword != null && !keyword.isBlank()) {
             query.setParameter("keyword", "%" + keyword.trim().toLowerCase() + "%");
+        }
+        if (roleNumber != null) {
+            query.setParameter("roleNumber", roleNumber);
+        }
+        if (shiftNumber != null) {
+            query.setParameter("shiftNumber", shiftNumber);
         }
     }
 

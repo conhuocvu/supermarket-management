@@ -422,9 +422,10 @@ class _PurchaseRequestFormScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Expected Delivery Date',
+                            'EXPECTED DELIVERY DATE',
                             style: theme.textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -478,21 +479,14 @@ class _PurchaseRequestFormScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Request Items',
+                            'REQUEST ITEMS',
                             style: theme.textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _rows.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 16),
-                            itemBuilder: (context, index) {
-                              return _buildRow(theme, index);
-                            },
-                          ),
+                          _buildItemsTable(theme),
                           const SizedBox(height: 24),
                           
                           // Add Row and Estimated Total Section
@@ -529,7 +523,7 @@ class _PurchaseRequestFormScreenState
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'Estimated Total: ',
+                                      'ESTIMATED TOTAL: ',
                                       style: theme.textTheme.labelMedium?.copyWith(
                                         color: theme.colorScheme.onSurfaceVariant,
                                         fontWeight: FontWeight.bold,
@@ -648,234 +642,263 @@ class _PurchaseRequestFormScreenState
     );
   }
 
-  Widget _buildRow(ThemeData theme, int index) {
-    final row = _rows[index];
+  Widget _buildItemsTable(ThemeData theme) {
     final activeProducts = _formData?.products ?? [];
 
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product Dropdown Selection
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<ProductFormData>(
-                  isExpanded: true,
-                  value: row.selectedProduct,
-                  hint: const Text('Select Product', overflow: TextOverflow.ellipsis),
-                  decoration: InputDecoration(
-                    labelText: 'Product',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  items: activeProducts.map((p) {
-                    return DropdownMenuItem<ProductFormData>(
-                      value: p,
-                      child: Text(p.productName, overflow: TextOverflow.ellipsis),
-                    );
-                  }).toList(),
-                  onChanged: (prod) {
-                    setState(() {
-                      row.selectedProduct = prod;
-                      row.selectedSupplier = null;
-                      row.quantityController.text = '0';
-                      
-                      // Auto-select first supplier if available
-                      if (prod != null && prod.suppliers.isNotEmpty) {
-                        row.selectedSupplier = prod.suppliers.first;
-                        row.quantityController.text =
-                            _formatQuantity(prod.suppliers.first.minimumOrderQuantity);
-                      }
-                    });
-                  },
-                  validator: (val) => val == null ? 'Required' : null,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant,
                 ),
               ),
-              const SizedBox(width: 12),
-
-              // Supplier Dropdown Selection
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<ProductSupplierInfo>(
-                  isExpanded: true,
-                  value: row.selectedSupplier,
-                  hint: const Text('Select Supplier', overflow: TextOverflow.ellipsis),
-                  decoration: InputDecoration(
-                    labelText: 'Supplier',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  items: row.selectedProduct?.suppliers.map((s) {
-                    final formattedPrice = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(s.importPrice);
-                    return DropdownMenuItem<ProductSupplierInfo>(
-                      value: s,
-                      child: Text('${s.supplierName} ($formattedPrice)', overflow: TextOverflow.ellipsis),
-                    );
-                  }).toList() ?? [],
-                  onChanged: (supp) {
-                    setState(() {
-                      row.selectedSupplier = supp;
-                      if (supp != null) {
-                        row.quantityController.text =
-                            _formatQuantity(supp.minimumOrderQuantity);
-                      }
-                    });
-                  },
-                  validator: (val) => val == null ? 'Required' : null,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(
+                  theme.colorScheme.surfaceContainerLow,
                 ),
-              ),
-              const SizedBox(width: 12),
-
-              // Current Stock display
-              Expanded(
-                flex: 1,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Stock',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                headingRowHeight: 44,
+                dataRowMinHeight: 60,
+                dataRowMaxHeight: 60,
+                horizontalMargin: 12,
+                columnSpacing: 12,
+                headingTextStyle: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                columns: const [
+                  DataColumn(label: Text('Product Name /\nID')),
+                  DataColumn(label: Text('Supplier')),
+                  DataColumn(label: Text('Current\nStock')),
+                  DataColumn(label: Text('Required\nQty')),
+                  DataColumn(label: Text('Reason')),
+                  DataColumn(label: Text('Notes')),
+                  DataColumn(label: Text('')),
+                ],
+                rows: List.generate(_rows.length, (index) {
+                  final row = _rows[index];
+                  return DataRow(
+                    cells: [
+                      // Product Dropdown
+                      DataCell(
+                        SizedBox(
+                          width: 180,
+                          height: 40,
+                          child: DropdownButtonFormField<ProductFormData>(
+                            isExpanded: true,
+                            initialValue: row.selectedProduct,
+                            hint: const Text('[Product Name/ID]', style: TextStyle(fontSize: 12)),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              filled: true,
+                              fillColor: theme.colorScheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                            ),
+                            items: activeProducts.map((p) {
+                              return DropdownMenuItem<ProductFormData>(
+                                value: p,
+                                child: Text(p.productName, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                              );
+                            }).toList(),
+                            onChanged: (prod) {
+                              setState(() {
+                                row.selectedProduct = prod;
+                                row.selectedSupplier = null;
+                                row.quantityController.text = '0';
+                                if (prod != null && prod.suppliers.isNotEmpty) {
+                                  row.selectedSupplier = prod.suppliers.first;
+                                  row.quantityController.text =
+                                      _formatQuantity(prod.suppliers.first.minimumOrderQuantity);
+                                }
+                              });
+                            },
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        row.selectedProduct != null
-                            ? '${_formatQuantity(row.selectedProduct!.currentStock)} ${row.selectedProduct!.unitName}'
-                            : 'N/A',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                      // Supplier Dropdown
+                      DataCell(
+                        SizedBox(
+                          width: 150,
+                          height: 40,
+                          child: DropdownButtonFormField<ProductSupplierInfo>(
+                            isExpanded: true,
+                            initialValue: row.selectedSupplier,
+                            hint: const Text('[Select]', style: TextStyle(fontSize: 12)),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              filled: true,
+                              fillColor: theme.colorScheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                            ),
+                            items: row.selectedProduct?.suppliers.map((s) {
+                              final formattedPrice = NumberFormat.currency(
+                                locale: 'vi_VN',
+                                symbol: '₫',
+                                decimalDigits: 0,
+                              ).format(s.importPrice);
+                              return DropdownMenuItem<ProductSupplierInfo>(
+                                value: s,
+                                child: Text(
+                                  '${s.supplierName} ($formattedPrice)',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList() ?? [],
+                            onChanged: (supp) {
+                              setState(() {
+                                row.selectedSupplier = supp;
+                                if (supp != null) {
+                                  row.quantityController.text =
+                                      _formatQuantity(supp.minimumOrderQuantity);
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      // Current Stock
+                      DataCell(
+                        Center(
+                          child: Text(
+                            row.selectedProduct != null
+                                ? _formatQuantity(row.selectedProduct!.currentStock)
+                                : '-',
+                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      // Required Qty Input
+                      DataCell(
+                        SizedBox(
+                          width: 80,
+                          height: 40,
+                          child: TextFormField(
+                            controller: row.quantityController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              filled: true,
+                              fillColor: theme.colorScheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                            ),
+                            onChanged: (_) {
+                              setState(() {});
+                            },
+                          ),
+                        ),
+                      ),
+                      // Reason Dropdown
+                      DataCell(
+                        SizedBox(
+                          width: 140,
+                          height: 40,
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: row.selectedReason,
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              filled: true,
+                              fillColor: theme.colorScheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                            ),
+                            items: _reasonsList.map((reason) {
+                              return DropdownMenuItem<String>(
+                                value: reason,
+                                child: Text(reason, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val != null) {
+                                  row.selectedReason = val;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      // Notes Input
+                      DataCell(
+                        SizedBox(
+                          width: 150,
+                          height: 40,
+                          child: TextFormField(
+                            controller: row.notesController,
+                            style: const TextStyle(fontSize: 12),
+                            decoration: InputDecoration(
+                              hintText: '[Notes]',
+                              hintStyle: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                fontSize: 12,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              filled: true,
+                              fillColor: theme.colorScheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Delete Trash Icon
+                      DataCell(
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          color: theme.colorScheme.error,
+                          onPressed: () => _removeRow(index),
                         ),
                       ),
                     ],
-                  ),
-                ),
+                  );
+                }),
               ),
-              const SizedBox(width: 12),
-
-              // Required Quantity Input
-              Expanded(
-                flex: 1,
-                child: TextFormField(
-                  controller: row.quantityController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Qty',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: (_) {
-                    setState(() {});
-                  },
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Required';
-                    final qty = double.tryParse(val);
-                    if (qty == null || qty <= 0) return 'Must be > 0';
-                    if (row.selectedSupplier != null &&
-                        qty < row.selectedSupplier!.minimumOrderQuantity) {
-                      return 'Min is ${_formatQuantity(row.selectedSupplier!.minimumOrderQuantity)}';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Delete Row Button
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                color: theme.colorScheme.error,
-                onPressed: () => _removeRow(index),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 12),
-          
-          Row(
-            children: [
-              // Reason Select
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  value: row.selectedReason,
-                  decoration: InputDecoration(
-                    labelText: 'Reason',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  items: _reasonsList.map((reason) {
-                    return DropdownMenuItem<String>(
-                      value: reason,
-                      child: Text(reason, overflow: TextOverflow.ellipsis),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      if (val != null) {
-                        row.selectedReason = val;
-                      }
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Notes Input
-              Expanded(
-                flex: 4,
-                child: TextFormField(
-                  controller: row.notesController,
-                  decoration: InputDecoration(
-                    labelText: 'Notes (Optional)',
-                    hintText: 'Optional purchase notes...',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -2,6 +2,7 @@ class StaffMember {
   final String userId;
   final String fullName;
   final String phone;
+  final String? email;
   final String? avatarUrl;
   final String status;
   final int? roleNumber;
@@ -15,6 +16,7 @@ class StaffMember {
     required this.userId,
     required this.fullName,
     required this.phone,
+    this.email,
     this.avatarUrl,
     required this.status,
     this.roleNumber,
@@ -30,6 +32,7 @@ class StaffMember {
       userId: json['userId'] as String? ?? '',
       fullName: json['fullName'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      email: json['email'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       status: json['status'] as String? ?? 'ACTIVE',
       roleNumber: json['roleNumber'] as int?,
@@ -46,6 +49,7 @@ class StaffMember {
       'userId': userId,
       'fullName': fullName,
       'phone': phone,
+      'email': email,
       'avatarUrl': avatarUrl,
       'status': status,
       'roleNumber': roleNumber,

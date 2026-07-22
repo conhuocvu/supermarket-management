@@ -33,7 +33,7 @@ public class SupplierController {
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
 
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("supplierName").ascending());
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("supplierNumber").ascending());
         Page<SupplierDTO> suppliers = supplierService.getSuppliers(keyword, status, pageRequest);
 
         Map<String, Object> data = new HashMap<>();

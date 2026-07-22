@@ -391,7 +391,9 @@ class InventoryDashboardScreen extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     'Recent Inventory Activities',
-                    style: theme.textTheme.headlineSmall,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      decoration: TextDecoration.underline,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -483,7 +485,9 @@ class InventoryDashboardScreen extends ConsumerWidget {
                           return TableRow(
                             children: [
                               Padding(
-                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: verticalPad,
+                                ),
                                 child: Wrap(
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   spacing: 6,
@@ -508,21 +512,27 @@ class InventoryDashboardScreen extends ConsumerWidget {
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: verticalPad,
+                                ),
                                 child: Text(
                                   activity.item,
                                   style: TextStyle(fontSize: isWide ? 14 : 12),
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: verticalPad,
+                                ),
                                 child: Text(
                                   activity.quantity,
                                   style: TextStyle(fontSize: isWide ? 14 : 12),
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsets.symmetric(vertical: verticalPad),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: verticalPad,
+                                ),
                                 child: Text(
                                   timeString,
                                   style: TextStyle(
@@ -576,7 +586,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'SYSTEM WARNING',
+                  'ALERT',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                     fontWeight: FontWeight.bold,
@@ -610,7 +620,7 @@ class InventoryDashboardScreen extends ConsumerWidget {
                       backgroundColor: theme.colorScheme.error,
                       foregroundColor: theme.colorScheme.onError,
                     ),
-                    child: const Text('Order Now'),
+                    child: const Text('Reorder Now'),
                   ),
                 ),
               ],
@@ -625,7 +635,9 @@ class InventoryDashboardScreen extends ConsumerWidget {
           shadowColor: Colors.black.withValues(alpha: 0.04),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFBFC9C3), width: 1),
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -641,20 +653,24 @@ class InventoryDashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'General Status',
+                      'Status Snapshot',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 Container(
-                  height: 16,
+                  height: 24,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF3FF),
-                    borderRadius: BorderRadius.circular(100),
+                    color: Colors.white,
+                    border: Border.all(
+                      color: const Color(0xFF1F2937),
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: FractionallySizedBox(
                     alignment: Alignment.centerLeft,
@@ -662,35 +678,23 @@ class InventoryDashboardScreen extends ConsumerWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(100),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(2),
+                          bottomLeft: Radius.circular(2),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Capacity Used',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      '${capacityUsed.toStringAsFixed(1)}%',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
-                    'Updated ${_formatTimeAgo(updatedAt)}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontStyle: FontStyle.italic,
+                    'Warehouse Capacity: ${capacityUsed.toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B5563),
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
@@ -714,17 +718,6 @@ class InventoryDashboardScreen extends ConsumerWidget {
       return 'Yesterday';
     } else {
       return DateFormat('dd/MM/yyyy').format(dateTime);
-    }
-  }
-
-  String _formatTimeAgo(DateTime dateTime) {
-    final difference = DateTime.now().difference(dateTime);
-    if (difference.inMinutes < 1) {
-      return 'just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return '${difference.inHours}h ago';
     }
   }
 }
